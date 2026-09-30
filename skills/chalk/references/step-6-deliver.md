@@ -48,7 +48,7 @@ adjust the level. Re-rolling one segment is cheap; re-rendering the chapter is n
 
 ## TODO
 
-- [ ] Settled-frame picker (reuse the approach in `/brag`'s step 4)
+- [ ] Settled-frame picker
 - [ ] Concat without re-encoding where the segments share parameters
 
 ## Gate

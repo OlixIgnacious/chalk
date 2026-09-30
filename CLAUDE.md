@@ -16,9 +16,8 @@ If you find yourself writing a lot of code, stop — you are probably rebuilding
 already does. The four scripts in `skills/chalk/scripts/` exist because nothing upstream covers
 them; that list should grow slowly and reluctantly.
 
-The repo layout follows [latent-spaces/brag](https://github.com/latent-spaces/brag), which proved
-the shape: a thin `SKILL.md`, one `references/step-N-*.md` per step loaded only when that step runs,
-and a hard gate between steps.
+The layout is deliberate: a thin `SKILL.md`, one `references/step-N-*.md` per step loaded only when
+that step runs, and a hard gate between steps.
 
 ## Invariants
 

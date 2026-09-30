@@ -25,9 +25,6 @@ Keep the file's header comment intact. If it is modified, record what changed an
 
 ## Prior art
 
-The repo layout, the step-reference structure, the gate-per-step discipline and the settled-frame
-poster trick come from [latent-spaces/brag](https://github.com/latent-spaces/brag).
-
 The two-layer script (`spoken` / `display`), the "audio is the clock" rule, the per-project
 pronunciation lexicon and the visualization-registry pattern come from the `changelog-video` skill
 in the HyperFrames repo.
