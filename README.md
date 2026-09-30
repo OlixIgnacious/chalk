@@ -86,8 +86,6 @@ chalk owns the pedagogy: what to teach, in what order, grounded in which paragra
 itself is rendered by [Hyperframes](https://github.com/heygen-com/hyperframes) and its
 `faceless-explainer` skill.
 
-Structure and conventions follow [latent-spaces/brag](https://github.com/latent-spaces/brag).
-
 ## Licence
 
 Apache-2.0. See `CREDITS.md`.
