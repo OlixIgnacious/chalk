@@ -82,6 +82,25 @@ mistake is rendering before the teaching has been reviewed, so the step-3 gate s
 Keep its header comment, do not let it silently diverge, and record upstream changes in
 `CREDITS.md`.
 
+## Local setup
+
+`npx hyperframes doctor` gates the environment. Node, FFmpeg, Chrome and `whisper-cpp` (which
+supplies the word timings) come from Homebrew.
+
+Kokoro TTS is not bundled and the system Python is too old for it, so it lives in a repo-local venv:
+
+```bash
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python kokoro-onnx soundfile
+export HYPERFRAMES_PYTHON="$PWD/.venv/bin/python"     # hyperframes tts looks here
+```
+
+Set `HYPERFRAMES_PYTHON` in your shell profile, or export it before any run that generates VO.
+Without it, `hyperframes tts` fails with "the kokoro-onnx package is not installed" and the whole
+pipeline stalls at step 4 — after the expensive planning work is already done.
+
+`.venv/` is gitignored.
+
 ## Testing
 
 Test against `fixtures/` — public-domain Project Gutenberg text. **Never test against a copyrighted

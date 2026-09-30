@@ -20,10 +20,19 @@ Every line it says is traceable to a paragraph in the source.
 ## Install
 
 ```bash
-git clone https://github.com/<you>/chalk.git
+git clone https://github.com/OlixIgnacious/chalk.git
 cd chalk
+npx hyperframes doctor     # environment gate
 npx hyperframes skills     # installs faceless-explainer + the hyperframes domain skills
+
+# Kokoro TTS is not bundled, and macOS system Python is too old for it
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python kokoro-onnx soundfile
+export HYPERFRAMES_PYTHON="$PWD/.venv/bin/python"
 ```
+
+Put `HYPERFRAMES_PYTHON` in your shell profile. Without it, voiceover fails at step 4 — after all
+the planning work is done.
 
 Open the repo in Claude Code and the `chalk` skill is discovered automatically. To use it elsewhere,
 symlink `skills/chalk` into `~/.claude/skills/`.
