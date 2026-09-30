@@ -1,0 +1,5 @@
+* text=auto eol=lf
+fixtures/*.md text
+*.png binary
+*.jpg binary
+*.woff2 binary

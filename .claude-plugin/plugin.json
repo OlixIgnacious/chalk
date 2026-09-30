@@ -1,0 +1,7 @@
+{
+  "name": "chalk",
+  "description": "Turn a book or chapter into short, minimal, animated lessons — an MP4 per segment plus an interactive lesson page with checkpoints. Every claim is traceable to the source text.",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/olixstudios/chalk"
+}

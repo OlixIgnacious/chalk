@@ -1,0 +1,13 @@
+{
+  "name": "chalk-lessons",
+  "version": "0.1.0",
+  "description": "Turn a book chapter into minimal animated lessons",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "doctor": "npx hyperframes doctor",
+    "skills": "npx hyperframes skills"
+  }
+}
