@@ -86,7 +86,9 @@ Keep its header comment, do not let it silently diverge, and record upstream cha
 `npx hyperframes doctor` gates the environment. Node, FFmpeg, Chrome and `whisper-cpp` (which
 supplies the word timings) come from Homebrew.
 
-Kokoro TTS is not bundled and the system Python is too old for it, so it lives in a repo-local venv:
+Kokoro TTS is not bundled, and `kokoro-onnx` needs Python `>=3.10,<3.14` while macOS ships 3.9 at
+`/usr/bin/python3`. That interpreter is part of the OS and is not upgradeable, so Kokoro lives in a
+repo-local venv built on a newer Python:
 
 ```bash
 uv venv --python 3.12 .venv
@@ -98,7 +100,11 @@ Set `HYPERFRAMES_PYTHON` in your shell profile, or export it before any run that
 Without it, `hyperframes tts` fails with "the kokoro-onnx package is not installed" and the whole
 pipeline stalls at step 4 — after the expensive planning work is already done.
 
-`.venv/` is gitignored.
+`.venv/` is gitignored. Any interpreter in range works — the venv is just the tidy way to get one.
+
+Tier 2 also needs `manim`, and `MathTex` additionally needs TinyTeX or BasicTeX.
+`manim-render.mjs` finds a TinyTeX that is installed but not on `PATH`, and passes it to manim,
+which shells out to `latex` itself. See `references/manim.md`.
 
 ## Testing
 

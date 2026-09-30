@@ -28,8 +28,24 @@ missing `.sty` files; install those individually, and verify with a trial render
 `pycairo` needs `pkgconf` to build. Without it the install fails while hunting for cairo, which
 reads as a missing cairo even when cairo is right there.
 
-**On this machine:** `manim` Community v0.21.0 is installed in the repo venv and renders. No LaTeX
-distribution is installed, so the `MathTex` path is unverified here.
+TinyTeX installs without sudo, which is why it is the recommendation here:
+
+```bash
+curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh
+export PATH="$PATH:$HOME/Library/TinyTeX/bin/universal-darwin"
+tlmgr install standalone preview doublestroke dvisvgm jknapltx physics ragged2e relsize rsfs \
+              setspace wasy wasysym xcolor microtype babel-english everysel fundus-calligra \
+              mathastext cbfonts-fd tipa ms gnu-freefont cm-super count1to
+```
+
+Its installer *does* want sudo for one thing — symlinking itself onto `PATH` — and that step fails
+on a machine where sudo cannot prompt. The install itself is fine; LaTeX just ends up present and
+invisible. `manim-render.mjs` looks in TinyTeX's and BasicTeX's usual locations and puts whatever it
+finds on the PATH it hands to manim, which matters because manim shells out to `latex` and
+`dvisvgm` itself.
+
+**On this machine:** `manim` Community v0.21.0 in the repo venv, TinyTeX with the packages above.
+Both the construction and the `MathTex` paths render.
 
 ## Render
 
@@ -107,6 +123,18 @@ Tier 2 scenes are flat video. They cannot be made interactive in the player, can
 without re-rendering, and add minutes to the build. Budget one or two per chapter, in the places
 where watching the transformation *is* the explanation.
 
+## Worked example
+
+`<skill-dir>/assets/manim/example_equation_transform.py` is the reference scene: `y = x²` visibly
+becoming `dy/dx = 2x`, with `TransformMatchingTex` pairing the substrings so the motion carries the
+rule rather than merely accompanying it. Its maths is Thompson, *Calculus Made Easy* (1910), which
+is in `fixtures/` — a worked scene stays grounded for the same reason everything else does.
+
+Note what it does *before* the transform: it names the move ("the exponent becomes the
+coefficient") and waits. A transform nobody was told to watch reads as decoration.
+
+`npm run test:tier2` renders both it and a construction scene, and checks the alpha composites.
+
 ## TODO
 
-- [ ] A worked equation-transform scene — blocked on a LaTeX install, since it needs `MathTex`
+- [x] A worked equation-transform scene

@@ -16,7 +16,8 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
-import { basename, join, resolve, dirname } from "node:path";
+import { basename, join, resolve, dirname, delimiter } from "node:path";
+import { homedir } from "node:os";
 
 const argv = process.argv.slice(2);
 const flag = (n, d) => {
@@ -58,6 +59,35 @@ function findManim() {
 }
 
 /**
+ * The directory holding `latex`, or null.
+ *
+ * TinyTeX and BasicTeX both install somewhere that is not on PATH until you add it by hand, and
+ * TinyTeX's own installer needs sudo for that step — so on a fresh machine LaTeX is present and
+ * invisible at the same time. Looking in the usual places turns a confusing "MathTex needs LaTeX"
+ * into a render. It matters that this ends up on the CHILD's PATH: manim shells out to latex and
+ * dvisvgm itself, so detecting them here and not passing them on would fail just as hard.
+ */
+function latexBinDir() {
+  if (spawnSync("latex", ["--version"], { stdio: "ignore" }).status === 0) return null; // already on PATH
+  const candidates = [
+    join(homedir(), "Library/TinyTeX/bin/universal-darwin"),
+    join(homedir(), ".TinyTeX/bin/universal-darwin"),
+    join(homedir(), ".TinyTeX/bin/x86_64-linux"),
+    join(homedir(), "Library/TinyTeX/bin/x86_64-darwin"),
+    "/Library/TeX/texbin",
+    "/usr/local/texlive/bin",
+  ];
+  return candidates.find((d) => existsSync(join(d, "latex"))) ?? null;
+}
+
+const extraPath = latexBinDir();
+const childEnv = extraPath
+  ? { ...process.env, PATH: `${process.env.PATH ?? ""}${delimiter}${extraPath}` }
+  : process.env;
+const haveLatex = () =>
+  spawnSync("latex", ["--version"], { stdio: "ignore", env: childEnv }).status === 0;
+
+/**
  * Install gate. Falls back to Tier 1 rather than failing a run halfway through.
  *
  * LaTeX is deliberately not a hard requirement: manim needs it only for MathTex and Tex, and a
@@ -71,8 +101,8 @@ function preflight(files) {
   if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0) missing.push("ffmpeg");
 
   const usesLatex = files.some((f) => /\b(MathTex|Tex)\s*\(/.test(readFileSync(f, "utf8")));
-  const haveLatex = spawnSync("latex", ["--version"], { stdio: "ignore" }).status === 0;
-  if (usesLatex && !haveLatex) missing.push("latex (TinyTeX or BasicTeX — not MacTeX), needed by MathTex/Tex");
+  const latex = haveLatex();
+  if (usesLatex && !latex) missing.push("latex (TinyTeX or BasicTeX — not MacTeX), needed by MathTex/Tex");
 
   if (missing.length) {
     console.error("manim-render: Tier 2 toolchain incomplete — missing: " + missing.join(", "));
@@ -80,9 +110,10 @@ function preflight(files) {
     console.error("  Fall back to Tier 1 (KaTeX in HTML) and tell the user; do not fail the run.");
     process.exit(3); // distinct code so the caller can route to the Tier 1 fallback
   }
-  if (!usesLatex && !haveLatex) {
+  if (!usesLatex && !latex) {
     console.warn("manim-render: no LaTeX found; fine for these scenes, but MathTex/Tex would need it.");
   }
+  if (latex && extraPath) console.log(`manim-render: using LaTeX from ${extraPath}`);
   return manim;
 }
 
@@ -148,7 +179,7 @@ for (const scene of scenes) {
 
   console.log(`manim-render: ${scene} @ ${width}x${height} ${fps}fps`);
   try {
-    execFileSync(manim, manimArgs, { stdio: "inherit" });
+    execFileSync(manim, manimArgs, { stdio: "inherit", env: childEnv });
   } catch {
     die(`manim failed on ${scene}. Its own output is above.`);
   }

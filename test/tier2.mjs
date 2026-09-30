@@ -22,6 +22,7 @@ import assert from "node:assert/strict";
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const renderScript = join(root, "skills/chalk/scripts/manim-render.mjs");
 const template = join(root, "skills/chalk/assets/manim/scene_template.py");
+const worked = join(root, "skills/chalk/assets/manim/example_equation_transform.py");
 
 const haveManim =
   existsSync(join(root, ".venv/bin/manim")) ||
@@ -99,6 +100,38 @@ try {
     assert.equal(Number(num) / Number(den || 1), Number(FPS), "a mismatched fps judders");
     assert.equal(Number(p.width), W);
     assert.equal(Number(p.height), H);
+  });
+
+  // ── the MathTex path ────────────────────────────────────────────────────────────────────────────
+  // The one case Tier 2 clearly earns: an equation visibly becoming another equation. It needs
+  // LaTeX, and manim-render exits 3 when there is none, which is the caller's cue to drop to Tier 1.
+  copyFileSync(worked, join(tmp, "example_equation_transform.py"));
+  const eqWebm = join(tmp, "assets", "example_equation_transform.webm");
+  const eq = spawnSync(
+    process.execPath,
+    [renderScript, join(tmp, "example_equation_transform.py"), "--fps", FPS,
+     "--resolution", `${W}x${H}`, "--out", join(tmp, "assets"), "--quality", "l"],
+    { encoding: "utf8", cwd: tmp, env: { ...process.env, PYTHONPATH: tmp,
+      CHALK_TOKENS: JSON.stringify({ fg: "#e7e9ee", accent: "#8aa7d6" }) } },
+  );
+
+  ok("manim-render: the worked equation transform renders", () => {
+    if (eq.status === 3) return "no LaTeX, so MathTex cannot render (exit 3 routes to Tier 1)";
+    assert.equal(eq.status, 0, (eq.stderr ?? "").slice(-1500));
+    assert.ok(existsSync(eqWebm), "no .webm was produced");
+
+    // Matroska carries no per-stream duration, so that comes from the format.
+    const probed = JSON.parse(
+      spawnSync("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_streams", "-show_format",
+                            "-of", "json", eqWebm], { encoding: "utf8" }).stdout,
+    );
+    const p = probed.streams?.[0] ?? {};
+    assert.equal(p.tags?.alpha_mode, "1", "the equation clip must composite, like any other");
+    assert.equal(Number(p.width), W);
+    assert.ok(
+      Number(probed.format?.duration ?? 0) > 1,
+      `the transform needs time to be watched, got ${probed.format?.duration}s`,
+    );
   });
 
   // ── does Chrome composite it? ───────────────────────────────────────────────────────────────────

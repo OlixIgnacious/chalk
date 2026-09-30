@@ -860,14 +860,28 @@ test("deliver: a missing manifest or segment is reported", () => {
 
 // ── manim-render ──────────────────────────────────────────────────────────────────────────────────
 
+// Every manim-render call here passes --out into the temp dir. Its default is "assets" relative to
+// the cwd, so a test that renders without one drops build output into the repo root.
+const manimOut = () => ["--out", join(tmp, "manim-out")];
+
 // LaTeX is only needed for MathTex/Tex, so it must not be a blanket requirement — a construction
-// scene should render without it. The script decides by reading the scene.
-test("manim-render: LaTeX is demanded only by a scene that actually uses it", () => {
-  const haveLatex = spawnSync("latex", ["--version"], { stdio: "ignore" }).status === 0;
-  if (haveLatex) return "LaTeX is installed, so the gate cannot fire";
-  const usesLatex = write("latex_scene.py",
+// scene should render without it. The script decides by reading the scene, and it finds a TinyTeX
+// that is not on PATH, so the only reliable way to test the no-LaTeX branch is to hide it: HOME
+// points somewhere empty, which is where the script looks.
+test("manim-render: a MathTex scene without LaTeX exits 3 for the Tier 1 fallback", () => {
+  const haveManim = existsSync(join(root, ".venv/bin/manim")) ||
+    spawnSync("manim", ["--version"], { stdio: "ignore" }).status === 0;
+  if (!haveManim) return "manim is not installed, so the message would name manim instead";
+  if (spawnSync("latex", ["--version"], { stdio: "ignore" }).status === 0) {
+    return "LaTeX is on PATH, so it cannot be hidden by moving HOME";
+  }
+
+  const emptyHome = join(tmp, "empty-home");
+  mkdirSync(emptyHome, { recursive: true });
+  const scene = write("latex_scene.py",
     'from manim import *\nclass S(Scene):\n    def construct(self):\n        self.add(MathTex(r"x^2"))\n');
-  const r = run("manim-render.mjs", usesLatex);
+  const r = spawnSync(process.execPath, [join(scripts, "manim-render.mjs"), scene, ...manimOut()],
+                      { encoding: "utf8", cwd: root, env: { ...process.env, HOME: emptyHome } });
   assert.equal(r.status, 3, "a distinct code is what lets the caller route to Tier 1");
   assert.match(r.stderr, /MathTex/);
   assert.match(r.stderr, /Fall back to Tier 1/);
@@ -877,20 +891,25 @@ test("manim-render: a missing toolchain exits 3 rather than failing the run", ()
   const haveManim = spawnSync("manim", ["--version"], { stdio: "ignore" }).status === 0 ||
     existsSync(join(root, ".venv/bin/manim"));
   if (haveManim) return "manim is installed, so this path cannot fire here";
-  const r = run("manim-render.mjs", write("plain.py", "class S: pass"));
+  const r = run("manim-render.mjs", write("plain.py", "class S: pass"), ...manimOut());
   assert.equal(r.status, 3);
   assert.match(r.stderr, /Fall back to Tier 1/);
 });
 
 test("manim-render: fps and resolution are validated before anything renders", () => {
   const scene = write("v.py", "class S: pass");
-  const badFps = run("manim-render.mjs", scene, "--fps", "thirty");
+  const badFps = run("manim-render.mjs", scene, "--fps", "thirty", ...manimOut());
   assert.equal(badFps.status, 2);
   assert.match(badFps.stderr, /--fps must be a whole number/);
 
-  const badRes = run("manim-render.mjs", scene, "--resolution", "1080p");
+  const badRes = run("manim-render.mjs", scene, "--resolution", "1080p", ...manimOut());
   assert.equal(badRes.status, 2);
   assert.match(badRes.stderr, /--resolution must look like/);
+});
+
+// A test that renders into the repo is a test that pollutes it, and this one did.
+test("the suite leaves no build output in the repo", () => {
+  assert.ok(!existsSync(join(root, "assets")), "a stray assets/ means a render used the default --out");
 });
 
 // ── run ───────────────────────────────────────────────────────────────────────────────────────────

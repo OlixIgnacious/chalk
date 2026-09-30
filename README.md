@@ -24,8 +24,8 @@ design — that is the cheap place to fix the teaching.
 | Lesson page (step 5) | checkpoints, captions, glossary, progress, keyboard |
 | Deliver (step 6) | settled-frame posters, `lesson.mp4`, `lesson-plan.md` with the citation table |
 
-Rough edges: PDF figures are not extracted, an equation hands over its whole rendered page rather
-than a crop of the region, and the `MathTex` path is unverified here for want of a LaTeX install.
+Rough edges: PDF figures are not extracted, and an equation hands over its whole rendered page
+rather than a crop of the region.
 
 ```bash
 npm test              # the script regression gate
@@ -36,7 +36,8 @@ npm run test:tier2    # the Manim render and its alpha compositing
 ## Requirements
 
 - Node ≥ 22, FFmpeg, Chrome — check with `npx hyperframes doctor`
-- Optional, for maths: `manim` and a LaTeX distribution (see `skills/chalk/references/manim.md`)
+- Optional, for maths: `manim`, plus TinyTeX or BasicTeX for `MathTex`
+  (see `skills/chalk/references/manim.md`)
 - For PDFs: `pdftotext` (poppler); `tesseract` as well for scanned pages
 
 ## Install
@@ -47,11 +48,18 @@ cd chalk
 npx hyperframes doctor     # environment gate
 npx hyperframes skills     # installs faceless-explainer + the hyperframes domain skills
 
-# Kokoro TTS is not bundled, and macOS system Python is too old for it
+# Kokoro TTS is not bundled, and it needs its own interpreter (see below)
+brew install python@3.12
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python kokoro-onnx soundfile
 export HYPERFRAMES_PYTHON="$PWD/.venv/bin/python"
 ```
+
+**Why a separate interpreter.** `kokoro-onnx` needs Python `>=3.10,<3.14`, and the `python3` macOS
+ships at `/usr/bin/python3` is 3.9. That one cannot be upgraded — it is part of the OS, and macOS
+tooling depends on it — so the fix is a newer interpreter alongside it, which is what the venv is.
+If you already have a Homebrew Python in range you can point `HYPERFRAMES_PYTHON` straight at it and
+skip the venv.
 
 Put `HYPERFRAMES_PYTHON` in your shell profile. Without it, voiceover fails at step 4 — after all
 the planning work is done.
