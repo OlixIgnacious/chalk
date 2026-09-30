@@ -84,6 +84,26 @@ test("ingest: EPUB and PDF report themselves unimplemented rather than half-work
   }
 });
 
+test("ingest: IO and flag errors are the script's own message, not a stack trace", () => {
+  const missing = run("ingest.mjs", join(tmp, "no-such.md"), "--out", out("x.json"));
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /^ingest: cannot read /, "a raw node:fs trace is not a usable error");
+
+  const noValue = run("ingest.mjs", fixture("gutenberg-chapter.md"), "--out");
+  assert.equal(noValue.status, 2);
+  assert.match(noValue.stderr, /--out needs a value/);
+
+  const unwritable = run("ingest.mjs", fixture("gutenberg-chapter.md"), "--out", "/nope/deep/x.json");
+  assert.equal(unwritable.status, 2);
+  assert.match(unwritable.stderr, /cannot write/);
+});
+
+test("ingest: the input is found wherever it sits among the flags", () => {
+  const r = run("ingest.mjs", "--out", out("after.json"), fixture("gutenberg-chapter.md"));
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(JSON.parse(readFileSync(out("after.json"), "utf8")).blocks.length > 20);
+});
+
 // ── check-readability ─────────────────────────────────────────────────────────────────────────────
 
 const scene = (body, { duration = "~30s", visual = "plot (tier 1)" } = {}) =>
@@ -204,6 +224,78 @@ test("check-readability: colons in display text and display-before-spoken both p
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });
 
+// The reading-time floor is a numeric comparison, so a NaN rate silently disabled it entirely:
+// every `needed > duration` test against NaN is false.
+test("check-readability: a rate or min with no value is refused, not read as NaN", () => {
+  const p = write(
+    "nan.md",
+    scene(
+      `- spoken: "As the price goes up, people buy a great deal less of the thing in question."\n` +
+        `  display: "As the price goes up, people buy a great deal less of the thing in question."\n` +
+        `  source: [p041]`,
+      { duration: "~2s" },
+    ),
+  );
+  assert.equal(run("check-readability.mjs", p).status, 1, "the fixture must fail on its own merits");
+
+  const r = run("check-readability.mjs", p, "--rate");
+  assert.equal(r.status, 2, "a missing rate must not turn the floor off");
+  assert.match(r.stderr, /--rate needs a non-negative number/);
+});
+
+test("check-readability: an unreadable file reports itself rather than throwing", () => {
+  const r = run("check-readability.mjs", join(tmp, "no-such.md"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /^check-readability: cannot read /);
+});
+
+test("check-readability: prose sections and fenced examples are not read as scenes", () => {
+  const notes = write(
+    "notes.md",
+    scene(`- spoken: "A claim."\n  display: "A claim."\n  source: [p1]`) +
+      `\n## Notes for the reviewer\nNothing here is a scene.\n`,
+  );
+  assert.equal(run("check-readability.mjs", notes).status, 0, "a prose section is not a scene");
+
+  const fenced = write(
+    "fenced.md",
+    scene(`- spoken: "A claim."\n  display: "A claim."\n  source: [p1]`) +
+      "\n```markdown\n## Scene 9 — an example in the docs\nvisual: none\n```\n",
+  );
+  assert.equal(run("check-readability.mjs", fenced).status, 0, "a fenced example is not a scene");
+});
+
+// The leniency above must not swallow real work: an unfinished scene has no visual, duration or
+// lines either, and that is exactly when it most needs to be reported.
+test("check-readability: an empty Scene stub still fails", () => {
+  const p = write("stub.md", `## Scene 5 — still to write\n\nnothing yet\n`);
+  const r = run("check-readability.mjs", p);
+  assert.equal(r.status, 1, "an unfinished scene must not vanish from the gate");
+  assert.match(r.stderr, /names no visual/);
+});
+
+// The direct form of the migration assertion: read back the ids the parser resolved, rather than
+// inferring them from which line got reported.
+test("check-readability: --json reports the citation each line actually resolved to", () => {
+  const p = write(
+    "json.md",
+    scene(
+      `- spoken: "The candle burns because wax is drawn up the wick."\n` +
+        `  display: "Wax is drawn up the wick."\n` +
+        `  source: [p010]\n\n` +
+        `- spoken: "Ninety-three percent of all candles are made of paraffin."\n` +
+        `  source: [p999]`,
+    ),
+  );
+  const r = run("check-readability.mjs", p, "--json");
+  assert.equal(r.status, 0, r.stderr);
+  const entries = JSON.parse(r.stdout).files[0].scenes[0].entries;
+  assert.deepEqual(entries[0].source, ["p010"], "the wick line keeps its own citation");
+  assert.equal(entries[0].display, "Wax is drawn up the wick.");
+  assert.deepEqual(entries[1].source, ["p999"], "the paraffin line keeps its own citation");
+  assert.equal(entries[1].display, null, "it has no display layer to steal a citation from");
+});
+
 // ── align-captions ────────────────────────────────────────────────────────────────────────────────
 
 test("align-captions: display tokens take their first spoken word's start", () => {
@@ -250,9 +342,42 @@ test("align-captions: a VO that does not match the script reports MISMATCH and f
   assert.match(r.stderr, /MISMATCH/);
 });
 
-// KNOWN, not asserted: align-captions.mjs:124 throws on a line with an empty tokens[], and emits
-// `end: null` when the last word has no `end`. The file is vendored unmodified from hyperframes
-// (see CREDITS.md), so the fix belongs upstream or in a call-site guard — not pinned here.
+// Both of these are LOCAL FIXes to the vendored file, recorded in CREDITS.md. They should go
+// upstream; until they do, these two cases are what stops them regressing on a re-vendor.
+test("align-captions: a line with no tokens does not throw", () => {
+  const tokens = write(
+    "t3.json",
+    JSON.stringify({
+      lines: [
+        { id: "l1", tokens: ["hello"] },
+        { id: "l2", tokens: [] },
+        { id: "l3", tokens: ["world"] },
+      ],
+    }),
+  );
+  const words = write(
+    "w3.json",
+    JSON.stringify([
+      { text: "hello", start: 0.0, end: 0.5 },
+      { text: "world", start: 0.6, end: 1.0 },
+    ]),
+  );
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", out("c3.json"));
+  assert.equal(r.status, 0, r.stderr);
+  const caps = JSON.parse(readFileSync(out("c3.json"), "utf8"));
+  assert.deepEqual(caps.lines[1].w, [], "the empty line stays empty");
+  assert.equal(caps.lines[0].end, 0.6, "its end skips forward to the next line that has a word");
+  assert.ok(caps.lines.every((l) => typeof l.end === "number"));
+});
+
+test("align-captions: a final word with no end still yields a numeric line end", () => {
+  const tokens = write("t4.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["hello"] }] }));
+  const words = write("w4.json", JSON.stringify([{ text: "hello", start: 0.0 }]));
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", out("c4.json"));
+  assert.equal(r.status, 0, r.stderr);
+  const caps = JSON.parse(readFileSync(out("c4.json"), "utf8"));
+  assert.equal(typeof caps.lines[0].end, "number", "NaN serialises to null and loses the end time");
+});
 
 // ── build-lesson-page ─────────────────────────────────────────────────────────────────────────────
 
@@ -273,6 +398,65 @@ test("build-lesson-page: a manifest the player cannot use is refused", () => {
   const r2 = run("build-lesson-page.mjs", noSource);
   assert.equal(r2.status, 2);
   assert.match(r2.stderr, /no source ids/);
+});
+
+// Presence is not validity. Each of these produces a page that loads and then cannot be used, so
+// they have to fail at the manifest, not in the browser.
+test("build-lesson-page: a duration that is not a positive number is refused", () => {
+  for (const duration of [null, "sixty", 0, -5]) {
+    const r = run("build-lesson-page.mjs", manifest([{ id: "01", title: "a", mp4: "a.mp4", duration }]));
+    assert.equal(r.status, 2, `duration ${JSON.stringify(duration)} should be refused`);
+    assert.match(r.stderr, /not a positive number/);
+  }
+});
+
+test("build-lesson-page: duplicate segment ids are refused", () => {
+  const r = run(
+    "build-lesson-page.mjs",
+    manifest([
+      { id: "01", title: "a", mp4: "a.mp4", duration: 60 },
+      { id: "01", title: "b", mp4: "b.mp4", duration: 60 },
+    ]),
+  );
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /duplicate segment id/);
+});
+
+// A checkpoint HOLDS until answered, so an answer that indexes past its options is a lesson nobody
+// can finish.
+test("build-lesson-page: a checkpoint answer outside its options is refused", () => {
+  const cp = (options, answer) =>
+    manifest([
+      { id: "01", title: "a", mp4: "a.mp4", duration: 60,
+        checkpoint: { prompt: "q", options, answer, source: ["p1"] } },
+    ]);
+  for (const [options, answer] of [[["a", "b", "c"], 7], [["a", "b"], -1], [["a", "b"], 1.5]]) {
+    const r = run("build-lesson-page.mjs", cp(options, answer));
+    assert.equal(r.status, 2, `answer ${answer} of ${options.length} should be refused`);
+    assert.match(r.stderr, /is not an index into its/);
+  }
+  const single = run("build-lesson-page.mjs", cp(["a"], 0));
+  assert.equal(single.status, 2);
+  assert.match(single.stderr, /at least two options/);
+});
+
+test("build-lesson-page: an unreadable or malformed manifest reports itself", () => {
+  const missing = run("build-lesson-page.mjs", join(tmp, "no-such.json"));
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /cannot read/);
+
+  const bad = write("bad.json", '{"segments":[');
+  const r = run("build-lesson-page.mjs", bad);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /cannot read/);
+});
+
+// --out's value can itself end in .json, and picking that as the manifest builds the wrong page.
+test("build-lesson-page: a flag value is never mistaken for the manifest", () => {
+  const m = manifest([{ id: "01", title: "a", mp4: "a.mp4", duration: 60 }]);
+  const r = run("build-lesson-page.mjs", "--out", out("page.json"), m);
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stdout, /would write .*page\.json/);
 });
 
 // Step 5 is not built yet. This asserts the stub stays honest; when the player lands it will fail

@@ -3,7 +3,8 @@
 // VENDORED from heygen-com/hyperframes (Apache-2.0), 2026-09-30:
 //   .claude/skills/changelog-video/scripts/align-captions.mjs
 // That file lives in the repo-native skills tree, which is not marketplace-distributed, so it
-// cannot be installed as a dependency. Unmodified. See CREDITS.md before changing it.
+// cannot be installed as a dependency. Two local fixes, both recorded in CREDITS.md: guard the
+// line-end scan against a line with no tokens, and against a final word that carries no `end`.
 // align-captions.mjs — map SPOKEN-layer word timestamps back onto DISPLAY tokens.
 //
 //   node align-captions.mjs --tokens script-tokens.json --words vo-words.json \
@@ -40,6 +41,10 @@ const script = JSON.parse(readFileSync(tokensFile, "utf8"));
 const stream = JSON.parse(readFileSync(wordsFile, "utf8"));
 if (!script.lines?.length) die("tokens file has no lines[]");
 if (!stream.length) die("words file is empty");
+
+// LOCAL FIX: a transcript whose final word carries no `end` made every downstream time NaN, which
+// JSON then wrote out as null — silently, so the caption rail simply had no end time.
+const lastEnd = stream.at(-1).end ?? stream.at(-1).start ?? 0;
 
 const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const lev = (a, b) => {
@@ -110,7 +115,7 @@ for (const line of script.lines) {
         `MISMATCH line=${line.id} display="${display}" expected~"${spoken}" heard="${stream[si]?.text ?? "<eof>"}" @${stream[si]?.start?.toFixed(2) ?? "?"}s`,
       );
       mismatches++;
-      w.push([display, si < stream.length ? stream[si].start : stream.at(-1).end]);
+      w.push([display, si < stream.length ? stream[si].start : lastEnd]);
       continue;
     }
     si = hit.next;
@@ -119,9 +124,11 @@ for (const line of script.lines) {
   outLines.push({ id: line.id, w });
 }
 
+// LOCAL FIX: a line with an empty tokens[] has no first word to borrow a time from, and indexing
+// outLines[i + 1].w[0] blind threw a TypeError on it. Scan forward to the next line that has one.
 for (let i = 0; i < outLines.length; i++) {
-  outLines[i].end =
-    i + 1 < outLines.length ? outLines[i + 1].w[0][1] : +(stream.at(-1).end + tail).toFixed(2);
+  const next = outLines.slice(i + 1).find((l) => l.w.length);
+  outLines[i].end = next ? next.w[0][1] : +(lastEnd + tail).toFixed(2);
 }
 
 writeFileSync(outFile, JSON.stringify({ lines: outLines }, null, 1));

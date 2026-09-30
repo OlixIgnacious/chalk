@@ -11,11 +11,26 @@ that plays them in order and stops at a checkpoint question between each one.
 
 Every line it says is traceable to a paragraph in the source.
 
+## Status
+
+Early. The pipeline plans and scripts a chapter, and stops at the step-3 review gate — which is
+where it is meant to stop, but also as far as it currently goes.
+
+| | |
+|---|---|
+| Ingest | `.md` and `.txt`. EPUB and PDF are not implemented — convert to Markdown first |
+| Syllabus, script | working, with the grounding and readability gates enforced |
+| Segments (step 4) | delegated to `faceless-explainer`; the Tier 2 Manim path is a stub |
+| Lesson page (step 5) | not built — `build-lesson-page.mjs` validates the manifest and stops |
+| Deliver (step 6) | not built |
+
+`npm test` is the regression gate for the scripts.
+
 ## Requirements
 
 - Node ≥ 22, FFmpeg, Chrome — check with `npx hyperframes doctor`
 - Optional, for maths: `manim` and a LaTeX distribution (see `skills/chalk/references/manim.md`)
-- Optional, for PDFs: `pdftotext` (poppler) and `tesseract` for scanned pages
+- Later, for PDFs: `pdftotext` (poppler) and `tesseract` for scanned pages — not wired up yet
 
 ## Install
 
@@ -40,15 +55,18 @@ symlink `skills/chalk` into `~/.claude/skills/`.
 ## Use
 
 ```bash
-/chalk chapter-4.epub
-/chalk book.pdf --chapter 4 --segments 5
-/chalk fixtures/gutenberg-chapter.md --format vertical
-/chalk stats.pdf --math on
+/chalk fixtures/gutenberg-chapter.md
+/chalk chapter-4.md --segments 5 --format vertical
+/chalk fixtures/gutenberg-math-chapter.md --math on
+/chalk this chapter, but assume they've never seen calculus
 ```
+
+EPUB and PDF input is not implemented yet; `ingest.mjs` says so rather than guessing at the text.
+Convert to Markdown and pass that.
 
 | Option | Values | Default |
 |---|---|---|
-| `--chapter` | number or title | inferred |
+| `--chapter` | number or title | inferred — needs EPUB/PDF input, so not yet usable |
 | `--segments` | 3–6 | inferred from length |
 | `--format` | `landscape`, `vertical`, `square` | `landscape` |
 | `--audience` | freeform, e.g. "first-year undergrads" | inferred |
@@ -58,6 +76,9 @@ It stops after planning the lessons and writing the scripts, so you can correct 
 anything renders. Rendering a chapter takes tens of minutes; reviewing the plan takes two.
 
 ## Output
+
+What a complete run produces. Today everything from `segments/NN/script.md` upward is written; the
+rendered video and the player are not.
 
 ```
 chalk-output/<chapter-slug>/

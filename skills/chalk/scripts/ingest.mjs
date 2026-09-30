@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // ingest.mjs — normalize a chapter into chapter.json: paragraph-addressed blocks with stable ids.
 //
-//   node ingest.mjs <input> [--out chapter.json] [--chapter N] [--assets work/]
+//   node ingest.mjs <input> [--out chapter.json]
+//
+// Chapter selection lives at the skill level, not here: .md and .txt are a single chapter each.
+// It becomes an ingest concern when EPUB and PDF land, which need the nav/ncx or page range.
 //
 // Those block ids are the grounding currency for the whole pipeline: every narration line and every
 // piece of on-screen text cites them. They must be stable across re-runs of the same input.
@@ -12,20 +15,41 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, extname, dirname } from "node:path";
 
 const argv = process.argv.slice(2);
-const flag = (n, d) => {
-  const i = argv.indexOf("--" + n);
-  return i >= 0 ? argv[i + 1] : d;
-};
 const die = (m) => {
   console.error("ingest:", m);
   process.exit(2);
 };
 
-const input = argv.find((a) => !a.startsWith("--") && argv[argv.indexOf(a) - 1]?.startsWith("--") !== true);
+const FLAGS = ["out"];
+const flag = (n, d) => {
+  const i = argv.indexOf("--" + n);
+  if (i < 0) return d;
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith("--")) die(`--${n} needs a value`);
+  return v;
+};
+// Positional args only. Matching on "the token before this one is not a flag" instead breaks on a
+// repeated string, because indexOf finds the first occurrence rather than this one.
+const flagValueIndexes = new Set(
+  FLAGS.map((n) => argv.indexOf("--" + n))
+    .filter((i) => i >= 0)
+    .map((i) => i + 1),
+);
+const positional = argv.filter((a, i) => !a.startsWith("--") && !flagValueIndexes.has(i));
+
+const input = positional[0];
 if (!input) die("usage: ingest.mjs <input> [--out chapter.json]");
 
 const outFile = flag("out", "chapter.json");
 const ext = extname(input).toLowerCase();
+
+const read = (p) => {
+  try {
+    return readFileSync(p, "utf8");
+  } catch (err) {
+    die(`cannot read ${p} — ${err.message}`);
+  }
+};
 
 /** Pad a counter into a stable id, e.g. p012. */
 const id = (prefix, n) => `${prefix}${String(n).padStart(3, "0")}`;
@@ -68,7 +92,7 @@ switch (ext) {
   case ".md":
   case ".markdown":
   case ".txt":
-    blocks = ingestMarkdown(readFileSync(input, "utf8"));
+    blocks = ingestMarkdown(read(input));
     break;
   case ".epub":
     // TODO: a zip of XHTML. Read nav/ncx for chapter splits, strip tags, keep footnotes as blocks.
@@ -93,8 +117,12 @@ const chapter = {
   blocks,
 };
 
-mkdirSync(dirname(outFile), { recursive: true });
-writeFileSync(outFile, JSON.stringify(chapter, null, 2) + "\n");
+try {
+  mkdirSync(dirname(outFile), { recursive: true });
+  writeFileSync(outFile, JSON.stringify(chapter, null, 2) + "\n");
+} catch (err) {
+  die(`cannot write ${outFile} — ${err.message}`);
+}
 
 const words = blocks.reduce((a, b) => a + b.text.split(/\s+/).length, 0);
 console.log(`ingest: ${blocks.length} blocks, ~${words} words, quality=${quality} → ${outFile}`);
