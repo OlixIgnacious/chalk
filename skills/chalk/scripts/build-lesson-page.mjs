@@ -11,8 +11,8 @@
 //   · captions on by default, keyboard navigable, honour prefers-reduced-motion
 //   · a checkpoint HOLDS until answered, then shows the explanation with its source citation
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { dirname, join, resolve, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const argv = process.argv.slice(2);
@@ -92,13 +92,116 @@ manifest.segments.forEach((s, i) => {
   }
 });
 
-// TODO: inline player.html / player.css / player.js from `playerDir`, with the manifest embedded
-//       as a JSON script tag. Milestone 8 of the plan.
-console.error(`build-lesson-page: TODO — player assets not written yet (looked in ${playerDir}).`);
-console.error("  See references/step-5-player.md.");
-console.log(
-  `build-lesson-page: manifest valid — ${manifest.segments.length} segment(s), ` +
-    `${manifest.segments.filter((s) => s.checkpoint).length} checkpoint(s), ` +
-    `would write ${outFile}`,
+// ── captions ──────────────────────────────────────────────────────────────────────────────────────
+// Captions are embedded as cues rather than linked with <track>. A browser treats every file:// page
+// as its own origin and blocks the text track, so a linked VTT silently shows nothing in exactly the
+// place this page is meant to be opened from. Parsing at build time also keeps the page standalone.
+
+/** HH:MM:SS.mmm or MM:SS.mmm → seconds. */
+function vttTime(s) {
+  const m = s.trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})[.,](\d{1,3})$/);
+  if (!m) return null;
+  return (
+    Number(m[1] ?? 0) * 3600 + Number(m[2]) * 60 + Number(m[3]) + Number(m[4].padEnd(3, "0")) / 1000
+  );
+}
+
+function parseVtt(text) {
+  const cues = [];
+  for (const block of text.replace(/\r\n?/g, "\n").split(/\n{2,}/)) {
+    const lines = block.split("\n").filter((l) => l.trim() !== "");
+    const i = lines.findIndex((l) => l.includes("-->"));
+    if (i < 0) continue;
+    const [rawStart, rawEnd] = lines[i].split("-->");
+    const start = vttTime(rawStart ?? "");
+    const end = vttTime((rawEnd ?? "").split(/\s+/).filter(Boolean)[0] ?? "");
+    if (start === null || end === null) continue;
+    const body = lines
+      .slice(i + 1)
+      .join("\n")
+      .replace(/<[^>]*>/g, "") // voice and class spans carry no meaning for our own rail
+      .trim();
+    if (body) cues.push({ start, end, text: body });
+  }
+  return cues;
+}
+
+const manifestDir = dirname(resolve(manifestPath));
+let cueCount = 0;
+let missingCaptions = 0;
+
+// The embedded copy carries the cues; lesson.json on disk is left exactly as the pipeline wrote it.
+const embedded = {
+  ...manifest,
+  segments: manifest.segments.map((s) => {
+    if (!s.captions) return s;
+    const p = isAbsolute(s.captions) ? s.captions : join(manifestDir, s.captions);
+    if (!existsSync(p)) {
+      missingCaptions++;
+      return s;
+    }
+    const cues = parseVtt(readFileSync(p, "utf8"));
+    cueCount += cues.length;
+    return { ...s, cues };
+  }),
+};
+
+// ── assemble ──────────────────────────────────────────────────────────────────────────────────────
+
+const asset = (name) => {
+  const p = join(playerDir, name);
+  if (!existsSync(p)) die(`player asset missing: ${p}\n  See references/step-5-player.md.`);
+  return readFileSync(p, "utf8");
+};
+
+// The template's own "this is a template" note must not ship in the built page.
+const shell = asset("player.html").replace(
+  /<!--[\s\S]*?-->\n/,
+  `<!-- Built by chalk from lesson.json. Self-contained: styles, script and captions are inline,\n` +
+    `     media paths are relative, so this folder can be moved or zipped as it is. -->\n`,
 );
-process.exit(1);
+const css = asset("player.css");
+const js = asset("player.js");
+
+// A chapter's own words end up inside a <script> tag, so anything that could close that tag early
+// has to go. Escaping "<" covers </script>, and the JSON parser reads \u003c back as "<".
+const json = JSON.stringify(embedded, null, 1).replace(/</g, "\\u003c");
+
+const title = typeof manifest.title === "string" && manifest.title.trim() ? manifest.title : "Lesson";
+const escapeHtml = (s) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+const marker = (name) => {
+  const token = `/*@chalk:${name}@*/`;
+  if (!shell.includes(token)) die(`player.html has no ${token} marker`);
+  return token;
+};
+
+const page = shell
+  .replace(marker("css"), () => css)
+  .replace(marker("manifest"), () => json)
+  .replace(marker("js"), () => js)
+  .replace(/@chalk:title@/g, () => escapeHtml(title))
+  .replace(/@chalk:lang@/g, () => escapeHtml(manifest.lang || "en"));
+
+for (const leftover of page.match(/@chalk:[a-z]+@/g) ?? []) {
+  die(`player.html left an unreplaced marker: ${leftover}`);
+}
+
+try {
+  writeFileSync(outFile, page);
+} catch (err) {
+  die(`cannot write ${outFile} — ${err.message}`);
+}
+
+const checkpoints = manifest.segments.filter((s) => s.checkpoint).length;
+console.log(
+  `build-lesson-page: ${manifest.segments.length} segment(s), ${checkpoints} checkpoint(s), ` +
+    `${cueCount} caption cue(s) → ${outFile}`,
+);
+if (missingCaptions) {
+  console.warn(
+    `build-lesson-page: ${missingCaptions} segment(s) name a captions file that is not there — ` +
+      "those segments will play without captions.",
+  );
+}

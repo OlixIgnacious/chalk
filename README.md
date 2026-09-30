@@ -13,18 +13,19 @@ Every line it says is traceable to a paragraph in the source.
 
 ## Status
 
-Early. The pipeline plans and scripts a chapter, and stops at the step-3 review gate — which is
-where it is meant to stop, but also as far as it currently goes.
+Early. Planning, scripting and the lesson page are built; the rendered video is not. The pipeline
+still pauses at the step-3 review gate by design, and the gap after it is step 4.
 
 | | |
 |---|---|
 | Ingest | `.md` and `.txt`. EPUB and PDF are not implemented — convert to Markdown first |
 | Syllabus, script | working, with the grounding and readability gates enforced |
 | Segments (step 4) | delegated to `faceless-explainer`; the Tier 2 Manim path is a stub |
-| Lesson page (step 5) | not built — `build-lesson-page.mjs` validates the manifest and stops |
+| Lesson page (step 5) | working — checkpoints, captions, glossary, progress, keyboard |
 | Deliver (step 6) | not built |
 
-`npm test` is the regression gate for the scripts.
+`npm test` is the regression gate for the scripts; `npm run test:player` drives the lesson page in
+a real browser.
 
 ## Requirements
 
@@ -77,8 +78,8 @@ anything renders. Rendering a chapter takes tens of minutes; reviewing the plan 
 
 ## Output
 
-What a complete run produces. Today everything from `segments/NN/script.md` upward is written; the
-rendered video and the player are not.
+What a complete run produces. Today everything except the rendered MP4s is written — the segment
+videos come from step 4, which is still delegated work.
 
 ```
 chalk-output/<chapter-slug>/

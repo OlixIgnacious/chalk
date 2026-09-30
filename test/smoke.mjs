@@ -12,7 +12,7 @@
 // Gutenberg text in fixtures/ — never test against a copyrighted book.
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +31,14 @@ const write = (name, body) => {
 };
 const fixture = (name) => join(root, "fixtures", name);
 const out = (name) => join(tmp, name);
+
+/** Read the manifest back out of a built page, the way the player itself does. */
+const embeddedManifest = (pagePath) => {
+  const page = readFileSync(pagePath, "utf8");
+  const m = page.match(/<script type="application\/json" id="lesson-manifest">([\s\S]*?)<\/script>/);
+  assert.ok(m, "the built page has no embedded manifest");
+  return JSON.parse(m[1]);
+};
 
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
@@ -454,18 +462,106 @@ test("build-lesson-page: an unreadable or malformed manifest reports itself", ()
 // --out's value can itself end in .json, and picking that as the manifest builds the wrong page.
 test("build-lesson-page: a flag value is never mistaken for the manifest", () => {
   const m = manifest([{ id: "01", title: "a", mp4: "a.mp4", duration: 60 }]);
-  const r = run("build-lesson-page.mjs", "--out", out("page.json"), m);
-  assert.equal(r.status, 1, r.stderr);
-  assert.match(r.stdout, /would write .*page\.json/);
+  const r = run("build-lesson-page.mjs", "--out", out("page.html"), m);
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(out("page.html")), "it must build the manifest, not the --out value");
 });
 
-// Step 5 is not built yet. This asserts the stub stays honest; when the player lands it will fail
-// and this test should become an assertion about the generated lesson.html.
-test("build-lesson-page: step 5 is still a declared stub", () => {
-  const ok = manifest([{ id: "01", title: "t", mp4: "a.mp4", duration: 60 }]);
-  const r = run("build-lesson-page.mjs", ok);
-  assert.equal(r.status, 1);
-  assert.match(r.stderr, /TODO — player assets not written yet/);
+// The page has to be one self-contained file: the output folder gets moved, zipped and opened from
+// file://, so a page that reaches for a stylesheet or a font at runtime is a broken page.
+test("build-lesson-page: builds a self-contained lesson.html", () => {
+  const dir = join(tmp, "built");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "lesson.json"),
+    JSON.stringify({
+      title: "A Candle: the Flame",
+      segments: [{ id: "01", title: "Why a candle needs a wick", mp4: "segments/01/segment.mp4", duration: 60 }],
+    }),
+  );
+  const r = run("build-lesson-page.mjs", join(dir, "lesson.json"));
+  assert.equal(r.status, 0, r.stderr);
+
+  const page = readFileSync(join(dir, "lesson.html"), "utf8");
+  assert.ok(existsSync(join(dir, "lesson.html")));
+  assert.doesNotMatch(page, /@chalk:[a-z]+@/, "every template marker must be replaced");
+  assert.match(page, /<title>A Candle: the Flame<\/title>/);
+  assert.match(page, /--accent:/, "the stylesheet must be inlined");
+  assert.match(page, /lesson-manifest/, "the manifest must be embedded");
+  assert.doesNotMatch(page, /<link[^>]+stylesheet/i, "no external stylesheet");
+  assert.doesNotMatch(page, /<script[^>]+\ssrc=/i, "no external script");
+});
+
+// Captions are embedded as cues, not linked with <track>: file:// treats each page as its own
+// origin and blocks the text track, which is exactly where this page is meant to be opened.
+test("build-lesson-page: VTT cues are parsed and embedded", () => {
+  const dir = join(tmp, "caps");
+  mkdirSync(join(dir, "segments/01"), { recursive: true });
+  writeFileSync(
+    join(dir, "segments/01/segment.vtt"),
+    "WEBVTT\n\n1\n00:00:00.030 --> 00:00:01.080\nAs the price goes up,\n\n" +
+      "2\n00:01:01.330 --> 00:01:02.280\npeople buy <b>less</b>.\n",
+  );
+  writeFileSync(
+    join(dir, "lesson.json"),
+    JSON.stringify({
+      title: "t",
+      segments: [{ id: "01", title: "a", mp4: "a.mp4", captions: "segments/01/segment.vtt", duration: 60 }],
+    }),
+  );
+  const r = run("build-lesson-page.mjs", join(dir, "lesson.json"));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /2 caption cue\(s\)/);
+
+  const cues = embeddedManifest(join(dir, "lesson.html")).segments[0].cues;
+  assert.equal(cues.length, 2);
+  assert.deepEqual(cues[0], { start: 0.03, end: 1.08, text: "As the price goes up," });
+  assert.equal(cues[1].start, 61.33, "an HH:MM:SS.mmm timestamp must carry its minutes");
+  assert.equal(cues[1].text, "people buy less.", "cue markup is stripped for our own rail");
+});
+
+test("build-lesson-page: a captions file that is not there is a warning, not a failure", () => {
+  const dir = join(tmp, "nocaps");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "lesson.json"),
+    JSON.stringify({ title: "t", segments: [{ id: "01", title: "a", mp4: "a.mp4", captions: "missing.vtt", duration: 60 }] }),
+  );
+  const r = run("build-lesson-page.mjs", join(dir, "lesson.json"));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /captions file that is not there/);
+});
+
+// A chapter's own words end up inside a <script> tag. If they can close it, the chapter can become
+// markup — so this is a grounding problem as much as a correctness one.
+test("build-lesson-page: chapter text cannot break out of the page", () => {
+  const dir = join(tmp, "escape");
+  mkdirSync(dir, { recursive: true });
+  const nasty = 'He wrote </script><img src=x onerror="alert(1)"> & "then" <stopped>';
+  writeFileSync(
+    join(dir, "lesson.json"),
+    JSON.stringify({
+      title: 'A <script> & "Candle"',
+      segments: [{ id: "01", title: nasty, mp4: "a.mp4", duration: 60,
+        checkpoint: { prompt: nasty, options: ["a", "b"], answer: 0, explanation: nasty, source: ["p1"] } }],
+    }),
+  );
+  const r = run("build-lesson-page.mjs", join(dir, "lesson.json"));
+  assert.equal(r.status, 0, r.stderr);
+
+  const page = readFileSync(join(dir, "lesson.html"), "utf8");
+  assert.doesNotMatch(page, /<\/script><img/, "the script tag must not be closable from the data");
+  assert.match(page, /<title>A &lt;script&gt; &amp; &quot;Candle&quot;<\/title>/);
+
+  // and the text still round-trips intact, so escaping did not corrupt the chapter
+  assert.equal(embeddedManifest(join(dir, "lesson.html")).segments[0].title, nasty);
+});
+
+test("build-lesson-page: a missing player asset is reported, not half-built", () => {
+  const m = manifest([{ id: "01", title: "a", mp4: "a.mp4", duration: 60 }]);
+  const r = run("build-lesson-page.mjs", m, "--player", join(tmp, "no-such-dir"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /player asset missing/);
 });
 
 // ── manim-render ──────────────────────────────────────────────────────────────────────────────────

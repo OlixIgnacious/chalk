@@ -108,12 +108,15 @@ book.** The tool paraphrases and caps verbatim quoting; development should not u
 `test/smoke.mjs` is the regression gate for the scripts — one dependency-free file, run with `npm
 test`. It pins the grounding rules in particular: an unsourced spoken line and a `source:` that
 migrates onto the wrong entry both used to pass, and both are now asserted. Add a case there before
-fixing anything in `scripts/`.
+fixing anything in `scripts/`. `test/player-browser.mjs` is the step-5 gate — file://, checkpoint
+holding, no-localStorage and phone width are things only a browser can answer. It skips when Chrome
+is absent, so `npm test` stays the everyday gate.
 
 Useful gates while working:
 
 ```bash
 npm test                                     # the script regression gate
+npm run test:player                          # the lesson page, driven in Chrome
 npx hyperframes doctor                       # environment
 npx hyperframes check <project>              # the browser gate, zero errors required
 npx hyperframes snapshot <project> --at 2,15 # inspect stills instead of re-rendering

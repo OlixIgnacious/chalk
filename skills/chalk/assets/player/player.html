@@ -1,0 +1,125 @@
+<!doctype html>
+<!-- player.html — the shell for lesson.html. This file is a TEMPLATE: build-lesson-page.mjs
+     replaces the @chalk:*@ markers with the title, the CSS, the manifest and the JS, so the built
+     page is one self-contained file with relative media paths and no build step. Opening this file
+     directly does nothing useful. See references/step-5-player.md. -->
+<html lang="@chalk:lang@">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>@chalk:title@</title>
+    <style>
+/*@chalk:css@*/
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#stage">Skip to the lesson</a>
+
+    <div class="shell">
+      <header class="head">
+        <h1 id="lesson-title">@chalk:title@</h1>
+        <p class="src" id="lesson-source" hidden></p>
+        <div
+          class="bar"
+          role="progressbar"
+          aria-labelledby="lesson-title"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <span id="bar-fill"></span>
+        </div>
+        <p class="count" id="progress-text"></p>
+      </header>
+
+      <nav class="rail" aria-label="Segments">
+        <ol id="rail"></ol>
+      </nav>
+
+      <main class="stage" id="stage">
+        <!-- Audio cannot autoplay, so the lesson opens on a click-to-start card. -->
+        <section class="card start" id="start-card" aria-labelledby="start-title">
+          <p class="eyebrow">Lesson</p>
+          <h2 id="start-title">Ready when you are</h2>
+          <p id="start-blurb"></p>
+          <ol id="start-list"></ol>
+          <button class="btn btn-primary" id="start-btn" type="button">Start the lesson</button>
+        </section>
+
+        <section class="player" id="player-pane" hidden aria-labelledby="segment-title">
+          <div class="frame" id="frame">
+            <video id="video" controls playsinline preload="metadata"></video>
+            <p class="cap" id="caption"></p>
+          </div>
+
+          <div class="meta">
+            <h2 id="segment-title"></h2>
+            <p id="segment-objective"></p>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="replay-btn" type="button">Replay segment</button>
+            <button class="btn" id="cap-btn" type="button" aria-pressed="true">Captions</button>
+            <span class="spacer"></span>
+            <span class="rate">
+              <label for="rate-select">Speed</label>
+              <select id="rate-select">
+                <option value="0.75">0.75&times;</option>
+                <option value="1" selected>1&times;</option>
+                <option value="1.25">1.25&times;</option>
+                <option value="1.5">1.5&times;</option>
+              </select>
+            </span>
+          </div>
+
+          <p class="hint">
+            <kbd>space</kbd> play · <kbd>&larr;</kbd><kbd>&rarr;</kbd> 5s ·
+            <kbd>c</kbd> captions · <kbd>r</kbd> replay
+          </p>
+        </section>
+
+        <!-- The checkpoint HOLDS: nothing advances until it is answered. -->
+        <section
+          class="card checkpoint"
+          id="checkpoint-card"
+          hidden
+          aria-labelledby="checkpoint-prompt"
+        >
+          <p class="eyebrow" id="checkpoint-eyebrow">Checkpoint</p>
+          <h2 id="checkpoint-prompt"></h2>
+          <ul class="options" id="checkpoint-options"></ul>
+          <div class="verdict" id="checkpoint-verdict" hidden>
+            <h3 id="verdict-title"></h3>
+            <p id="verdict-explanation"></p>
+            <p class="cite" id="verdict-cite"></p>
+          </div>
+          <button class="btn btn-primary" id="continue-btn" type="button" hidden></button>
+        </section>
+
+        <section class="card done" id="done-card" hidden aria-labelledby="done-title">
+          <p class="eyebrow">Finished</p>
+          <h2 id="done-title">That is the chapter</h2>
+          <p id="done-score"></p>
+          <button class="btn" id="restart-btn" type="button">Start again</button>
+        </section>
+      </main>
+
+      <section class="glossary" id="glossary-pane" hidden aria-labelledby="glossary-title">
+        <h2 id="glossary-title">Glossary</h2>
+        <ul class="terms" id="terms"></ul>
+      </section>
+
+      <footer class="foot">
+        <p id="foot-note"></p>
+      </footer>
+    </div>
+
+    <script type="application/json" id="lesson-manifest">
+/*@chalk:manifest@*/
+    </script>
+    <script>
+/*@chalk:js@*/
+    </script>
+  </body>
+</html>

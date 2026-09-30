@@ -39,6 +39,10 @@ The manifest the player reads. Write it first; the page is built from it.
 node <skill-dir>/scripts/build-lesson-page.mjs <output-dir>/lesson.json
 ```
 
+The script inlines `assets/player/{player.html,player.css,player.js}` and embeds the manifest as a
+JSON script tag, so `lesson.html` is a single file with relative media paths. `lesson.json` on disk
+is left exactly as the pipeline wrote it.
+
 ## What the page does
 
 - Segment rail with progress, and continuous play from one segment into the next
@@ -61,12 +65,32 @@ Static page, no build step, relative paths so the folder stays portable.
 - A Tier 2 scene is flat video inside the segment. It cannot be made interactive — don't build
   affordances that imply otherwise.
 
+## Decisions already made
+
+Changing these is a decision, not a tidy-up.
+
+**Captions are embedded as cues, not linked with `<track>`.** A browser treats every `file://`
+document as its own origin and blocks the text track, so a linked VTT shows nothing in the one place
+this page is meant to open. `build-lesson-page.mjs` parses each segment's VTT at build time and the
+player draws its own caption rail. A missing VTT is a warning, not a failure.
+
+**A wrong answer does not force a replay.** It reveals the correct option and the explanation with
+its citation, and offers Continue. Replaying is one button away in the controls, and is the
+learner's call — locking someone out of a lesson they are already struggling with teaches nothing.
+
+**The next segment unlocks at the reveal, not at Continue.** The gate is the answer. Leaving the
+rail showing "locked" while a Continue button sits beside it just looks broken.
+
+**A re-watched segment whose checkpoint is already answered does not gate again**, so a finished
+lesson plays straight through.
+
+**The glossary is an inline expanding list, not a popover.** A popover buys nothing here and costs
+positioning and focus management.
+
 ## TODO
 
-- [ ] `assets/player/player.html`, `player.css`, `player.js`
-- [ ] Checkpoint card interaction and the gating logic
-- [ ] Glossary popover
-- [ ] Decide whether wrong answers re-play the relevant span
+- [ ] Decide whether a wrong answer should offer to re-play the span the answer came from, rather
+      than the whole segment — this needs scene-level source spans, which step 3 does not emit yet
 
 ## Gate
 
@@ -74,3 +98,6 @@ Static page, no build step, relative paths so the folder stays portable.
 - Every checkpoint gates advancement and cites a source
 - Usable at phone width and by keyboard
 - Still works with `localStorage` disabled
+
+`npm run test:player` drives all four of these in a real browser and is the check to run before
+shipping any player change. It skips when Chrome is absent rather than failing.
