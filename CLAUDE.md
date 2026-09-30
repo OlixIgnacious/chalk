@@ -105,9 +105,15 @@ pipeline stalls at step 4 — after the expensive planning work is already done.
 Test against `fixtures/` — public-domain Project Gutenberg text. **Never test against a copyrighted
 book.** The tool paraphrases and caps verbatim quoting; development should not undercut that.
 
+`test/smoke.mjs` is the regression gate for the scripts — one dependency-free file, run with `npm
+test`. It pins the grounding rules in particular: an unsourced spoken line and a `source:` that
+migrates onto the wrong entry both used to pass, and both are now asserted. Add a case there before
+fixing anything in `scripts/`.
+
 Useful gates while working:
 
 ```bash
+npm test                                     # the script regression gate
 npx hyperframes doctor                       # environment
 npx hyperframes check <project>              # the browser gate, zero errors required
 npx hyperframes snapshot <project> --at 2,15 # inspect stills instead of re-rendering

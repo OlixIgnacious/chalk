@@ -7,6 +7,7 @@
   "license": "Apache-2.0",
   "engines": { "node": ">=22" },
   "scripts": {
+    "test": "node test/smoke.mjs",
     "doctor": "npx hyperframes doctor",
     "skills": "npx hyperframes skills"
   }
