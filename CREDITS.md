@@ -41,4 +41,13 @@ in the HyperFrames repo.
 
 ## Fixtures
 
-`fixtures/` contains public-domain text from [Project Gutenberg](https://www.gutenberg.org/).
+`fixtures/` contains public-domain text from [Project Gutenberg](https://www.gutenberg.org/):
+Faraday's *The Chemical History of a Candle* (1861) and Thompson's *Calculus Made Easy* (1910).
+
+The binary fixtures are built from those same two texts, so nothing under copyright is committed:
+
+- `gutenberg-two-chapters.epub` — a minimal EPUB 3 (nav, two spine items, one footnote aside)
+- `gutenberg-chapters.pdf` — printed from HTML via headless Chrome, with running heads and page
+  numbers, so the furniture-stripping and equation-detection paths have something real to chew on
+- `gutenberg-scanned.pdf` — the same text rendered to an image and printed, so it has no text layer
+  at all and exercises the OCR path

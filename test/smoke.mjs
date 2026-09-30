@@ -84,12 +84,147 @@ test("ingest: empty input and unknown extensions are refused", () => {
   assert.equal(run("ingest.mjs", write("x.rtf", "hi")).status, 2);
 });
 
-test("ingest: EPUB and PDF report themselves unimplemented rather than half-working", () => {
-  for (const ext of ["epub", "pdf"]) {
-    const r = run("ingest.mjs", write(`x.${ext}`, ""));
-    assert.equal(r.status, 2);
-    assert.match(r.stderr, /not implemented yet/);
-  }
+// ── ingest: EPUB ──────────────────────────────────────────────────────────────────────────────────
+
+const epub = () => fixture("gutenberg-two-chapters.epub");
+const textPdf = () => fixture("gutenberg-chapters.pdf");
+const scannedPdf = () => fixture("gutenberg-scanned.pdf");
+
+test("ingest: an EPUB lists its chapters from the nav", () => {
+  const r = run("ingest.mjs", epub(), "--list");
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /1\s+A Candle: the Flame/);
+  assert.match(r.stdout, /2\s+On Relative Growings/);
+});
+
+// A whole book with no chapter named is a question, not a guess.
+test("ingest: a multi-chapter book with no --chapter shows the splits and stops", () => {
+  const r = run("ingest.mjs", epub(), "--out", out("e.json"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /none was named/);
+  assert.match(r.stderr, /On Relative Growings/);
+});
+
+test("ingest: an EPUB chapter extracts by number and by title", () => {
+  const byNumber = run("ingest.mjs", epub(), "--chapter", "1", "--out", out("e1.json"));
+  assert.equal(byNumber.status, 0, byNumber.stderr);
+  const ch = JSON.parse(readFileSync(out("e1.json"), "utf8"));
+  assert.equal(ch.title, "A Candle: the Flame");
+  assert.equal(ch.lang, "en");
+  assert.match(ch.source, /#ch1\.xhtml$/);
+  assert.equal(ch.blocks[0].kind, "heading");
+  assert.ok(ch.blocks.length > 20);
+
+  const byTitle = run("ingest.mjs", epub(), "--chapter", "Relative", "--out", out("e2.json"));
+  assert.equal(byTitle.status, 0, byTitle.stderr);
+  assert.equal(JSON.parse(readFileSync(out("e2.json"), "utf8")).title, "On Relative Growings");
+});
+
+test("ingest: an ambiguous chapter title is refused, not guessed at", () => {
+  const r = run("ingest.mjs", epub(), "--chapter", "e", "--out", out("amb.json"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /matches 2 chapters/);
+});
+
+// Footnotes carry the caveat that matters, so they are their own blocks rather than dropped.
+test("ingest: EPUB footnotes become their own blocks", () => {
+  run("ingest.mjs", epub(), "--chapter", "1", "--out", out("e3.json"));
+  const blocks = JSON.parse(readFileSync(out("e3.json"), "utf8")).blocks;
+  const note = blocks.find((b) => b.kind === "footnote");
+  assert.ok(note, "the footnote aside should survive as a block");
+  assert.match(note.id, /^n\d{3}$/, "a footnote gets its own id prefix");
+});
+
+test("ingest: EPUB ids are stable across re-runs", () => {
+  run("ingest.mjs", epub(), "--chapter", "1", "--out", out("s1.json"));
+  run("ingest.mjs", epub(), "--chapter", "1", "--out", out("s2.json"));
+  assert.equal(readFileSync(out("s1.json"), "utf8"), readFileSync(out("s2.json"), "utf8"));
+});
+
+// DRM is a stop, not a puzzle to solve.
+test("ingest: a DRM-protected EPUB is refused without trying to get around it", () => {
+  const drm = join(tmp, "drm.epub");
+  spawnSync("cp", [epub(), drm]);
+  const staging = join(tmp, "drmstage", "META-INF");
+  mkdirSync(staging, { recursive: true });
+  writeFileSync(join(staging, "encryption.xml"), "<encryption/>");
+  const zipped = spawnSync("zip", ["-q", drm, "META-INF/encryption.xml"], { cwd: join(tmp, "drmstage") });
+  if (zipped.status !== 0) return "zip is unavailable";
+  const r = run("ingest.mjs", drm, "--chapter", "1", "--out", out("drm.json"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /DRM-protected/);
+  assert.match(r.stderr, /will not try to get around that/);
+});
+
+// ── ingest: PDF ───────────────────────────────────────────────────────────────────────────────────
+
+const havePoppler = spawnSync("pdftotext", ["-v"], { stdio: "ignore" }).error === undefined;
+
+test("ingest: a PDF splits on chapter headings and carries page numbers", () => {
+  if (!havePoppler) return "pdftotext is unavailable";
+  const list = run("ingest.mjs", textPdf(), "--list");
+  assert.equal(list.status, 0, list.stderr);
+  assert.match(list.stdout, /1\s+p1\s+Chapter 1/);
+
+  const r = run("ingest.mjs", textPdf(), "--chapter", "1", "--out", out("p1.json"), "--assets", join(tmp, "w1"));
+  assert.equal(r.status, 0, r.stderr);
+  const ch = JSON.parse(readFileSync(out("p1.json"), "utf8"));
+  assert.ok(ch.blocks.every((b) => typeof b.page === "number"), "every PDF block records its page");
+  assert.match(ch.source, /#p1$/);
+});
+
+// A running head repeated on every page is furniture; the same words inside Faraday's prose are not.
+test("ingest: running heads and page numbers are stripped, prose is not", () => {
+  if (!havePoppler) return "pdftotext is unavailable";
+  run("ingest.mjs", textPdf(), "--chapter", "1", "--out", out("p2.json"), "--assets", join(tmp, "w2"));
+  const blocks = JSON.parse(readFileSync(out("p2.json"), "utf8")).blocks;
+  assert.ok(
+    !blocks.some((b) => b.text.trim() === "The Chemical History of a Candle"),
+    "the running head must not survive as its own block",
+  );
+  assert.ok(!blocks.some((b) => /^\d{1,3}$/.test(b.text.trim())), "bare page numbers must go");
+  assert.ok(
+    blocks.some((b) => /Chemical History of a Candle/.test(b.text) && b.text.length > 80),
+    "the same phrase inside Faraday's own sentence must stay",
+  );
+});
+
+// Under-detecting notation is the dangerous direction: it flows on as prose and gets retyped.
+test("ingest: equations are flagged low-confidence and never retyped", () => {
+  if (!havePoppler) return "pdftotext is unavailable";
+  const r = run("ingest.mjs", textPdf(), "--chapter", "2", "--out", out("p3.json"), "--assets", join(tmp, "w3"));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /confidence=low/);
+
+  const ch = JSON.parse(readFileSync(out("p3.json"), "utf8"));
+  assert.equal(ch.quality, "needs-review", "shaky notation drags the chapter down to needs-review");
+  const eqs = ch.blocks.filter((b) => b.kind === "equation");
+  assert.ok(eqs.length >= 3, `expected the three equations, got ${eqs.length}`);
+  assert.ok(eqs.every((e) => e.latex === null), "notation is never reconstructed");
+  assert.ok(eqs.every((e) => e.confidence === "low"));
+  // x² uses U+00B2, outside the U+2070 superscript block — the case that used to slip through.
+  assert.ok(eqs.some((e) => e.text.includes("x\u00b2")), "a Latin-1 superscript must still register");
+});
+
+test("ingest: prose that merely contains an = is not mistaken for notation", () => {
+  if (!havePoppler) return "pdftotext is unavailable";
+  run("ingest.mjs", textPdf(), "--chapter", "1", "--out", out("p4.json"), "--assets", join(tmp, "w4"));
+  const ch = JSON.parse(readFileSync(out("p4.json"), "utf8"));
+  const line = ch.blocks.find((b) => /starting value/.test(b.text));
+  assert.ok(line, "the probe sentence should be in chapter 1");
+  assert.equal(line.kind, "para", "a sentence with real words in it is prose, whatever maths it mentions");
+});
+
+test("ingest: a scanned PDF is detected and OCR'd, and says so", () => {
+  const haveOcr = spawnSync("tesseract", ["--version"], { stdio: "ignore" }).error === undefined;
+  if (!havePoppler || !haveOcr) return "tesseract or poppler is unavailable";
+  const r = run("ingest.mjs", scannedPdf(), "--out", out("ocr.json"));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /no text layer/);
+  const ch = JSON.parse(readFileSync(out("ocr.json"), "utf8"));
+  assert.equal(ch.quality, "ocr", "OCR output must be marked for a human skim");
+  assert.ok(ch.blocks.length >= 2);
+  assert.match(ch.blocks.map((b) => b.text).join(" "), /candle/i);
 });
 
 test("ingest: IO and flag errors are the script's own message, not a stack trace", () => {
@@ -564,14 +699,198 @@ test("build-lesson-page: a missing player asset is reported, not half-built", ()
   assert.match(r.stderr, /player asset missing/);
 });
 
+// ── deliver ───────────────────────────────────────────────────────────────────────────────────────
+
+const haveFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0;
+const ff = (args) => spawnSync("ffmpeg", ["-loglevel", "error", "-y", ...args], { encoding: "utf8" });
+const frames = (f) =>
+  Number(
+    spawnSync("ffprobe", ["-v", "error", "-count_frames", "-select_streams", "v:0",
+                          "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0", f],
+             { encoding: "utf8" }).stdout.trim(),
+  );
+// One -vf only: ffmpeg honours the last one it is given, so passing a second silently discards the
+// first — which is how this helper originally re-read frame 0 while claiming to read frame 1.
+/** How far an averaged pixel is from a target colour — JPEG rounding moves it a few units. */
+const colourDistance = (hex, target) => {
+  const a = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  const bb = [0, 2, 4].map((i) => parseInt(target.slice(i, i + 2), 16));
+  return Math.max(...a.map((v, i) => Math.abs(v - bb[i])));
+};
+const SETTLED = "1a3a5a";
+
+const avgPixel = (f, filter = "scale=1:1") =>
+  spawnSync("ffmpeg", ["-loglevel", "error", "-y", "-i", f,
+                       "-vf", `${filter},scale=1:1`, "-frames:v", "1",
+                       "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+           { encoding: "buffer" }).stdout.toString("hex");
+
+/**
+ * A segment that moves and then settles, built the way a real one is: two clips concatenated. That
+ * concat is what gives the file a non-zero start pts, which is the condition the frame-0 bake used
+ * to get wrong — so the fixture has to be built this way for the test to mean anything.
+ */
+function buildLesson(dir, { withScripts = true } = {}) {
+  mkdirSync(join(dir, "segments/01"), { recursive: true });
+  ff(["-f", "lavfi", "-i", "testsrc=size=320x180:rate=30:duration=1",
+      "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=1",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(dir, "m.mp4")]);
+  ff(["-f", "lavfi", "-i", "color=c=0x1a3a5a:size=320x180:rate=30:duration=1.5",
+      "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono:d=1.5",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", join(dir, "s.mp4")]);
+  writeFileSync(join(dir, "c.txt"), `file '${join(dir, "m.mp4")}'\nfile '${join(dir, "s.mp4")}'\n`);
+  ff(["-f", "concat", "-safe", "0", "-i", join(dir, "c.txt"), "-c", "copy", join(dir, "segments/01/segment.mp4")]);
+
+  if (withScripts) {
+    writeFileSync(
+      join(dir, "segments/01/script.md"),
+      `## Scene 1 — the wick\nvisual: diagram (tier 1)\nduration: ~14s\n\n` +
+        `- spoken: "The wax is drawn up the wick."\n  display: "Wax up the wick."\n  source: [p010]\n\n` +
+        `- spoken: "Without it the wax would sit there."\n  source: [p012]\n`,
+    );
+  }
+  writeFileSync(
+    join(dir, "lesson.json"),
+    JSON.stringify({
+      title: "A Candle", source: "fixtures/gutenberg-chapter.md",
+      segments: [{ id: "01", title: "The wick", objective: "What the wick does.",
+                   mp4: "segments/01/segment.mp4", duration: 2.5 }],
+    }),
+  );
+  return dir;
+}
+
+const deliver = (dir, ...args) =>
+  spawnSync(process.execPath, [join(scripts, "deliver.mjs"), dir, ...args], { encoding: "utf8" });
+
+// The poster must be a SETTLED frame. The fixture moves for 1s and then holds a flat colour, so a
+// poster taken from the moving part is visibly the wrong pixel.
+test("deliver: the poster comes from the settled span, not the moving part", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildLesson(join(tmp, "d1"));
+  const r = deliver(dir, "--no-bake");
+  assert.equal(r.status, 0, r.stderr);
+  const poster = avgPixel(join(dir, "segments/01/poster.jpg"));
+  assert.ok(
+    colourDistance(poster, SETTLED) <= 6,
+    `poster averaged ${poster}, expected the settled colour ${SETTLED}`,
+  );
+});
+
+// REGRESSION — the bake used to PREPEND a frame on a concatenated segment, because its first frame
+// starts at a non-zero pts. Duration barely moved, so only the frame count catches it.
+test("deliver: baking replaces frame 0 without adding or dropping one", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildLesson(join(tmp, "d2"));
+  const mp4 = join(dir, "segments/01/segment.mp4");
+  const before = frames(mp4);
+  const r = deliver(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(frames(mp4), before, "a prepended frame shifts the whole lesson against its audio");
+
+  const first = avgPixel(mp4, "select=eq(n\\,0)");
+  assert.ok(colourDistance(first, SETTLED) <= 6, `frame 0 must now be the poster, got ${first}`);
+  const second = avgPixel(mp4, "select=eq(n\\,1)");
+  assert.ok(
+    colourDistance(second, SETTLED) > 20,
+    `frame 1 must still be the original moving content, got ${second}`,
+  );
+});
+
+test("deliver: --no-bake leaves the video untouched", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildLesson(join(tmp, "d3"));
+  const mp4 = join(dir, "segments/01/segment.mp4");
+  const before = readFileSync(mp4);
+  assert.equal(deliver(dir, "--no-bake").status, 0);
+  assert.deepEqual(readFileSync(mp4), before, "--no-bake must not re-encode");
+  assert.ok(existsSync(join(dir, "segments/01/poster.jpg")), "but the poster is still written");
+});
+
+test("deliver: lesson.mp4 and lesson-plan.md are written, and work/ is cleaned", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildLesson(join(tmp, "d4"));
+  mkdirSync(join(dir, "work"), { recursive: true });
+  writeFileSync(join(dir, "work/scratch.txt"), "x");
+  const r = deliver(dir, "--no-bake");
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(existsSync(join(dir, "lesson.mp4")));
+  assert.match(r.stdout, /without re-encoding/, "matching segments should concatenate by copy");
+  assert.ok(!existsSync(join(dir, "work")), "work/ is cleaned on success");
+
+  const plan = readFileSync(join(dir, "lesson-plan.md"), "utf8");
+  assert.match(plan, /## Source citations/);
+  assert.match(plan, /\| 01 \| Scene 1 — the wick \| Wax up the wick\. \| `p010` \|/);
+  assert.match(plan, /_\(spoken only\)_/, "a spoken-only line is marked as such in the table");
+  assert.match(plan, /2 line\(s\) cited/);
+});
+
+// lesson-plan.md is the audit trail for "every claim is traceable", so it cannot be written over a
+// script that does not carry its citations.
+test("deliver: an unsourced line stops delivery", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildLesson(join(tmp, "d5"));
+  writeFileSync(
+    join(dir, "segments/01/script.md"),
+    `## Scene 1 — the wick\nvisual: diagram (tier 1)\nduration: ~14s\n\n` +
+      `- spoken: "Ninety-three percent of candles are paraffin."\n`,
+  );
+  const r = deliver(dir, "--no-bake");
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /refusing to call this delivered/);
+  assert.ok(existsSync(join(dir, "work")), "work/ is kept so the run can be resumed");
+});
+
+test("deliver: a missing manifest or segment is reported", () => {
+  const empty = join(tmp, "d6");
+  mkdirSync(empty, { recursive: true });
+  const noManifest = deliver(empty);
+  assert.equal(noManifest.status, 2);
+  assert.match(noManifest.stderr, /no lesson\.json/);
+
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = join(tmp, "d7");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "lesson.json"),
+    JSON.stringify({ title: "t", segments: [{ id: "01", title: "a", mp4: "segments/01/segment.mp4", duration: 1 }] }));
+  const r = deliver(dir);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /step 4 has not finished/);
+});
+
 // ── manim-render ──────────────────────────────────────────────────────────────────────────────────
 
-test("manim-render: an incomplete Tier 2 toolchain exits 3 for the Tier 1 fallback", () => {
-  const hasManim = spawnSync("manim", ["--version"], { stdio: "ignore" }).status === 0;
-  if (hasManim) return "skipped — manim is installed";
-  const r = run("manim-render.mjs", write("scene.py", "class S: pass"));
+// LaTeX is only needed for MathTex/Tex, so it must not be a blanket requirement — a construction
+// scene should render without it. The script decides by reading the scene.
+test("manim-render: LaTeX is demanded only by a scene that actually uses it", () => {
+  const haveLatex = spawnSync("latex", ["--version"], { stdio: "ignore" }).status === 0;
+  if (haveLatex) return "LaTeX is installed, so the gate cannot fire";
+  const usesLatex = write("latex_scene.py",
+    'from manim import *\nclass S(Scene):\n    def construct(self):\n        self.add(MathTex(r"x^2"))\n');
+  const r = run("manim-render.mjs", usesLatex);
   assert.equal(r.status, 3, "a distinct code is what lets the caller route to Tier 1");
+  assert.match(r.stderr, /MathTex/);
   assert.match(r.stderr, /Fall back to Tier 1/);
+});
+
+test("manim-render: a missing toolchain exits 3 rather than failing the run", () => {
+  const haveManim = spawnSync("manim", ["--version"], { stdio: "ignore" }).status === 0 ||
+    existsSync(join(root, ".venv/bin/manim"));
+  if (haveManim) return "manim is installed, so this path cannot fire here";
+  const r = run("manim-render.mjs", write("plain.py", "class S: pass"));
+  assert.equal(r.status, 3);
+  assert.match(r.stderr, /Fall back to Tier 1/);
+});
+
+test("manim-render: fps and resolution are validated before anything renders", () => {
+  const scene = write("v.py", "class S: pass");
+  const badFps = run("manim-render.mjs", scene, "--fps", "thirty");
+  assert.equal(badFps.status, 2);
+  assert.match(badFps.stderr, /--fps must be a whole number/);
+
+  const badRes = run("manim-render.mjs", scene, "--resolution", "1080p");
+  assert.equal(badRes.status, 2);
+  assert.match(badRes.stderr, /--resolution must look like/);
 });
 
 // ── run ───────────────────────────────────────────────────────────────────────────────────────────

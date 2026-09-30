@@ -13,25 +13,31 @@ Every line it says is traceable to a paragraph in the source.
 
 ## Status
 
-Early. Planning, scripting and the lesson page are built; the rendered video is not. The pipeline
-still pauses at the step-3 review gate by design, and the gap after it is step 4.
+Every step has a working implementation. The pipeline still pauses at the step-3 review gate by
+design — that is the cheap place to fix the teaching.
 
 | | |
 |---|---|
-| Ingest | `.md` and `.txt`. EPUB and PDF are not implemented — convert to Markdown first |
-| Syllabus, script | working, with the grounding and readability gates enforced |
-| Segments (step 4) | delegated to `faceless-explainer`; the Tier 2 Manim path is a stub |
-| Lesson page (step 5) | working — checkpoints, captions, glossary, progress, keyboard |
-| Deliver (step 6) | not built |
+| Ingest | `.md`, `.txt`, `.epub`, `.pdf`, including scanned PDFs via OCR |
+| Syllabus, script | the grounding and readability gates are enforced |
+| Segments (step 4) | delegated to `faceless-explainer`; Tier 2 Manim renders and composites |
+| Lesson page (step 5) | checkpoints, captions, glossary, progress, keyboard |
+| Deliver (step 6) | settled-frame posters, `lesson.mp4`, `lesson-plan.md` with the citation table |
 
-`npm test` is the regression gate for the scripts; `npm run test:player` drives the lesson page in
-a real browser.
+Rough edges: PDF figures are not extracted, an equation hands over its whole rendered page rather
+than a crop of the region, and the `MathTex` path is unverified here for want of a LaTeX install.
+
+```bash
+npm test              # the script regression gate
+npm run test:player   # the lesson page, in a real browser
+npm run test:tier2    # the Manim render and its alpha compositing
+```
 
 ## Requirements
 
 - Node ≥ 22, FFmpeg, Chrome — check with `npx hyperframes doctor`
 - Optional, for maths: `manim` and a LaTeX distribution (see `skills/chalk/references/manim.md`)
-- Later, for PDFs: `pdftotext` (poppler) and `tesseract` for scanned pages — not wired up yet
+- For PDFs: `pdftotext` (poppler); `tesseract` as well for scanned pages
 
 ## Install
 
@@ -57,17 +63,17 @@ symlink `skills/chalk` into `~/.claude/skills/`.
 
 ```bash
 /chalk fixtures/gutenberg-chapter.md
-/chalk chapter-4.md --segments 5 --format vertical
-/chalk fixtures/gutenberg-math-chapter.md --math on
+/chalk book.epub --chapter 4 --segments 5
+/chalk stats.pdf --chapter "Sampling" --math on
 /chalk this chapter, but assume they've never seen calculus
 ```
 
-EPUB and PDF input is not implemented yet; `ingest.mjs` says so rather than guessing at the text.
-Convert to Markdown and pass that.
+A book with several chapters and no `--chapter` prints its splits and stops rather than guessing
+which one you meant.
 
 | Option | Values | Default |
 |---|---|---|
-| `--chapter` | number or title | inferred — needs EPUB/PDF input, so not yet usable |
+| `--chapter` | number or title | asked for, when the input holds several |
 | `--segments` | 3–6 | inferred from length |
 | `--format` | `landscape`, `vertical`, `square` | `landscape` |
 | `--audience` | freeform, e.g. "first-year undergrads" | inferred |
@@ -78,8 +84,8 @@ anything renders. Rendering a chapter takes tens of minutes; reviewing the plan 
 
 ## Output
 
-What a complete run produces. Today everything except the rendered MP4s is written — the segment
-videos come from step 4, which is still delegated work.
+What a complete run produces. The segment MP4s come from step 4, which is delegated to
+`faceless-explainer`; everything else is written by the scripts here.
 
 ```
 chalk-output/<chapter-slug>/

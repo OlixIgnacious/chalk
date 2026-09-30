@@ -26,15 +26,24 @@ node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json
 
 `kind` is one of `para`, `heading`, `quote`, `list`, `figure`, `equation`, `exercise`, `footnote`.
 
+## Chapter splitting
+
+`--list` prints the splits and stops; `--chapter <number or title>` picks one. With neither, a
+multi-chapter file prints its splits and refuses, rather than guessing which chapter was meant.
+
+EPUB splits on the spine, titled from the `nav` (EPUB3) or the `ncx` (EPUB2). PDF splits on detected
+chapter headings, because poppler exposes no bookmark listing.
+
 ## TODO
 
-- [ ] Markdown and plain text (easiest; build and test here first)
-- [ ] EPUB — a zip of XHTML; read the `nav`/`ncx` for chapter splits
-- [ ] PDF — shell out to `pdftotext -layout`; detect and handle multi-column
-- [ ] Scanned PDF — detect a missing text layer, OCR with `tesseract`, mark `quality: "ocr"`
-- [ ] Equations — detect, crop to an image, set `confidence`; never guess the notation
-- [ ] Figures — extract and reference from the block
-- [ ] Strip running heads and page numbers; keep footnotes as their own blocks
+- [x] Markdown and plain text
+- [x] EPUB — a zip of XHTML; spine order, `nav`/`ncx` titles, footnotes as their own blocks, DRM refused
+- [x] PDF — `pdftotext -layout`, multi-column detection, running heads and page numbers stripped
+- [x] Scanned PDF — missing text layer detected by chars-per-page, OCR with `tesseract`, `quality: "ocr"`
+- [x] Equations — detected and marked `confidence: "low"` with the rendered page as `asset`; notation is never retyped
+- [ ] Figures — EPUB `<figure>` carries its caption and `src`; PDF figures are not extracted yet
+- [ ] Crop the equation region itself rather than handing over the whole page
+- [ ] Detect `lang` for PDF; EPUB reads it from the OPF
 
 See [edge-cases.md](edge-cases.md) for the handling each of these needs.
 

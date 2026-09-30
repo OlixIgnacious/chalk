@@ -13,17 +13,23 @@ Run once per machine, before planning any Tier 2 scene. If it fails, **fall back
 the user** — do not fail the run halfway through.
 
 ```bash
-brew install cairo pkg-config      # macOS system deps
-uv tool install manim              # isolated; do not use system Python
-manim --version
+brew install cairo pango pkgconf   # macOS system deps; pkgconf, not the old pkg-config
+uv pip install --python .venv/bin/python manim    # repo venv; do not use system Python
+.venv/bin/manim --version
 ```
 
-LaTeX is needed only for `MathTex` / `Tex`. **Install TinyTeX or BasicTeX, not MacTeX** — MacTeX is
-about 4GB and mostly unused here. A first render names the missing `.sty` files; install those
-packages individually.
+LaTeX is needed only for `MathTex` / `Tex`, so it is **not** part of the install gate:
+`manim-render.mjs` scans the scene for those two and demands LaTeX only when one is actually used.
+A construction or a parametric sweep renders without it. When you do need it, **install TinyTeX or
+BasicTeX, not MacTeX** — MacTeX is about 4GB and mostly unused here. A first render names the
+missing `.sty` files; install those individually, and verify with a trial render of a single
+`MathTex` before planning a scene around it.
 
-Verify with a trial render of a single `MathTex` before planning a scene around it. As of writing,
-neither `manim` nor any LaTeX distribution is installed on this machine.
+`pycairo` needs `pkgconf` to build. Without it the install fails while hunting for cairo, which
+reads as a missing cairo even when cairo is right there.
+
+**On this machine:** `manim` Community v0.21.0 is installed in the repo venv and renders. No LaTeX
+distribution is installed, so the `MathTex` path is unverified here.
 
 ## Render
 
@@ -43,7 +49,13 @@ Hyperframes renders in Chrome:
 ffmpeg -i scene.mov -c:v libvpx-vp9 -pix_fmt yuva420p scene.webm
 ```
 
-`yuva420p` is what carries the alpha channel. `libvpx-vp9` is present in the local ffmpeg.
+`yuva420p` is what asks for the alpha channel. `libvpx-vp9` is present in the local ffmpeg.
+
+**Do not verify this with `ffprobe`'s `pix_fmt`.** WebM carries alpha in a *separate* track, flagged
+by the container's `AlphaMode` element, so the video stream reads back as plain `yuv420p` even when
+the alpha is perfectly intact — and `ffmpeg`'s own decoder does not reapply it, so a round-trip
+through `ffmpeg` also shows opaque. Both are red herrings. The real check, which the script does, is
+`ffprobe -show_entries stream_tags=alpha_mode`, which must be `1`.
 
 **3 — Pin fps and dimensions to the composition exactly.** A mismatch is an error, not something to
 resize after the fact — a 60fps clip in a 30fps composition judders against the surrounding motion,
@@ -59,13 +71,20 @@ and it reads as cheapness rather than as a bug.
 **Hyperframes owns playback and seeking.** Never call `play()`, `pause()`, or set `currentTime` —
 the renderer positions media itself, frame by frame, and imperative control breaks determinism.
 
-### If alpha does not composite
+### Alpha does composite — verified
 
-Hyperframes' docs do not state WebM-alpha support for input video, so **verify this before designing
-around it** (milestone 2 of the plan). If it fails:
+Tested on 2026-09-30: a transparent Manim construction, rendered through this script and placed over
+a solid-red page in headless Chrome, showed red through every transparent pixel, including the
+interior of the circle. Chrome reported no decode error, correct dimensions and duration.
+
+So layering a Tier 2 clip over composition elements is safe, and the fallback below is not needed.
+
+<details>
+<summary>The fallback, if this ever regresses</summary>
 
 Render the Manim scene on the design preset's own background colour and cut to it full-bleed as its
 own scene. A visual downgrade — no layering over composition elements — but not a blocker.
+</details>
 
 ## Matching the design system
 
@@ -73,8 +92,14 @@ A Manim scene that looks like stock Manim reads as pasted in from another video.
 design preset's tokens into the scene as config: background, foreground, the single accent, and the
 font.
 
-`<skill-dir>/assets/manim/scene_template.py` should hold a base class that reads those tokens, so
-individual scenes only describe the maths.
+`<skill-dir>/assets/manim/scene_template.py` holds `ChalkScene`, a base class that reads those
+tokens from `CHALK_TOKENS` (JSON) so individual scenes only describe the maths. It exposes `tex`,
+`prose`, `label`, `axes`, `styled` and `draw`, and no scene should hard-code a colour.
+
+```bash
+CHALK_TOKENS='{"fg":"#e7e9ee","accent":"#8aa7d6"}' \
+  node <skill-dir>/scripts/manim-render.mjs scene.py --fps 30 --resolution 1920x1080
+```
 
 ## Cost
 
@@ -84,7 +109,4 @@ where watching the transformation *is* the explanation.
 
 ## TODO
 
-- [ ] `scripts/manim-render.mjs`
-- [ ] `assets/manim/scene_template.py` — design-token base class
-- [ ] Resolve the alpha question and delete whichever branch above turns out to be wrong
-- [ ] A worked equation-transform scene
+- [ ] A worked equation-transform scene — blocked on a LaTeX install, since it needs `MathTex`

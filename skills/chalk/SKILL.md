@@ -95,11 +95,16 @@ Normalize the input into `chapter.json` — paragraph-addressed blocks with stab
 the grounding currency for everything that follows.
 
 ```bash
-node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json
+node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json \
+     [--chapter N|title] [--assets <output-dir>/work] [--list]
 ```
+
+Reads `.md`, `.txt`, `.epub` and `.pdf`, including scanned PDFs via OCR. A book with several
+chapters and no `--chapter` prints its splits and stops — use `--list` to see them first.
 
 **Gate:** `chapter.json` exists, blocks are in reading order, extraction quality is classified
 (`clean` / `needs-review` / `ocr`), and you can state the chapter's thesis in one sentence.
+Anything not `clean`, and every block marked `confidence: "low"`, gets a human skim before step 2.
 
 ---
 
@@ -174,6 +179,13 @@ advancement and cites a source, and it works at phone width and by keyboard.
 
 Concatenate `lesson.mp4`, bake a settled-frame poster as frame 0 of each segment, and write
 `lesson-plan.md` with a source-citation table.
+
+```bash
+node <skill-dir>/scripts/deliver.mjs <output-dir>
+```
+
+It exits 1 if any script line lacks a `source:` — `lesson-plan.md` is the audit trail for the
+grounding claim, so it will not be written over an ungrounded script.
 
 **Gate:** `lesson.html`, `lesson.mp4` and `lesson-plan.md` exist; every poster is a settled frame,
 not a mid-transition one.

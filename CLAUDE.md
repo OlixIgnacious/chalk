@@ -13,8 +13,8 @@ gate at every step. The video engine is [Hyperframes](https://github.com/heygen-
 presets, audio, caption alignment, frame construction and rendering.
 
 If you find yourself writing a lot of code, stop — you are probably rebuilding something the engine
-already does. The four scripts in `skills/chalk/scripts/` exist because nothing upstream covers
-them; that list should grow slowly and reluctantly.
+already does. The scripts in `skills/chalk/scripts/` exist because nothing upstream covers them; that list should
+grow slowly and reluctantly.
 
 The layout is deliberate: a thin `SKILL.md`, one `references/step-N-*.md` per step loaded only when
 that step runs, and a hard gate between steps.
@@ -117,6 +117,7 @@ Useful gates while working:
 ```bash
 npm test                                     # the script regression gate
 npm run test:player                          # the lesson page, driven in Chrome
+npm run test:tier2                           # the Manim render and its alpha
 npx hyperframes doctor                       # environment
 npx hyperframes check <project>              # the browser gate, zero errors required
 npx hyperframes snapshot <project> --at 2,15 # inspect stills instead of re-rendering
