@@ -69,6 +69,37 @@ test("ingest: the maths fixture keeps its LaTeX notation verbatim", () => {
   assert.ok(text.includes("$x$"), "inline maths should survive ingestion untouched");
 });
 
+// Display maths in a Markdown/LaTeX source is exact, unlike a PDF's — so it is an `equation` block
+// carrying its own LaTeX, not a `para` that step 3 has to re-sniff to route a tier.
+test("ingest: display maths in Markdown becomes an equation block, with its LaTeX kept", () => {
+  const md = write(
+    "display.md",
+    "# Rates\n\nThe ratio we are after is written thus:\n\n" +
+      "$$\\frac{dy}{dx} = \\frac{1}{1.73}.$$\n\n" +
+      "\\[ E = mc^2 \\]\n\n" +
+      "Let $x$ be the base and $y$ the height of the triangle we started from.\n",
+  );
+  const r = run("ingest.mjs", md, "--out", out("display.json"));
+  assert.equal(r.status, 0, r.stderr);
+  const ch = JSON.parse(readFileSync(out("display.json"), "utf8"));
+
+  const eqs = ch.blocks.filter((b) => b.kind === "equation");
+  assert.equal(eqs.length, 2, `both display blocks must register as equations, got ${eqs.length}`);
+  assert.ok(eqs.every((e) => /^e\d{3}$/.test(e.id)), "an equation block takes the e-prefixed id");
+  // The delimiters are stripped off `latex` so it can go straight to KaTeX; `text` stays verbatim.
+  assert.equal(eqs[0].latex, "\\frac{dy}{dx} = \\frac{1}{1.73}.");
+  assert.ok(eqs[0].text.startsWith("$$"), "text keeps the source form, delimiters and all");
+  assert.equal(eqs[1].latex, "E = mc^2");
+
+  // Exact source notation is not shaky notation: it must not drag the chapter to needs-review.
+  assert.equal(ch.quality, "clean");
+  assert.ok(!eqs.some((e) => e.confidence === "low"), "LaTeX source is read cleanly, not guessed at");
+
+  // A sentence that merely mentions $x$ is still prose.
+  const prose = ch.blocks.find((b) => /base and/.test(b.text));
+  assert.equal(prose.kind, "para", "inline maths inside a sentence does not make it an equation");
+});
+
 test("ingest: block ids are stable across re-runs", () => {
   run("ingest.mjs", fixture("gutenberg-chapter.md"), "--out", out("a.json"));
   run("ingest.mjs", fixture("gutenberg-chapter.md"), "--out", out("b.json"));
@@ -472,6 +503,71 @@ test("align-captions: display tokens take their first spoken word's start", () =
   assert.equal(caps.lines[0].w.at(-1)[0], "KaTeX");
   assert.equal(caps.lines[0].w.at(-1)[1], 1.2, "a multi-word spoken token starts at its first word");
   assert.equal(caps.lines[0].end, 1.9, "a line ends where the next one's first word starts");
+});
+
+// whisper renders a standalone single letter as "X"/"Y" and GLUES it to the following word
+// ("Yand", "Xare", "Xplus"). One stream word then spans two display tokens. Letting the first
+// token swallow the whole glued word desynchronised every token after it — and a maths chapter is
+// nothing but single-letter variables, so this is the common case, not an edge one.
+test("align-captions: one glued spoken word can cover several display tokens", () => {
+  const tokens = write(
+    "glued-tokens.json",
+    JSON.stringify({
+      lines: [
+        { id: "l1", tokens: ["when", "y", "and", "x", "are", "related"] },
+      ],
+    }),
+  );
+  const words = write(
+    "glued-words.json",
+    JSON.stringify([
+      { text: "when", start: 0.0, end: 0.3 },
+      { text: "Yand", start: 0.4, end: 0.9 },
+      { text: "Xare", start: 1.0, end: 1.5 },
+      { text: "related", start: 1.6, end: 2.1 },
+    ]),
+  );
+  const dest = out("glued.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, `glued words must align cleanly:\n${r.stderr}`);
+  assert.doesNotMatch(r.stderr, /MISMATCH/);
+
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.equal(w.length, 6, "every display token must still get a time");
+  assert.deepEqual(w.map((x) => x[0]), ["when", "y", "and", "x", "are", "related"]);
+  // The two tokens inside one glued word share that word's start; the line keeps moving forward.
+  assert.equal(w[1][1], 0.4, "y takes Yand's start");
+  assert.equal(w[2][1], 0.4, "and is inside the same spoken word, so it shares that start");
+  assert.equal(w[3][1], 1.0, "x takes Xare's start");
+  assert.equal(w[4][1], 1.0, "are shares it");
+  assert.equal(w[5][1], 1.6, "the next real word resyncs");
+});
+
+// whisper digitises number words unpredictably — "one" comes back as "1" in one sentence and as
+// "one" in the next. A maths chapter says small numbers constantly, so both spellings must match.
+test("align-captions: a number word and its digit are the same word", () => {
+  const tokens = write(
+    "num-tokens.json",
+    JSON.stringify({ lines: [{ id: "l1", tokens: ["One", "whole", "inch", "and", "3", "more"] }] }),
+  );
+  const words = write(
+    "num-words.json",
+    JSON.stringify([
+      { text: "1", start: 0.0, end: 0.3 },
+      { text: "whole", start: 0.3, end: 0.6 },
+      { text: "inch", start: 0.6, end: 0.9 },
+      { text: "and", start: 0.9, end: 1.1 },
+      { text: "three", start: 1.1, end: 1.4 },
+      { text: "more", start: 1.4, end: 1.7 },
+    ]),
+  );
+  const dest = out("num.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, `number words must align to digits:\n${r.stderr}`);
+  assert.doesNotMatch(r.stderr, /MISMATCH/);
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.equal(w[0][1], 0.0, '"One" matches the heard "1"');
+  assert.equal(w[4][1], 1.1, '"3" matches the heard "three"');
 });
 
 test("align-captions: a VO that does not match the script reports MISMATCH and fails", () => {

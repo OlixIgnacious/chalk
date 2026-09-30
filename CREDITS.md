@@ -19,12 +19,13 @@ marketplace-distributed, so it cannot be installed as a dependency.
 - Upstream: https://github.com/heygen-com/hyperframes/blob/main/.claude/skills/changelog-video/scripts/align-captions.mjs
 - Licence: Apache-2.0
 - Vendored: 2026-09-30
-- Local changes: two crash/correctness guards, 2026-09-30 — see below
+- Local changes: two crash/correctness guards + two alignment fixes, 2026-09-30 — see below
 
 Keep the file's header comment intact. If it is modified, record what changed and why here.
 
-**Local changes (2026-09-30).** Both are marked `LOCAL FIX` in the file. Neither changes the
-alignment algorithm or the output shape, and both should go upstream.
+**Local changes (2026-09-30).** All four are marked `LOCAL FIX` in the file, and all four should
+go upstream. The first two change neither the alignment algorithm nor the output shape; the last two
+change matching behaviour, and are described in full below.
 
 1. The line-end pass read `outLines[i + 1].w[0][1]` without checking that the next line had any
    words, so a line with an empty `tokens[]` threw a `TypeError` with no message. It now scans
@@ -32,6 +33,24 @@ alignment algorithm or the output shape, and both should go upstream.
 2. The same pass read `stream.at(-1).end` unguarded. A transcript whose final word carries no `end`
    made the arithmetic `NaN`, which `JSON.stringify` wrote out as `null` — so the caption rail
    silently had no end time. It now falls back to that word's `start`, then to 0.
+3. **The stream cursor now carries a character offset, so one spoken word can serve several display
+   tokens.** `hyperframes transcribe` renders a standalone single letter as `X`/`Y` and glues it to
+   the word after it — `Yand`, `Xare`, `Xplus`, `Ydepends`, `Xsquared`. Previously the first display
+   token matched that whole glued word by prefix and consumed it, so every token after it in the
+   line desynchronised and reported `MISMATCH`. The cursor is now `(word index, character offset)`:
+   a token takes only the characters it needs, and the remainder stays available to the next token.
+   Tokens sharing one spoken word share its start time, which is correct — the word was said once,
+   at one time.
+
+   This matters more for chalk than it did upstream. A changelog script rarely contains a bare `x`;
+   a maths chapter is almost entirely single-letter variables, so the glued case is the common one
+   rather than an edge case. Pinned by `align-captions: one glued spoken word can cover several
+   display tokens` in `test/smoke.mjs`.
+
+4. **A number word and its digit now normalise alike.** The same transcript returns `one` in one
+   sentence and `1` in the next, so `norm()` maps zero–twelve (and `nought`) to their digit,
+   whole-token only — it must not rewrite the digits inside `1.73`. Pinned by `align-captions: a
+   number word and its digit are the same word`.
 
 ## Prior art
 

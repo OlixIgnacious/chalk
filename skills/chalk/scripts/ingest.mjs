@@ -89,11 +89,27 @@ function assignIds(raw) {
  * Markdown / plain text. Blocks split on blank lines; headings, quotes and lists detected by prefix.
  * Deliberately simple — this is the path everything else is tested against.
  */
+// A whole block that is nothing but $$...$$ or \\[...\\]. Unlike a PDF's notation, this came through
+// verbatim from the source, so the LaTeX is known-good and goes on the block for step 3 to use.
+// Inline maths inside a sentence is left alone — that is prose that mentions a symbol.
+const DISPLAY_MATH = /^(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])$/;
+
 function ingestMarkdown(text) {
   const blocks = [];
   for (const raw of text.split(/\n\s*\n/)) {
     const t = raw.trim();
     if (!t) continue;
+
+    const math = t.match(DISPLAY_MATH);
+    if (math) {
+      blocks.push({
+        kind: "equation",
+        text: t,
+        latex: (math[1] ?? math[2]).trim(),
+      });
+      continue;
+    }
+
     let kind = "para";
     if (/^#{1,6}\s/.test(t)) kind = "heading";
     else if (/^>/.test(t)) kind = "quote";

@@ -46,7 +46,17 @@ if (!stream.length) die("words file is empty");
 // JSON then wrote out as null — silently, so the caption rail simply had no end time.
 const lastEnd = stream.at(-1).end ?? stream.at(-1).start ?? 0;
 
-const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+// LOCAL FIX: whisper digitises number words unpredictably — the same VO returns "one" in one
+// sentence and "1" in the next — so a bare numeral and its word must normalise alike. Whole-token
+// only: this must not rewrite digits inside a longer string such as "1.73".
+const NUMBER_WORDS = {
+  zero: "0", one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7",
+  eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12", nought: "0",
+};
+const norm = (s) => {
+  const t = s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return NUMBER_WORDS[t] ?? t;
+};
 const lev = (a, b) => {
   if (a === b) return 0;
   const m = a.length,
@@ -68,33 +78,53 @@ const close = (a, b) => {
 };
 
 let si = 0; // stream cursor
+let soff = 0; // character offset into stream[si], for a word shared by several display tokens
 let mismatches = 0;
 const outLines = [];
 
 // Greedily consume stream words from `from` whose concatenated norm builds the
 // token's full spoken norm ("hey-jen" may arrive as one word or several; "C L I"
-// as three). Returns { start, next } or null.
-function consume(from, spokenNorm) {
+// as three). Returns { start, next, off } or null.
+//
+// LOCAL FIX: the cursor carries a CHARACTER OFFSET into the current stream word, so one spoken
+// word can serve several display tokens. whisper renders a standalone single letter as "X"/"Y"
+// and glues it to the word after it ("Yand", "Xare", "Xplus"), and previously the first token
+// matched the whole glued word by prefix and swallowed it, desynchronising every token after.
+// A maths chapter is mostly single-letter variables, so that is the common case here. Tokens
+// sharing one spoken word share its start — the word was said once, at one time.
+function consume(from, fromOff, spokenNorm) {
   let acc = "",
     start = null,
-    k = from;
+    k = from,
+    off = fromOff;
   while (k < stream.length) {
-    const wn = norm(stream[k].text);
+    const full = norm(stream[k].text);
+    const wn = full.slice(off);
     if (!wn) {
       k++;
+      off = 0;
       continue;
+    }
+    const need = spokenNorm.slice(acc.length);
+    // This word covers the rest of the token and may have characters left over for the next one.
+    if (need && wn.startsWith(need)) {
+      if (start === null) start = stream[k].start;
+      const end = off + need.length;
+      const done = end >= full.length;
+      return { start, next: done ? k + 1 : k, off: done ? 0 : end };
     }
     const cand = acc + wn;
     if (spokenNorm.startsWith(cand) || close(cand, spokenNorm)) {
       if (start === null) start = stream[k].start;
       acc = cand;
       k++;
-      if (close(acc, spokenNorm)) return { start, next: k };
+      off = 0;
+      if (close(acc, spokenNorm)) return { start, next: k, off: 0 };
       continue;
     }
     break;
   }
-  return acc && close(acc, spokenNorm) ? { start, next: k } : null;
+  return acc && close(acc, spokenNorm) ? { start, next: k, off } : null;
 }
 
 for (const line of script.lines) {
@@ -109,16 +139,20 @@ for (const line of script.lines) {
     }
     // try at the cursor, then resync up to 4 words ahead
     let hit = null;
-    for (let off = 0; off <= 4 && !hit; off++) hit = consume(si + off, spokenNorm);
+    for (let skip = 0; skip <= 4 && !hit; skip++) {
+      hit = consume(si + skip, skip === 0 ? soff : 0, spokenNorm);
+    }
     if (!hit) {
       console.error(
         `MISMATCH line=${line.id} display="${display}" expected~"${spoken}" heard="${stream[si]?.text ?? "<eof>"}" @${stream[si]?.start?.toFixed(2) ?? "?"}s`,
       );
       mismatches++;
       w.push([display, si < stream.length ? stream[si].start : lastEnd]);
+      soff = 0;
       continue;
     }
     si = hit.next;
+    soff = hit.off;
     w.push([display, +hit.start.toFixed(2)]);
   }
   outLines.push({ id: line.id, w });

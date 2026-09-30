@@ -38,6 +38,7 @@ a LaTeX toolchain. It is earned by a scene, never chosen by default. See [manim.
 | An analogy | side-by-side | 1 | familiar thing left, target right | familiar first, target second; matching parts tinted alike |
 | A stated formula | KaTeX card | 1 | centred equation, annotation gutter | terms fade in; each is annotated as it is named |
 | A count or magnitude | stat hit | 1 | one large tabular-nums figure | counts up on its spoken word, then holds |
+| A concrete physical set-up | labelled figure | 1 | line-drawn figure, hairline leader lines to short labels | the figure draws in the order the prose introduces its parts; each label lands as its part is named, and the part under discussion takes the accent |
 | Code | code block | 1 | editor or terminal chrome | types in, then the relevant span highlights. Native Hyperframes — no new work |
 | **A derivation or rearrangement** | **equation transform** | **2** | before and after the same equation | terms **migrate** to their new positions; nothing teleports, nothing cross-fades |
 | **A geometric argument** | **construction** | **2** | the figure, built | draw in proof order; the claim being proved is the last stroke |
