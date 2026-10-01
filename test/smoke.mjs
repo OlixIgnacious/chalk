@@ -470,6 +470,150 @@ test("check-readability: --json reports the citation each line actually resolved
   assert.equal(entries[1].display, null, "it has no display layer to steal a citation from");
 });
 
+// ── build-tokens ──────────────────────────────────────────────────────────────────────────────────
+
+const LEXICON = JSON.stringify({
+  terms: [
+    { display: "dy/dx", spoken: "dee-wy by dee-eks", heard: "dy by dx" },
+    { display: "x + dx", spoken: "x plus dee-eks", heard: "x plus dx" },
+    { display: "30°", spoken: "thirty degrees", heard: "30 degrees" },
+    { display: "dx", spoken: "dee-eks", heard: "dx" },
+  ],
+});
+
+// The aligner must be matched against what the TRANSCRIPT returns, not what the voice was told to
+// say. `hyperframes transcribe` renormalises speech back into notation, so the two differ for
+// exactly the terms that needed respelling in the first place.
+test("build-tokens: a term is paired with its heard form, not its spoken one", () => {
+  const script = write(
+    "bt-script.md",
+    '## Scene 1 — a\nvisual: card (tier 1)\nduration: ~10s\n\n' +
+      '- spoken: "The ratio dee-wy by dee-eks at thirty degrees."\n' +
+      '  display: "The ratio dy/dx at 30°."\n' +
+      "  source: [p001]\n",
+  );
+  const dest = out("bt.json");
+  const r = run("build-tokens.mjs", script, write("bt-lex.json", LEXICON), dest);
+  assert.equal(r.status, 0, r.stderr);
+
+  const { lines } = JSON.parse(readFileSync(dest, "utf8"));
+  assert.equal(lines.length, 1);
+  const paired = lines[0].tokens.filter((t) => typeof t === "object");
+  assert.deepEqual(
+    paired.map((t) => [t.display, t.spoken]),
+    [["dy/dx", "dy by dx"], ["30°.", "30 degrees"]],
+    "each display token carries the HEARD form, and trailing punctuation rides on the display side",
+  );
+});
+
+test("build-tokens: the longest display form wins, and a term never matches mid-word", () => {
+  const script = write(
+    "bt-script2.md",
+    '## Scene 1 — a\nvisual: card (tier 1)\nduration: ~10s\n\n' +
+      '- spoken: "x plus dee-eks is exactly that."\n' +
+      '  display: "x + dx is exactly that."\n' +
+      "  source: [p001]\n",
+  );
+  const dest = out("bt2.json");
+  assert.equal(run("build-tokens.mjs", script, write("bt-lex2.json", LEXICON), dest).status, 0);
+  const toks = JSON.parse(readFileSync(dest, "utf8")).lines[0].tokens;
+  assert.equal(toks[0].display, "x + dx", '"x + dx" must beat the bare "x"');
+  // "exactly" starts with a lexicon-ish letter run; it must survive as a plain word.
+  assert.ok(toks.includes("exactly"), "a term must not match inside a longer word");
+});
+
+test("build-tokens: a malformed lexicon or script is reported, not half-written", () => {
+  const good = write("bt-ok.md", '## Scene 1 — a\n- display: "hello"\n  source: [p001]\n');
+  assert.equal(run("build-tokens.mjs", good, write("bt-bad.json", "{}"), out("x.json")).status, 2);
+  assert.equal(run("build-tokens.mjs", good, write("bt-bad2.json", "not json"), out("x.json")).status, 2);
+  // a script with no display layer has nothing to align
+  const empty = write("bt-empty.md", "# notes\n\nnothing here.\n");
+  assert.equal(run("build-tokens.mjs", empty, write("bt-lex3.json", LEXICON), out("x.json")).status, 2);
+});
+
+// ── emit-vtt ──────────────────────────────────────────────────────────────────────────────────────
+
+test("emit-vtt: cues keep video time and the display layer", () => {
+  const groups = write(
+    "cg.json",
+    JSON.stringify([
+      { start: 0, end: 1.5, text: "Here is a right-angled triangle." },
+      { start: 1.5, end: 3.25, text: "dy/dx at 30°." },
+    ]),
+  );
+  const dest = out("seg.vtt");
+  const r = run("emit-vtt.mjs", groups, dest);
+  assert.equal(r.status, 0, r.stderr);
+  const vtt = readFileSync(dest, "utf8");
+  assert.ok(vtt.startsWith("WEBVTT\n"), "a VTT must open with its magic line");
+  assert.match(vtt, /00:00:00\.000 --> 00:00:01\.500/);
+  assert.match(vtt, /00:00:01\.500 --> 00:00:03\.250/);
+  // the notation layer reaches the screen, never the phonetic spoken layer
+  assert.match(vtt, /dy\/dx at 30°\./);
+});
+
+test("emit-vtt: a cue that does not advance is refused", () => {
+  const bad = write("cg-bad.json", JSON.stringify([{ start: 2, end: 2, text: "flash" }]));
+  const r = run("emit-vtt.mjs", bad, out("bad.vtt"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /does not advance/);
+
+  const rev = write("cg-rev.json", JSON.stringify([{ start: 3, end: 1, text: "backwards" }]));
+  assert.equal(run("emit-vtt.mjs", rev, out("rev.vtt")).status, 2);
+  assert.equal(run("emit-vtt.mjs", write("cg-none.json", "[]"), out("none.vtt")).status, 2);
+});
+
+// ── fix-ground ────────────────────────────────────────────────────────────────────────────────────
+
+// assemble-index and captions.mjs read the SAME `canvas` role and want opposite values: the video
+// ground must be dark, the caption pill's text must not be. frame.md keeps the light canvas so
+// captions stay legible, and the ground is corrected afterwards.
+test("fix-index: the ground is repainted and CDN gsap is localised, idempotently", () => {
+  const page = write(
+    "idx.html",
+    '<html><head><script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>' +
+      "<style>\n  #root {\n    inset: 0;\n    background: #F0ECE5;\n  }\n</style></head></html>",
+  );
+  const r = run("fix-index.mjs", page);
+  assert.equal(r.status, 0, r.stderr);
+  const fixed = readFileSync(page, "utf8");
+  assert.match(fixed, /#root\s*\{[^}]*background:\s*#111111/, "the ground must be repainted dark");
+  // Without gsap, gsap.timeline is undefined and every frame's script throws — the whole video
+  // renders static. It must not depend on a CDN at render time.
+  assert.doesNotMatch(fixed, /cdn\.jsdelivr|unpkg|cdnjs/, "no CDN reference may survive");
+  assert.match(fixed, /src="assets\/gsap\.min\.js"/, "gsap comes from the staged local file");
+
+  const again = run("fix-index.mjs", page);
+  assert.equal(again.status, 0, "running it twice must be safe");
+  assert.match(again.stdout, /already/);
+  assert.equal(readFileSync(page, "utf8"), fixed, "a second pass changes nothing");
+});
+
+// The caption rail sits beside the index, is regenerated just as often, and carries the same CDN
+// gsap reference — so it has to be corrected in the same pass or it silently stays remote.
+test("fix-index: the caption rail beside the index is localised too", () => {
+  const dir = join(tmp, "railproj");
+  mkdirSync(join(dir, "compositions"), { recursive: true });
+  const page = join(dir, "index.html");
+  writeFileSync(page, "<html><head><style>#root { background: #F0ECE5; }</style></head></html>");
+  const rail = join(dir, "compositions", "captions.html");
+  writeFileSync(rail, '<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>');
+
+  const r = run("fix-index.mjs", page);
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(readFileSync(rail, "utf8"), /cdn\.jsdelivr/, "the rail must not stay remote");
+  assert.match(readFileSync(rail, "utf8"), /src="assets\/gsap\.min\.js"/);
+  assert.match(r.stdout, /caption rail/);
+});
+
+test("fix-index: a page with no ground rule fails loudly rather than silently", () => {
+  const page = write("idx-bare.html", "<html><head><style>body { margin: 0 }</style></head></html>");
+  const r = run("fix-index.mjs", page);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /no .*background.* rule|crossfade/i);
+  assert.equal(run("fix-index.mjs", write("idx2.html", "<style>#root{background:#fff}</style>"), "--color", "nope").status, 2);
+});
+
 // ── align-captions ────────────────────────────────────────────────────────────────────────────────
 
 test("align-captions: display tokens take their first spoken word's start", () => {

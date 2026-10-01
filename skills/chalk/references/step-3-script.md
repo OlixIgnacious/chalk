@@ -37,6 +37,26 @@ Maintain `<output-dir>/lexicon.json` — the pronunciation of every term the cha
 will get wrong. An unknown term **halts** this step until a pronunciation is set. A lesson that
 mispronounces its own subject undermines everything else in it.
 
+Each term carries **three** fields, because three different things want three different forms:
+
+```json
+{ "display": "dy/dx", "spoken": "dee-wy by dee-eks", "heard": "dy by dx", "source": ["p035"] }
+```
+
+- `display` — what goes on screen. Real notation, always.
+- `spoken` — what TTS must say. Builds the VO text.
+- `heard` — what `hyperframes transcribe` returns for that audio, and what `align-captions` is
+  matched against. Omit it when it equals `spoken`.
+
+`spoken` and `heard` differ for exactly the terms that needed respelling, because the transcript
+renormalises speech back into notation: you say "one over one point seven three" and it returns
+`1 over 1.73`. Conflating the two is what makes alignment fail.
+
+**Never respell a bare letter.** TTS already reads a plain `x` as "eks"; respelling buys no
+pronunciation, and the transcript renders a standalone letter glued to the word after it (`Xare`,
+`Ydepends`, `Xplus`), which is far harder to align. Respell only what is genuinely mispronounced —
+`dy` comes back as "die" without help.
+
 ## Readability floor
 
 Any line the learner must read holds about 0.3s per word, counted from when the whole line is

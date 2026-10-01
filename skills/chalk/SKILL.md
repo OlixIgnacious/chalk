@@ -153,8 +153,20 @@ Hyperframes domain skills — `hyperframes-core`, `hyperframes-animation`, `hype
 `hyperframes-keyframes`, `hyperframes-cli`. Do not enter the `hyperframes` intent interview; a
 `BRIEF.md` on disk is what tells `faceless-explainer` to run without asking.
 
+Three chalk-owned steps sit inside the engine's loop — the reference explains why each exists:
+
+```bash
+node <skill-dir>/scripts/build-tokens.mjs <segment>/script.md <out>/lexicon.json work/script-tokens.json
+node <skill-dir>/scripts/fix-index.mjs <project>/index.html          # after EVERY assemble-index
+node <skill-dir>/scripts/emit-vtt.mjs <project>/caption_groups.json <segment>/segment.vtt
+```
+
+**A frame's duration equals its narration**, except the last in each segment. Anything longer
+splices silence into a continuous take and bumps audibly at the cut.
+
 **Gate:** every segment has an MP4 and a VTT; `npx hyperframes check` returns zero errors for each;
-sampled stills show no overflow, collision or low contrast.
+sampled stills show no overflow, collision or low contrast; no composition reaches the network; one
+silent gap per segment, not one per frame.
 
 ---
 

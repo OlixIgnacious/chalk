@@ -9,7 +9,11 @@ Read [pedagogy.md](pedagogy.md) first and pick the mode — expository or narrat
 
 1. **Concept inventory** — each concept with the block ids that define it
 2. **Prerequisite ordering** — what must be understood before what. Usually *not* page order
-3. **Segment split** — 3–6 segments of 60–120s, one idea each, plus a 45–60s recap
+3. **Segment split** — 3–6 segments of 60–120s, one idea each, plus a 45–60s recap.
+   Estimate length at **~2.85 spoken words per second** — that is what Kokoro actually delivers at
+   a teaching pace (measured: 198 words in 69.6s). Estimating at 2.2 ran every segment ~13% short
+   of plan, and the shortfall is not recoverable later: the frames are the narration's length, so a
+   thin script yields a thin video, not a slower one.
 4. **Per segment** — a learning objective ("after this, the learner can…"), the concepts covered,
    the source block ids, and a checkpoint answerable from that segment alone
 5. **Design preset** — chosen once, here, for the whole series

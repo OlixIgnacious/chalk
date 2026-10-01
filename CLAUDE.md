@@ -43,6 +43,17 @@ onto display tokens with `scripts/align-captions.mjs`.
 
 Regenerating VO invalidates every downstream timing. Treat it as a hard reset, not a tweak.
 
+**And do not cut the clock.** TTS generates a segment as ONE continuous take: the last word of a
+scene lands a few milliseconds before the next scene's first word, so there is no pause there to
+sit in. A frame that runs longer than its narration splices digital silence (−240 dBFS, not room
+tone) into the middle of flowing speech and truncates the outgoing word mid-decay. The result is an
+audible bump at every cut, and shortening the gap only makes it briefer, not smoother. **A frame's
+duration equals its narration, exactly**, so the per-frame clips butt together at the sample
+positions they were cut from and reconstruct the original waveform.
+
+The one exception is the LAST frame of a segment, where the take has genuinely ended and a hold is
+just trailing silence. Which is also the only place "hold the payoff" applies — see below.
+
 ### Tier routing is per scene, not per book
 
 - **Tier 1 — HTML/SVG + KaTeX.** The default. Everything conceptual and narrative, diagrams, charts,
@@ -53,6 +64,13 @@ Regenerating VO invalidates every downstream timing. Treat it as a hard reset, n
 
 A Tier 2 scene is flat video: it cannot be interactive, cannot be restyled without re-rendering, and
 drags in a LaTeX toolchain. Tier 2 is earned by a scene, never chosen by default.
+
+### Hold the payoff — the payoff, not every frame
+
+The frame that carries the point stays on screen after its narration lands. That is one frame per
+segment, not all of them. Applied to every frame it produced 20 silent freezes totalling 18% of the
+runtime, one every 13–26 seconds, which reads as the video getting stuck — because it is. A hold
+inside a segment also cuts the continuous VO (above). Budget: 0s between scenes, ~1.8s at the end.
 
 ### One design preset per series
 
@@ -80,6 +98,17 @@ mistake is rendering before the teaching has been reviewed, so the step-3 gate s
 `skills/chalk/scripts/align-captions.mjs` is vendored from `heygen-com/hyperframes` (Apache-2.0).
 Keep its header comment, do not let it silently diverge, and record upstream changes in
 `CREDITS.md`.
+
+## The engine is not always right for a lesson
+
+`faceless-explainer` is tuned for promos. Four of its defaults are wrong here, and each one cost a
+real defect this run — they are documented with their fixes in `references/step-4-segments.md`
+§ Engine quirks. In short: `sync-durations` assumes frame duration should equal narration duration
+(right for a promo, wrong where text must stay readable); `fetch-sfx` rebuilds `audio_meta.json`
+from a neutral sidecar and drops every voice if you wrote only the PL-shape file; the frame-worker
+packet's `<frame_id>-` id convention produces ids starting with a digit, which throw in
+`querySelector`; and `assemble-index` and `captions.mjs` resolve the SAME `canvas` role for two
+surfaces that need opposite contrast.
 
 ## Local setup
 
