@@ -1,93 +1,80 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1784 490" width="1784" height="490" role="img" aria-label="chalk pipeline: ingest, syllabus, script, human review, segments, lesson page, deliver">
-<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#9a968d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker>
-<marker id="o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#ff6a2b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-<rect width="1784" height="490" rx="14" fill="#141414"/>
-<text x="44" y="44" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="600" fill="#ff6a2b" text-anchor="start" letter-spacing="2.4">THE PIPELINE</text>
-<text x="44" y="66" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Six steps, a gate on each, and a hard stop for human review before anything renders.</text>
-<line x1="198" y1="114" x2="828" y2="114" stroke="#2e2e2e" stroke-width="1.5"/>
-<text x="198" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" fill="#f3f0e8" text-anchor="start" letter-spacing="2">PLAN</text>
-<text x="828" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="400" fill="#9a968d" text-anchor="end" letter-spacing="0">cheap to change</text>
-<line x1="956" y1="114" x2="1586" y2="114" stroke="#2e2e2e" stroke-width="1.5"/>
-<text x="956" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" fill="#f3f0e8" text-anchor="start" letter-spacing="2">BUILD</text>
-<text x="1586" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="400" fill="#9a968d" text-anchor="end" letter-spacing="0">minutes of rendering per segment</text>
-<rect x="44" y="180.0" width="124" height="92" rx="10" fill="none" stroke="#2e2e2e" stroke-width="1.5" stroke-dasharray="4 4"/>
-<text x="106.0" y="216.0" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" fill="#9a968d" text-anchor="middle" letter-spacing="1.6">INPUT</text>
-<text x="106.0" y="236.0" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" font-weight="400" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">.md  .txt</text>
-<text x="106.0" y="253.0" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" font-weight="400" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">.epub  .pdf</text>
-<rect x="1616" y="180.0" width="124" height="92" rx="10" fill="none" stroke="#2e2e2e" stroke-width="1.5" stroke-dasharray="4 4"/>
-<text x="1678.0" y="216.0" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="600" fill="#9a968d" text-anchor="middle" letter-spacing="1.6">OUTPUT</text>
-<text x="1678.0" y="236.0" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" font-weight="400" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">lesson.html</text>
-<text x="1678.0" y="253.0" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" font-weight="400" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">lesson.mp4</text>
-<line x1="172" y1="226.0" x2="194" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<rect x="198" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="226" cy="160" r="14" fill="#ff6a2b"/><text x="226" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">1</text>
-<text x="250" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Ingest</text>
-<text x="218" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Paragraph-addressed</text>
-<text x="218" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">blocks with stable ids</text>
-<line x1="218" x2="368" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="218" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">chapter.json</text>
-<rect x="198" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M218 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="234" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Clean extraction</text>
-<line x1="391" y1="226.0" x2="414" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<rect x="418" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="446" cy="160" r="14" fill="#ff6a2b"/><text x="446" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">2</text>
-<text x="470" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Syllabus</text>
-<text x="438" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Prerequisite order, one</text>
-<text x="438" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">objective and checkpoint</text>
-<text x="438" y="246" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">per segment</text>
-<line x1="438" x2="588" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="438" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">syllabus.md</text>
-<rect x="418" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M438 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="454" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Every concept sourced</text>
-<line x1="611" y1="226.0" x2="634" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<rect x="638" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="666" cy="160" r="14" fill="#ff6a2b"/><text x="666" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">3</text>
-<text x="690" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Script</text>
-<text x="658" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Two layers: spoken and</text>
-<text x="658" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">display, with source ids</text>
-<text x="658" y="246" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">on every line</text>
-<line x1="658" x2="808" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="658" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">script.md</text>
-<rect x="638" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M658 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="674" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Grounded and readable</text>
-<rect x="956" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="984" cy="160" r="14" fill="#ff6a2b"/><text x="984" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">4</text>
-<text x="1008" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Segments</text>
-<text x="976" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Manim clips, voiceover,</text>
-<text x="976" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">word timings, then render</text>
-<text x="976" y="246" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">through the engine</text>
-<line x1="976" x2="1126" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="976" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">segment.mp4</text>
-<rect x="956" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M976 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="992" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Zero check errors</text>
-<line x1="1149" y1="226.0" x2="1172" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<rect x="1176" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="1204" cy="160" r="14" fill="#ff6a2b"/><text x="1204" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">5</text>
-<text x="1228" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Lesson page</text>
-<text x="1196" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Player with checkpoints,</text>
-<text x="1196" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">captions and glossary</text>
-<line x1="1196" x2="1346" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="1196" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">lesson.html</text>
-<rect x="1176" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M1196 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="1212" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Opens from file://</text>
-<line x1="1369" y1="226.0" x2="1392" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<rect x="1396" y="128" width="190" height="196" rx="12" fill="#1c1c1c" stroke="#2e2e2e" stroke-width="1.5"/>
-<circle cx="1424" cy="160" r="14" fill="#ff6a2b"/><text x="1424" y="165" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">6</text>
-<text x="1448" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Deliver</text>
-<text x="1416" y="206" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">Posters, joined video</text>
-<text x="1416" y="226" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">and a citation table</text>
-<line x1="1416" x2="1566" y1="272" y2="272" stroke="#2e2e2e"/>
-<text x="1416" y="300" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12.5" font-weight="400" fill="#f3f0e8" text-anchor="start" letter-spacing="0">lesson-plan.md</text>
-<rect x="1396" y="342" width="190" height="34" rx="17" fill="none" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="1.3"/>
-<path d="M1416 353 l6 6 l-6 6 l-6 -6 z" fill="#ff6a2b"/><text x="1432" y="364" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Every line has a source</text>
-<line x1="831" y1="226.0" x2="866.0" y2="226.0" stroke="#9a968d" stroke-width="1.6" marker-end="url(#a)"/>
-<line x1="918.0" y1="226.0" x2="952" y2="226.0" stroke="#ff6a2b" stroke-width="1.6" marker-end="url(#o)"/>
-<line x1="892.0" y1="122" x2="892.0" y2="376" stroke="#ff6a2b" stroke-width="1.5" stroke-dasharray="5 5" opacity=".7"/>
-<circle cx="892.0" cy="226.0" r="26" fill="#141414" stroke="#ff6a2b" stroke-width="2"/><rect x="884.0" y="218.0" width="16" height="16" rx="2" fill="#ff6a2b"/>
-<rect x="830.0" y="168.0" width="124" height="22" fill="#141414"/><text x="892.0" y="183.0" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="11" font-weight="700" fill="#ff6a2b" text-anchor="middle" letter-spacing="1.6">HUMAN REVIEW</text>
-<text x="892.0" y="274.0" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">Approve the</text>
-<text x="892.0" y="291.0" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12.5" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">teaching first</text>
-<path d="M892.0 376 V400 Q892.0 408 884.0 408 H521.0 Q513.0 408 513.0 400 V378" fill="none" stroke="#ff6a2b" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#o)"/>
-<text x="702.5" y="428" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#9a968d" text-anchor="middle" letter-spacing="0">changes needed: revise the syllabus or script, then review again</text>
-<text x="44" y="472" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#9a968d" text-anchor="start" letter-spacing="0">A failing gate stops the run. The tool reports it rather than proceeding.</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 906" width="1000" height="906" role="img" aria-label="chalk pipeline: ingest, syllabus, script, human review, segments, lesson page, deliver">
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#a8a49b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#ff6a2b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="1000" height="906" rx="14" fill="#141414"/>
+<text x="20" y="40" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#ff6a2b" text-anchor="start" letter-spacing="2.6">THE PIPELINE</text>
+<text x="20" y="68" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Six steps. Every step ends in a gate, and a failing gate stops the run.</text>
+<line x1="20" y1="114" x2="980" y2="114" stroke="#34343a" stroke-width="1.5"/>
+<text x="20" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#f3f0e8" text-anchor="start" letter-spacing="2.4">PLAN</text>
+<text x="980" y="104" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a8a49b" text-anchor="end" letter-spacing="0">in: .md  .txt  .epub  .pdf</text>
+<rect x="20" y="130" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="56" cy="168" r="18" fill="#ff6a2b"/><text x="56" y="175" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">1</text>
+<text x="86" y="176" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Ingest</text>
+<text x="44" y="214" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Paragraph-addressed blocks</text>
+<text x="44" y="239" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">with stable ids</text>
+<line x1="44" x2="286" y1="288" y2="288" stroke="#34343a"/>
+<text x="44" y="317" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">chapter.json</text>
+<rect x="20" y="350" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M44 362 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="64" y="376" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Clean extraction</text>
+<line x1="314" y1="232.0" x2="350" y2="232.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
+<rect x="355" y="130" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="391" cy="168" r="18" fill="#ff6a2b"/><text x="391" y="175" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">2</text>
+<text x="421" y="176" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Syllabus</text>
+<text x="379" y="214" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Prerequisite order, with an</text>
+<text x="379" y="239" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">objective and checkpoint</text>
+<text x="379" y="264" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">per segment</text>
+<line x1="379" x2="621" y1="288" y2="288" stroke="#34343a"/>
+<text x="379" y="317" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">syllabus.md</text>
+<rect x="355" y="350" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M379 362 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="399" y="376" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Every concept sourced</text>
+<line x1="649" y1="232.0" x2="685" y2="232.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
+<rect x="690" y="130" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="726" cy="168" r="18" fill="#ff6a2b"/><text x="726" y="175" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">3</text>
+<text x="756" y="176" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Script</text>
+<text x="714" y="214" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Spoken and display layers,</text>
+<text x="714" y="239" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">source ids on every line</text>
+<line x1="714" x2="956" y1="288" y2="288" stroke="#34343a"/>
+<text x="714" y="317" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">script.md</text>
+<rect x="690" y="350" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M714 362 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="734" y="376" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Grounded and readable</text>
+<line x1="835.0" y1="390" x2="835.0" y2="421" stroke="#ff6a2b" stroke-width="2" marker-end="url(#o)"/>
+<rect x="20" y="424" width="960" height="84" rx="14" fill="#1f1713" stroke="#ff6a2b" stroke-width="2"/>
+<rect x="50" y="452.0" width="28" height="28" rx="4" fill="#ff6a2b"/>
+<text x="100" y="460" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="700" fill="#ff6a2b" text-anchor="start" letter-spacing="2">HUMAN REVIEW</text>
+<text x="100" y="486" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="17" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Approve the syllabus and scripts before anything renders.</text>
+<text x="952" y="460" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a8a49b" text-anchor="end" letter-spacing="0">changes needed?</text>
+<text x="952" y="484" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a8a49b" text-anchor="end" letter-spacing="0">back to the syllabus</text>
+<line x1="165.0" y1="511" x2="165.0" y2="575" stroke="#ff6a2b" stroke-width="2" marker-end="url(#o)"/>
+<line x1="20" y1="562" x2="980" y2="562" stroke="#34343a" stroke-width="1.5"/>
+<text x="20" y="552" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#f3f0e8" text-anchor="start" letter-spacing="2.4">BUILD</text>
+<text x="980" y="552" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a8a49b" text-anchor="end" letter-spacing="0">out: lesson.html  lesson.mp4</text>
+<rect x="20" y="578" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="56" cy="616" r="18" fill="#ff6a2b"/><text x="56" y="623" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">4</text>
+<text x="86" y="624" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Segments</text>
+<text x="44" y="662" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Manim clips, voiceover, word</text>
+<text x="44" y="687" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">timings, then render through</text>
+<text x="44" y="712" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">the engine</text>
+<line x1="44" x2="286" y1="736" y2="736" stroke="#34343a"/>
+<text x="44" y="765" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">segment.mp4</text>
+<rect x="20" y="798" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M44 810 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="64" y="824" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Zero check errors</text>
+<line x1="314" y1="680.0" x2="350" y2="680.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
+<rect x="355" y="578" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="391" cy="616" r="18" fill="#ff6a2b"/><text x="391" y="623" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">5</text>
+<text x="421" y="624" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Lesson page</text>
+<text x="379" y="662" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Player with checkpoints,</text>
+<text x="379" y="687" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">captions and glossary</text>
+<line x1="379" x2="621" y1="736" y2="736" stroke="#34343a"/>
+<text x="379" y="765" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">lesson.html</text>
+<rect x="355" y="798" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M379 810 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="399" y="824" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Opens from file://</text>
+<line x1="649" y1="680.0" x2="685" y2="680.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
+<rect x="690" y="578" width="290" height="204" rx="14" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
+<circle cx="726" cy="616" r="18" fill="#ff6a2b"/><text x="726" y="623" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="20" font-weight="700" fill="#141414" text-anchor="middle" letter-spacing="0">6</text>
+<text x="756" y="624" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="24" font-weight="650" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Deliver</text>
+<text x="714" y="662" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">Posters, joined video and</text>
+<text x="714" y="687" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16.5" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">a citation table</text>
+<line x1="714" x2="956" y1="736" y2="736" stroke="#34343a"/>
+<text x="714" y="765" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">lesson-plan.md</text>
+<rect x="690" y="798" width="290" height="40" rx="20" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M714 810 l8 8 l-8 8 l-8 -8 z" fill="#ff6a2b"/><text x="734" y="824" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">Every line has a source</text>
 </svg>
