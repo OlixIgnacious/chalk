@@ -46,60 +46,11 @@ itself is built by [Hyperframes](https://github.com/heygen-com/hyperframes) and 
 
 ### Agent flow
 
-```mermaid
-flowchart TD
-    IN(["📖 Chapter<br/>.md · .txt · .epub · .pdf"]) --> S1
-
-    subgraph PLAN["Plan: cheap, reviewable"]
-        S1["<b>1 · Ingest</b><br/>ingest.mjs → chapter.json<br/>paragraph-addressed blocks"]
-        G1{{"Gate 1<br/>clean extraction?<br/>thesis in one sentence?"}}
-        S2["<b>2 · Syllabus</b><br/>concept graph · prerequisite order<br/>objective + checkpoint per segment<br/>one design preset"]
-        G2{{"Gate 2<br/>every concept sourced?<br/>durations sum?"}}
-        S3["<b>3 · Script</b><br/>two layers: spoken / display<br/>source ids · visual + tier per scene"]
-        G3{{"Gate 3<br/>grounded? readable?<br/>check-readability.mjs"}}
-        S1 --> G1 -->|pass| S2 --> G2 -->|pass| S3 --> G3
-    end
-
-    G1 -. "low confidence / OCR<br/>→ human skim" .-> S1
-    G3 -->|pass| REVIEW{{"🛑 <b>Human review</b><br/>approve syllabus + scripts"}}
-    REVIEW -. "revise the teaching" .-> S2
-
-    subgraph BUILD["Build: expensive, only after approval"]
-        T2["<b>Tier 2 clips</b><br/>Manim: equation becomes equation"]
-        S4["<b>4 · Segments</b><br/>BRIEF.md → faceless-explainer<br/>TTS → transcribe → align → render"]
-        G4{{"Gate 4<br/>hyperframes check = 0 errors<br/>stills clean · no network"}}
-        S5["<b>5 · Lesson page</b><br/>lesson.json → lesson.html<br/>checkpoints · captions · glossary"]
-        G5{{"Gate 5<br/>file:// · keyboard · phone width"}}
-        S6["<b>6 · Deliver</b><br/>posters · lesson.mp4<br/>lesson-plan.md + citations"]
-        T2 --> S4 --> G4 -->|pass| S5 --> G5 -->|pass| S6
-    end
-
-    REVIEW -->|approved| T2
-    S6 --> OUT(["🎓 chalk-output/&lt;chapter-slug&gt;/"])
-
-    classDef gate fill:#1f2937,stroke:#f59e0b,color:#fde68a;
-    classDef stop fill:#7c2d12,stroke:#fb923c,color:#fff;
-    classDef io fill:#0f172a,stroke:#38bdf8,color:#e0f2fe;
-    class G1,G2,G3,G4,G5 gate;
-    class REVIEW stop;
-    class IN,OUT io;
-```
+<p align="center"><img src="assets/pipeline.svg" alt="The chalk pipeline: ingest, syllabus, script, human review, segments, lesson page, deliver" width="100%"></p>
 
 ### Inside step 4: the audio is the clock
 
-```mermaid
-flowchart LR
-    A["script.md<br/>spoken layer"] --> B["hyperframes tts<br/>Kokoro → one WAV"]
-    B --> C["hyperframes transcribe<br/>word timings"]
-    C --> D["align-captions.mjs<br/>timings → display tokens"]
-    D --> E["faceless-explainer<br/>frames, motion, render"]
-    E --> F["fix-index.mjs<br/>engine quirk fixes"]
-    F --> G["emit-vtt.mjs<br/>segment.vtt"]
-    F --> H[("segment.mp4")]
-```
-
-A frame's duration equals its narration, exactly. Regenerating the voiceover invalidates every
-downstream timing, so it is a hard reset, not a tweak.
+<p align="center"><img src="assets/step4.svg" alt="Inside step 4: script, TTS, transcribe, align, render, fix, segment" width="100%"></p>
 
 ### Tier routing, per scene
 
