@@ -2,14 +2,20 @@
 
 <img src="assets/logo.svg" alt="chalk. Chalk it up." width="480">
 
-**Turn a book chapter into minimal animated lessons.**
+**Read the chapter. Watch the lesson. Every line traced to the page.**
 
-The board, the diagram, and the voice that walks you through, with every line traceable to the page it came from.
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933)](https://nodejs.org)
+[![Engine](https://img.shields.io/badge/video%20engine-Hyperframes-black)](https://github.com/heygen-com/hyperframes)
+[![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-d97757)](https://claude.com/claude-code)
 
-![License](https://img.shields.io/badge/license-Apache--2.0-blue)
-![Node](https://img.shields.io/badge/node-%E2%89%A522-339933)
-![Engine](https://img.shields.io/badge/video%20engine-Hyperframes-black)
-![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-d97757)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Output](#output) · [Testing](#testing) · [Contributing rules](CLAUDE.md)
+
+<br>
+
+<img src="assets/demo.gif" alt="A chalk lesson from Calculus Made Easy: a right triangle is drawn while the narration explains dy/dx, with word-by-word captions." width="720">
+
+<sub>One segment of a lesson generated from Chapter III of <i>Calculus Made Easy</i> (Thompson, 1910, public domain).</sub>
 
 </div>
 
