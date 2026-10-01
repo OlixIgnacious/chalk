@@ -2,6 +2,7 @@
 chalk-output/
 chalk-output-*/
 work/
+brag-output/
 
 # node
 node_modules/
