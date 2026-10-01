@@ -102,21 +102,38 @@ const url = "file://" + join(out, "lesson.html");
 
 // ── a minimal DevTools-protocol driver ────────────────────────────────────────────────────────────
 
-const port = 9000 + Math.floor(Math.random() * 900);
-const profile = mkdtempSync(join(tmpdir(), "chalk-chrome-"));
-const proc = spawn(chrome, [
-  "--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
-  "--no-first-run", "--no-default-browser-check", "--disable-gpu",
-  "--autoplay-policy=no-user-gesture-required",
-], { stdio: "ignore" });
-
-const base = `http://127.0.0.1:${port}`;
-for (let i = 0; i < 120; i++) {
-  try { await fetch(base + "/json/version"); break; } catch { await new Promise((r) => setTimeout(r, 100)); }
+/**
+ * Launch a headless Chrome and wait for its DevTools endpoint.
+ *
+ * `relaxAutoplay` disables the autoplay policy, which most of this file wants: these tests drive
+ * the page with JS `.click()`, and a synthetic click grants no user activation, so without the
+ * relaxation every play() would be rejected for reasons that have nothing to do with the player.
+ *
+ * It must NOT be relaxed for the gesture test below — that one is specifically about whether a
+ * real click reaches play(), and the relaxation would make it pass no matter what.
+ */
+async function launch({ relaxAutoplay }) {
+  const port = 9000 + Math.floor(Math.random() * 900);
+  const profile = mkdtempSync(join(tmpdir(), "chalk-chrome-"));
+  const proc = spawn(chrome, [
+    "--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`,
+    "--no-first-run", "--no-default-browser-check", "--disable-gpu",
+    ...(relaxAutoplay ? ["--autoplay-policy=no-user-gesture-required"] : []),
+  ], { stdio: "ignore" });
+  const base = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 120; i++) {
+    try { await fetch(base + "/json/version"); break; } catch { await new Promise((r) => setTimeout(r, 100)); }
+  }
+  return { proc, profile, base };
 }
 
-async function open(pageUrl, { onNewDocument } = {}) {
-  const target = await (await fetch(`${base}/json/new?${encodeURIComponent(pageUrl)}`, { method: "PUT" })).json();
+const relaxed = await launch({ relaxAutoplay: true });
+const proc = relaxed.proc;
+const profile = relaxed.profile;
+const base = relaxed.base;
+
+async function open(pageUrl, { onNewDocument, base: at = base } = {}) {
+  const target = await (await fetch(`${at}/json/new?${encodeURIComponent(pageUrl)}`, { method: "PUT" })).json();
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
 
@@ -159,6 +176,32 @@ async function open(pageUrl, { onNewDocument } = {}) {
     key: (key, code, vk) =>
       send("Input.dispatchKeyEvent", { type: "keyDown", key, code, windowsVirtualKeyCode: vk })
         .then(() => send("Input.dispatchKeyEvent", { type: "keyUp", key, code, windowsVirtualKeyCode: vk })),
+    /**
+     * Click an element the way a person does. `element.click()` from script does NOT grant user
+     * activation, so it can never exercise the autoplay path; only a dispatched input event can.
+     * Scrolls the target into view first — a click at coordinates outside the viewport silently
+     * lands on nothing, which looks exactly like a broken handler.
+     */
+    async click(selector) {
+      const box = await send("Runtime.evaluate", {
+        expression: `(() => {
+          const el = document.querySelector(${JSON.stringify(selector)});
+          if (!el) return null;
+          el.scrollIntoView({ block: "center" });
+          const r = el.getBoundingClientRect();
+          const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2);
+          const hit = document.elementFromPoint(x, y);
+          return JSON.stringify({ x, y, hits: !!hit && (hit === el || el.contains(hit)) });
+        })()`,
+        returnByValue: true,
+      });
+      const v = box.result?.result?.value;
+      if (!v) throw new Error(`click: no element matches ${selector}`);
+      const { x, y, hits } = JSON.parse(v);
+      if (!hits) throw new Error(`click: ${selector} is not the element at (${x}, ${y}) — it is covered or off-screen`);
+      await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+      await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+    },
   };
 }
 
@@ -178,6 +221,7 @@ const ok = (name, fn) => {
   }
 };
 const wipe = "try { localStorage.clear(); } catch {}";
+let strict = null; // the second browser, with the autoplay policy left ON
 
 try {
   const p = await open(url, { onNewDocument: wipe });
@@ -333,8 +377,80 @@ try {
   ok("no horizontal scroll at phone width", () =>
     assert.ok(overflow.scrollW <= overflow.clientW + 1,
       `scrollWidth ${overflow.scrollW} exceeds clientWidth ${overflow.clientW}`));
+
+  // ── the autoplay gate ───────────────────────────────────────────────────────────────────────
+  //
+  // Every test above runs with the autoplay policy DISABLED and clicks via JS `.click()`. Neither
+  // grants user activation, so between them the one thing that matters most to a real learner —
+  // does the video actually start when a human presses the button — was never asserted. A
+  // regression that moved play() out of the gesture handler would pass all sixteen and fail for
+  // everyone. This browser enforces the real policy and the click is a real input event.
+  strict = await launch({ relaxAutoplay: false });
+  const real = await open(url, { onNewDocument: wipe, base: strict.base });
+  await real.viewport(1100, 900);
+  // Capture WHY play() was refused, and WHEN it was called.
+  //
+  // "when" matters more than it looks. Chrome has STICKY activation: once the page has been
+  // clicked at all, a play() deferred to a later task still succeeds, so Chrome alone cannot tell
+  // a correct player from one that calls play() outside the gesture turn. Safari has no such
+  // forgiveness — it requires play() in the same turn as the gesture, and a deferred call there
+  // is simply refused. So the gate asserts the stricter rule that Safari enforces, using a flag
+  // that is true only for the duration of the click's own task.
+  await real.evaluate(`
+    window.__play = "play() was never called";
+    window.__inGesture = false;
+    window.__calledInGesture = null;
+    document.getElementById("start-btn").addEventListener("click", () => {
+      window.__inGesture = true;
+      setTimeout(() => { window.__inGesture = false; }, 0); // anything deferred lands after this
+    }, true);
+    const v = document.getElementById("video");
+    const orig = v.play.bind(v);
+    v.play = function () {
+      if (window.__calledInGesture === null) window.__calledInGesture = window.__inGesture;
+      const p = orig();
+      if (p && p.then) {
+        p.then(() => { window.__play = "resolved"; })
+         .catch((e) => { window.__play = e.name + ": " + e.message; });
+      } else { window.__play = "resolved (no promise)"; }
+      return p;
+    };
+    return true;`);
+
+  await real.click("#start-btn");
+  await new Promise((r) => setTimeout(r, 1800));
+  const live = await real.evaluate(`
+    const v = document.getElementById("video");
+    return {
+      why: window.__play,
+      paused: v.paused,
+      currentTime: v.currentTime,
+      readyState: v.readyState,
+      error: v.error ? v.error.code + " " + v.error.message : null,
+      activated: navigator.userActivation ? navigator.userActivation.hasBeenActive : true,
+      calledInGesture: window.__calledInGesture,
+    };`);
+
+  ok("a real click actually starts playback, under the real autoplay policy", () => {
+    assert.equal(live.activated, true, "the dispatched event did not register as user activation");
+    assert.equal(live.error, null, `the video element reported an error: ${live.error}`);
+    assert.ok(live.readyState >= 2, `the video never loaded (readyState ${live.readyState})`);
+    assert.equal(live.paused, false, `play() did not start it — ${live.why}`);
+    assert.ok(live.currentTime > 0, `playback did not advance — currentTime ${live.currentTime}, ${live.why}`);
+  });
+  ok("play() is called inside the gesture's own task, which is what Safari requires", () => {
+    assert.notEqual(live.calledInGesture, null, "play() was never called at all");
+    assert.equal(
+      live.calledInGesture, true,
+      "play() ran in a later task than the click. Chrome's sticky activation forgives this and the " +
+        "video still starts here, but Safari refuses it outright — call play() synchronously in the handler.",
+    );
+  });
+  ok("no console errors under the real policy", () => assert.deepEqual(real.problems, []));
 } finally {
   try { proc.kill("SIGKILL"); } catch {}
+  try { strict?.proc.kill("SIGKILL"); } catch {}
+  if (strict) rmSync(strict.profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

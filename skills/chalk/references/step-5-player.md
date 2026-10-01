@@ -74,6 +74,15 @@ document as its own origin and blocks the text track, so a linked VTT shows noth
 this page is meant to open. `build-lesson-page.mjs` parses each segment's VTT at build time and the
 player draws its own caption rail. A missing VTT is a warning, not a failure.
 
+**`play()` is called synchronously inside the click handler.** Not after an `await`, not in a
+`setTimeout`, not in a `.then()`. Chrome has *sticky* user activation — once the page has been
+clicked at all, a deferred `play()` still succeeds — so Chrome will not tell you this is broken.
+Safari has no such forgiveness: it requires the call in the gesture's own task and refuses it
+otherwise, which presents as a player that loads the video and then does nothing. `npm run
+test:player` asserts the stricter Safari rule in a second browser with the autoplay policy left
+**on**, because the rest of the suite disables it and clicks via `element.click()`, and neither of
+those grants activation.
+
 **A wrong answer does not force a replay.** It reveals the correct option and the explanation with
 its citation, and offers Continue. Replaying is one button away in the controls, and is the
 learner's call — locking someone out of a lesson they are already struggling with teaches nothing.
@@ -101,3 +110,10 @@ positioning and focus management.
 
 `npm run test:player` drives all four of these in a real browser and is the check to run before
 shipping any player change. It skips when Chrome is absent rather than failing.
+
+It runs **two** browsers. The first relaxes the autoplay policy, because its tests click via
+`element.click()` and a synthetic click grants no user activation. The second leaves the policy on
+and clicks with a dispatched input event — that one exists because the relaxation made the most
+important question unaskable: *does the video actually start when a person presses the button?* A
+regression moving `play()` out of the gesture handler used to pass every test and fail every real
+user.
