@@ -1,0 +1,13 @@
+* text=auto eol=lf
+fixtures/*.md text
+*.png binary
+*.jpg binary
+*.woff2 binary
+# Binary fixtures and media. Without these, text=auto has to guess, and a PDF or EPUB mangled by
+# EOL conversion fails in ways that look like a parser bug.
+*.pdf binary
+*.epub binary
+*.mp4 binary
+*.webm binary
+*.mov binary
+*.wav binary
