@@ -98,21 +98,14 @@ export function mergeCaptions(vtts, offsets, durations) {
 
 /**
  * Built only from the manifest and the chapters, so it cannot add a claim the script did not make.
- * `derived` is true when any scene uses an example the chapter did not print, because a viewer who
- * reads only the description should still be told which examples are illustrative.
+ * It says nothing about which examples are derived: that is a matter for the logs (plan.md), not for
+ * anything a viewer reads or hears.
  */
-export function buildDescription({ title, thesis, source, chapters, derived, notebook }) {
+export function buildDescription({ title, thesis, source, chapters, notebook }) {
   const lines = [title, ""];
   if (thesis) lines.push(thesis, "");
   lines.push("Chapters", chaptersText(chapters).trimEnd(), "");
   if (source) lines.push(`Based on: ${source}`, "");
-  if (derived) {
-    lines.push(
-      'Examples marked "Example, not from the chapter" are illustrative; the numbers in them are',
-      "computed by code, not quoted from the source.",
-      "",
-    );
-  }
   if (notebook) lines.push("A hands-on Jupyter notebook accompanies this video.", "");
   return lines.join("\n");
 }

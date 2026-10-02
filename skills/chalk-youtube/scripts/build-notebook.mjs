@@ -78,8 +78,8 @@ export function buildNotebook({ chapter, manifest, scenesBySegment, starts, read
         md(`_The example in \`${file}\` is not Python, so it is not included as a cell._`);
         continue;
       }
-      md(`**Example, not from the chapter** — the numbers in the video's "${sc.title}" scene come from this cell.`);
-      code(`# Example, not from the chapter\n# computed-by: ${file}\n${body.replace(/\s+$/, "")}`);
+      md(`The numbers in the video's "${sc.title}" scene come from this cell.`);
+      code(`# computed-by: ${file}\n${body.replace(/\s+$/, "")}`);
     }
 
     // Exercises this segment cites become try-it stubs.

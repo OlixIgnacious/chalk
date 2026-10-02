@@ -32,9 +32,10 @@ they cannot drift. What is specific to this skill:
 
 Every segment has an example, because a video with none is dry. But "add an example" must not become a
 way around grounding. An example is the chapter's own, or **derived** — every number computed by a
-script named in `computed-by:`, tagged "Example, not from the chapter" on screen for the whole scene,
-illustrating only a claim the chapter makes — or a **gap**, shown to the user. Never a number typed
-from memory. `chalk-core check-readability` enforces the declaration and the tag; the rest is review.
+script named in `computed-by:`, illustrating only a claim the chapter makes — or a **gap**, shown to the user. Never a number typed
+from memory. `chalk-core check-readability` enforces the declaration. **The video carries no label.** That the
+case is derived lives in the logs (`plan.md`), never in the narration, captions, on-screen text, the
+description or the notebook. Do not add it back.
 
 ### Delivery refuses, and refuses before it writes
 

@@ -15,6 +15,16 @@ Every line has two forms, the pattern proven by the `changelog-video` skill:
 
 They must carry the same words in the same order, or caption alignment cannot map between them.
 
+**`display` is not a place for on-screen copy.** It differs from `spoken` only in notation: digits for
+number words, case, punctuation, and the lexicon's terms. A condensed or paraphrased display line —
+"Your turn" for "Now try it yourself" — is not a display form of it, and `align-captions` will print a
+`MISMATCH` for every word it cannot match. Short on-screen copy (a hero word, a label) lives in the
+frame itself, not in the script's display layer.
+
+**A frame is a scene.** The audio step reads one narration block per storyboard frame, so each script
+scene becomes one frame and one voice take. Split a scene that carries two ideas; the one-visual-per-scene
+rule and the frame-per-scene mapping both want it.
+
 ## Shape
 
 ```markdown
@@ -40,16 +50,18 @@ example: derived
 computed-by: examples/spread.py
 duration: ~20s
 
-- spoken: "Two lists can share a mean and still behave very differently."
-  display: "Example, not from the chapter: two lists, one mean."
+- spoken: "Take the list four, five, six, and the list one, five, nine."
+  display: "Take the list 4, 5, 6, and the list 1, 5, 9."
   source: [p004]
 ```
 
+The declaration is the record: it feeds the plan and the logs, and the video carries no label.
 `example: chapter` needs no `computed-by`. See [fidelity.md](fidelity.md) § Examples.
 
 ## Lexicon
 
-Maintain `<output-dir>/lexicon.json` — the pronunciation of every term the chapter uses that TTS
+Maintain `<output-dir>/lexicon.json` — a file of the shape `{ "terms": [ … ] }` (a bare array is refused),
+holding the pronunciation of every term the chapter uses that TTS
 will get wrong. An unknown term **halts** this step until a pronunciation is set. A script that
 mispronounces its own subject undermines everything else in it.
 
@@ -63,6 +75,10 @@ Each term carries **three** fields, because three different things want three di
 - `spoken` — what TTS must say. Builds the VO text.
 - `heard` — what `hyperframes transcribe` returns for that audio, and what `align-captions` is
   matched against. Omit it when it equals `spoken`.
+
+Add a term for a **mishearing** too, not only for notation: the transcript returned "Amine" for the
+spoken "a mean", so `{ "display": "A mean", "spoken": "a mean", "heard": "Amine" }` is what lets the
+aligner pair them. Read the transcript before trusting the lexicon; `heard` is a guess until you have.
 
 `spoken` and `heard` differ for exactly the terms that needed respelling, because the transcript
 renormalises speech back into notation: you say "one over one point seven three" and it returns

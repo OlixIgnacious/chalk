@@ -7,16 +7,26 @@ how segments are delivered, belongs to the skill using this.
 
 ## Captions
 
-`hyperframes tts` does **not** emit word timings. Get them by transcribing the generated VO, then
-map them back onto the display layer:
+`hyperframes tts` does **not** emit word timings, but the audio step (`faceless-explainer`'s
+`audio.mjs`) transcribes each take and writes word timings per frame into `audio_meta.json`. Those
+words are the *transcript* — with its mishearings — so map them back onto the display layer, and write
+the result back where the caption builder reads it:
 
 ```bash
-npx hyperframes transcribe <vo.wav>                       # → word-level JSON
+# one absolute word stream for the segment: each frame's words shifted by where the frame starts
 npx chalk-core build-tokens \
   <output-dir>/segments/NN/script.md <output-dir>/lexicon.json work/script-tokens.json
 npx chalk-core align-captions \
-  --tokens work/script-tokens.json --words work/transcript.json --out work/captions.json
+  --tokens work/script-tokens.json --words work/words.json --out work/captions.json
+npx chalk-core apply-display \
+  --script <output-dir>/segments/NN/script.md --captions work/captions.json \
+  --audio-meta <project>/audio_meta.json
 ```
+
+`apply-display` is the step nothing else does: `captions.mjs` reads `audio_meta.json` voices[].words, so
+without it the captions show the raw transcript ("Amine"), not the script. It keeps the transcript as
+`audio_meta.transcript.json` and starts from it every run — re-run `align-captions` against *that*, not
+the rewritten file. Run `captions.mjs` only after it.
 
 Resolve every `MISMATCH` the aligner prints. A spoken interval with no caption is a red gate, not a
 style choice. Two causes account for nearly all of them, and both are the lexicon's job:
@@ -87,3 +97,27 @@ npx hyperframes snapshot <project> --at 2,15,45    # stills, including mid-trans
 
 Check mid-transition frames too: a crossfade between two busy layouts reads as a muddy double
 exposure. Stagger it, or dip through the background.
+
+## Setting up a segment project
+
+Four things a fresh project does not give you, each of which cost a run:
+
+- **Stage the fonts.** `build-frame` says it stages the preset's fonts into `assets/fonts/`, and does not.
+  Copy the preset's `fonts/*.woff2` there and give every frame an `@font-face` for each face it names,
+  or the render falls back silently.
+- **Stage GSAP.** `fix-index` repoints the CDN reference at `assets/gsap.min.js` but does not create
+  it. Put the same pinned version there (`npm pack gsap@<version>` and take `dist/gsap.min.js`).
+- **Name frames with a letter first** (`f01-title`, not `01-title`): the id becomes a selector, and
+  `querySelector("#01-…")` throws.
+- **A light preset needs `fix-index --color`.** `fix-index` repaints the ground dark by default, which
+  suits a dark preset. For a cream preset, pass its own canvas (`--color "#FAF9F5"`), or the ground shows
+  dark through every crossfade.
+
+Order for one segment: audio → `sync-durations` (then restore the last frame's hold) → align and
+`apply-display` → frames → `captions.mjs` → `assemble-index` → `fix-index` → `transitions inject` and
+`verify` → `check` → `render`. `assemble-index` and `captions.mjs` regenerate the index and the caption
+rail, so run `fix-index` after every assemble.
+
+`check` reports `clip_media_fit` on the last frame when its voice is shorter than the frame: that is the
+intended end hold, not a fault. A skill's `deliver` step may clean `work/`, so keep anything you need to
+re-align somewhere else, or re-derive it from `audio_meta.transcript.json`.

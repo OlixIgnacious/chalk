@@ -3,7 +3,7 @@
 //
 //   node deliver.mjs <output-dir> [--notebook] [--keep-work] [--dry-run]
 //
-// Reads video.json and writes video.mp4, captions.srt, chapters.txt, description.txt, thumbnail.png,
+// Reads video.json (optionally naming the thumbnail frame) and writes video.mp4, captions.srt, chapters.txt, description.txt, thumbnail.png,
 // plan.md and, with --notebook, notebook.ipynb.
 //
 // Order matters. The grounding gate runs FIRST: stitching video only to refuse it afterwards wastes
@@ -71,7 +71,6 @@ if (gate.status !== 0) {
   process.exit(1);
 }
 const scenesBySegment = loadScenes(outDir, segments);
-const derived = Object.values(scenesBySegment).flat().some((sc) => sc.example === "derived");
 
 // ── gate 2: size and chapters ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +92,27 @@ if (sizeProblems.length || problems.length) {
   process.exit(1);
 }
 const starts = chapters.map((c) => c.at);
+
+// The thumbnail: the manifest may name a frame, because the automatic pick is only the longest still
+// span and can land mid-animation under a caption. A bad name fails here, before anything is written.
+let thumbIndex = 0;
+let thumbAt = null;
+if (manifest.thumbnail) {
+  const { segment, at } = manifest.thumbnail;
+  thumbIndex = segments.findIndex((s) => s.id === String(segment));
+  if (thumbIndex < 0) {
+    console.error(`deliver: thumbnail names segment "${segment}", which is not in video.json. Nothing was written.`);
+    process.exit(1);
+  }
+  thumbAt = Number(at);
+  if (!(thumbAt >= 0 && thumbAt < durations[thumbIndex])) {
+    console.error(
+      `deliver: thumbnail time ${at} is outside segment ${segments[thumbIndex].id} ` +
+        `(0–${durations[thumbIndex].toFixed(2)}s). Nothing was written.`,
+    );
+    process.exit(1);
+  }
+}
 
 let captions;
 try {
@@ -135,10 +155,10 @@ function settledTime(file, duration) {
   return Math.min(Math.max(best.start, after) + 0.25, best.end - 0.05, duration - 0.05);
 }
 
-const at = settledTime(mp4s[0], durations[0]);
-run("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(at), "-i", mp4s[0],
+const at = thumbAt ?? settledTime(mp4s[thumbIndex], durations[thumbIndex]);
+run("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(at), "-i", mp4s[thumbIndex],
                "-frames:v", "1", "-vf", "scale=1280:720", join(outDir, "thumbnail.png")]);
-console.log(`deliver: thumbnail.png from ${segments[0].id} at ${at.toFixed(2)}s`);
+console.log(`deliver: thumbnail.png from ${segments[thumbIndex].id} at ${at.toFixed(2)}s`);
 
 // ── the stitched video ────────────────────────────────────────────────────────────────────────────
 
@@ -200,7 +220,6 @@ writeFileSync(
     thesis: manifest.thesis,
     source: manifest.source,
     chapters,
-    derived,
     notebook: notebookMade,
   }),
 );

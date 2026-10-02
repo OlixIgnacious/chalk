@@ -20,22 +20,30 @@ Write `<output-dir>/video.json` before running it:
 }
 ```
 
+Optional: `"thumbnail": { "segment": "01", "at": 2.0 }` names the frame (seconds into that segment) for
+`thumbnail.png`. Use it. The automatic pick is the longest still span, which can land mid-animation, and
+every frame carries the burned-in caption pill, so choose a moment when the card is settled and the
+caption is short. A thumbnail naming a missing segment, or a time outside it, stops delivery.
+
 `title` and `thesis` go into the description, so they must be the chapter's own: the thesis is the
 sentence you stated at the end of step 1. A segment `title` is what a viewer sees in the progress bar.
 
 ## What it does, in order
 
 1. **Grounding gate.** Runs `chalk-core check-readability` over every script. A line with no source, a
-   derived example with no `computed-by` or no on-screen tag, fails here. Nothing is written.
+   derived example with no `computed-by`, fails here. Nothing is written.
 2. **Size and chapter gates.** Every segment must be 1920x1080. The chapters must start at 0:00, number
    at least three, and each run at least ten seconds. Nothing is written.
 3. **Captions.** Each segment's VTT is shifted by where the segment starts and merged into one SRT. Cues
    that do not advance or that overlap are refused.
-4. **Thumbnail.** A settled frame of the hook (the longest still span, found with `freezedetect`),
-   scaled to 1280x720.
+4. **Thumbnail.** The frame the manifest names, or by default the longest still span of the hook (found
+   with `freezedetect`), scaled to 1280x720.
 5. **Stitch.** Concatenated without re-encoding when every segment agrees on codec, size, frame rate and
    audio; re-encoded otherwise.
 6. **The kit.** `chapters.txt`, `description.txt`, `plan.md`, and with `--notebook`, `notebook.ipynb`.
+
+Delivery removes `work/` unless you pass `--keep-work`, so anything you may need to re-align (word
+streams, tokens) should live elsewhere or be re-derived from `audio_meta.transcript.json`.
 
 `--dry-run` stops after the gates and prints the chapters. Use it to see where each chapter lands before
 the slow part.
@@ -47,9 +55,9 @@ the slow part.
 | `video.mp4` | the stitched video, 1920x1080 |
 | `captions.srt` | upload as the video's subtitles |
 | `chapters.txt` | paste into the description; `0:00` first, as YouTube requires |
-| `description.txt` | title, thesis, chapters, source, and a note when examples are illustrative |
-| `thumbnail.png` | 1280x720 — a starting point; a designed thumbnail will usually do better |
-| `plan.md` | the audit trail: each chapter's examples, and every line with its source |
+| `description.txt` | title, thesis, chapters and source |
+| `thumbnail.png` | 1280x720 — a frame of the video, caption pill included. A starting point; a designed thumbnail will usually do better |
+| `plan.md` | the audit trail: each chapter's examples — derived ones marked as not from the chapter, with the script that computed them — and every line with its source |
 | `notebook.ipynb` | only with `--notebook` |
 
 The description is built from `video.json` and the chapters only, so it cannot say anything the script

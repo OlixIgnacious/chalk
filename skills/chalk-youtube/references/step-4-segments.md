@@ -10,14 +10,35 @@ it first.** What follows is only what differs for a YouTube video.
 
 ## Order of operations
 
-1. Tier 2 Manim clips first, if any scene earns one: `npx chalk-core manim-render segments/NN/scenes/*.py
-   --fps 30 --resolution 1920x1080`. See [core/manim.md](core/manim.md). If the toolchain is missing,
-   fall back to Tier 1 and say so.
+One segment at a time; the whole sequence below takes about a minute of machine time per segment. The
+reasons for each fix are in [core/captions-and-engine.md](core/captions-and-engine.md).
+
+1. **Tier 2 first**, if any scene earns one: `npx chalk-core manim-render segments/NN/scenes/*.py
+   --fps 30 --resolution 1920x1080`. See [core/manim.md](core/manim.md). Fall back to Tier 1 if the
+   toolchain is missing, and say so.
 2. `npx hyperframes init "<output-dir>/segments/NN/video" --non-interactive --example=blank --skill=faceless-explainer`
-3. Write `BRIEF.md` into that project (below).
-4. Put the chapter text in `capture/extracted/visible-text.txt`.
-5. Let `faceless-explainer` own audio, storyboard, frames, `check` and render.
-6. Emit the VTT: `npx chalk-core emit-vtt <project>/caption_groups.json <output-dir>/segments/NN/segment.vtt`.
+3. Write `BRIEF.md`, put the chapter text in `capture/extracted/visible-text.txt`, write a `tokens.json`
+   with empty colours and fonts, then `node <faceless-explainer>/scripts/build-frame.mjs --preset <name> --hyperframes .`
+4. **Stage what `init` and `build-frame` do not:** the preset's fonts into `assets/fonts/` and the pinned
+   `gsap.min.js` into `assets/`.
+5. **A script scene is a frame.** Generate `SCRIPT.md` and `STORYBOARD.md` from `script.md`, copying the
+   spoken layer verbatim rather than retyping it. Name frames `f01-…`. Write one `## Line N (Frame N)` per
+   scene, with all of that scene's spoken entries joined.
+6. **Audio:** `audio.mjs` (voice), then `audio.mjs sync-durations`, then **restore the last frame's ~1.8s
+   hold**, which `sync-durations` deletes.
+7. **Captions from the display layer:** build one absolute word stream from `audio_meta.json`, then
+   `build-tokens` → `align-captions` → `apply-display`. Resolve every `MISMATCH` — they are almost always a
+   display line that is not the same words as its spoken line, or a transcript mishearing for the lexicon.
+8. **Write the frames**, each reveal on a word's start time from `audio_meta.json`, nothing below 83% of
+   the height. A derived example carries no label on screen.
+9. `captions.mjs build` → `assemble-index` → `npx chalk-core fix-index index.html --color <the preset's
+   canvas>` → `transitions inject` and `verify` → `npx hyperframes lint` and `check` → `snapshot`.
+10. `npx hyperframes render --skill=faceless-explainer --quality high --output renders/video.mp4`, then
+    `npx chalk-core emit-vtt caption_groups.json segment.vtt`, and copy the render to `segments/NN/segment.mp4`.
+
+**Look at the stills before rendering, and read the code frame's pixels.** A transcription slip in shown
+code is the same failure as a mis-read equation. Compare the rendered code to the chapter's block, not to
+your memory of it.
 
 ## The brief
 
@@ -36,8 +57,14 @@ Read the upstream `brief-format.md` and `brief-contract.md` first; do not guess 
   line says what this chapter is about, in a few words.
 - **Hold the payoff only at the end of a segment**, about 1.8s, where the take has genuinely ended. A hold
   inside a segment cuts the continuous VO. Frame duration equals narration everywhere else.
-- **A derived example stays tagged on screen** for its whole scene.
+- **Short on-screen copy, not the script.** The caption track already shows the spoken words; a frame
+  carries a hero word or a label, never a narrated sentence.
 - **Text lands readable at 1080p on a phone.** Check stills at that size.
+
+## Light presets
+
+A cream preset keeps its own ground: pass its canvas to `fix-index --color`. The house look elsewhere in
+this repo is dark, so choosing a light preset is a deliberate departure — say so in the outline.
 
 ## Layout the deliver step expects
 

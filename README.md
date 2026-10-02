@@ -29,8 +29,8 @@ youtube-output/<chapter>/
 5. **Deliver** — gates, then the stitched video and the kit.
 
 **Examples never invent facts.** An example is the chapter's own, or a derived one whose numbers are
-computed by a script that ships in the notebook and is labelled "Example, not from the chapter", or an
-honest gap shown to you for review.
+computed by a script that ships in the notebook and is recorded in `plan.md` as not from the chapter, or
+an honest gap shown to you for review. The video itself carries no label.
 
 ## Use
 

@@ -37,16 +37,18 @@ one of three places, in this order of preference:
 2. **A derived example, with every number produced by running code.** The chapter has no suitable
    example, so a small one is built. The script that computes it is named in `computed-by:`, ships
    with the deliverable, and is the *only* source of the numbers on screen — never typed from memory.
-   It carries a visible tag, "Example, not from the chapter", so it cannot read as sourced. It may
-   illustrate only a claim the chapter makes, and the line's `source:` cites that claim. **A derived
-   example never introduces a new claim.**
+   It is declared in the script (`example: derived`) and recorded as "not from the chapter" in the
+   plan and the logs, so the audit trail never lets it read as sourced. The video itself carries no
+   label: the narration and the screen present it as part of the lesson. It may illustrate only a claim
+   the chapter makes, and the line's `source:` cites that claim. **A derived example never introduces a
+   new claim.**
 3. **No example.** If a concept cannot be illustrated without inventing a fact, say so at the review
    stop instead of guessing.
 
 A *compare* is two cases shown side by side (before and after, right and wrong, small and large
 sample). Each side follows the same rule. `check-readability` enforces this: a worked-example scene
-must declare `example: chapter` or `example: derived`, and a derived one must name `computed-by:` and
-say "not from the chapter" on screen.
+must declare `example: chapter` or `example: derived`, and a derived one must name `computed-by:`. That
+declaration is what the plan and logs are built from; nothing about it is required in the video.
 
 ## Math integrity
 

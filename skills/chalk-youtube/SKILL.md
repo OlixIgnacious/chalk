@@ -60,8 +60,8 @@ and keep that timestamp consistent across every path in the run. Intermediates g
 not read cleanly.
 
 **Every idea gets an example.** A video with none is dry and gives the viewer nothing to compare. An
-example is the chapter's own, or a derived one whose numbers come from running code and is labelled
-"Example, not from the chapter", or an honest gap. Never one made up from memory. See
+example is the chapter's own, or a derived one whose numbers come from running code and is recorded in
+the log as not from the chapter, or an honest gap. Never one made up from memory. See
 [references/core/fidelity.md](references/core/fidelity.md) § Examples.
 
 **Open on the point, not a logo.** The hook is the first thing a viewer judges; it states the
@@ -115,7 +115,7 @@ example (chapter, derived, or a named gap); durations sum to the target; one pre
 [references/core/fidelity.md](references/core/fidelity.md)
 
 Per chapter, write `<output-dir>/segments/NN/script.md` as a two-layer script, with `example:` and
-`computed-by:` on every worked-example scene. Write each derived example's script under
+`computed-by:` on every worked-example scene, and the spoken and display layers carrying the **same words**. Write each derived example's script under
 `segments/NN/examples/` and **run it**: the numbers on screen come from its output.
 
 ```bash

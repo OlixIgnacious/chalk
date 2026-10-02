@@ -85,15 +85,16 @@ test("kit: hour-form VTT timestamps parse", () => {
 
 // ── kit: description ──────────────────────────────────────────────────────────────────────────────
 
-test("kit: the description carries the chapters, the source and an honest note about examples", () => {
+test("kit: the description carries the chapters and the source, and says nothing about examples", () => {
   const { chapters } = kit.buildChapters([{ title: "Hook" }, { title: "Mean" }, { title: "Spread" }], [12, 40, 31]);
   const d = kit.buildDescription({ title: "Averages", thesis: "A mean hides the spread.", source: "ch3.md", chapters, derived: true, notebook: true });
   assert.match(d, /^Averages\n\nA mean hides the spread\.\n\nChapters\n0:00 Hook\n0:12 Mean\n0:52 Spread/);
   assert.match(d, /Based on: ch3\.md/);
-  assert.match(d, /Example, not from the chapter/);
+  // That a case is derived is a matter for the logs (plan.md); nothing viewer-facing says it.
+  assert.ok(!/not from the chapter|illustrative/i.test(d), "the description must not carry the example note");
   assert.match(d, /Jupyter notebook/);
-  const plain = kit.buildDescription({ title: "T", chapters, derived: false, notebook: false });
-  assert.ok(!/not from the chapter/.test(plain) && !/notebook/.test(plain), "no note without the thing it notes");
+  const plain = kit.buildDescription({ title: "T", chapters, notebook: false });
+  assert.ok(!/notebook/.test(plain), "no note without the thing it notes");
 });
 
 // ── a chapter, a script and a notebook ────────────────────────────────────────────────────────────
@@ -118,7 +119,7 @@ const SCRIPTS = {
   "01": scene("hook", {}, [["A mean can hide the spread.", "p003"]]),
   "02": scene("variance", {}, [["Variance measures the distance from the mean.", "p004"], ["Here is the function.", "c005"], ["And in JavaScript.", "c007"]]) +
     "\n" + scene("two lists, one mean", { visual: "worked example", extra: "example: derived\ncomputed-by: examples/spread.py\n" },
-      [["Example, not from the chapter: two lists, one mean.", "p004"]]),
+      [["Two lists, one mean.", "p004"]]),
   "03": scene("your turn", {}, [["Write the standard deviation.", "x008"]]),
 };
 const SPREAD_PY = "a = [4, 5, 6]\nb = [1, 5, 9]\nprint(sum(a) / len(a), sum(b) / len(b))\n";
@@ -181,13 +182,15 @@ test("notebook: the chapter's Python is verbatim with its source id, and every c
   assert.deepEqual(check.errors, []);
 });
 
-test("notebook: a derived example's script becomes a tagged cell, and a missing one is a problem", () => {
+test("notebook: a derived example's script becomes a cell with its provenance, and a missing one is a problem", () => {
   const dir = join(tmp, "nb3");
   const scenesBySegment = scenesFor(dir);
   const ok = nb.buildNotebook({ chapter: chapterJson("nb3c"), manifest: manifestFor(), scenesBySegment, starts: [0, 12, 52], readSegmentFile: readSeg(dir) });
   const cell = ok.notebook.cells.find((c) => c.source.join("").includes("computed-by: examples/spread.py"));
-  assert.ok(cell && cell.source.join("").startsWith("# Example, not from the chapter"));
+  assert.ok(cell && cell.source.join("").startsWith("# computed-by: examples/spread.py"));
   assert.ok(cell.source.join("").includes("print(sum(a) / len(a)"));
+  const all = ok.notebook.cells.map((c) => c.source.join("")).join("\n");
+  assert.ok(!/not from the chapter/i.test(all), "the notebook carries provenance, not the log phrase");
 
   const missing = nb.buildNotebook({ chapter: chapterJson("nb3d"), manifest: manifestFor(), scenesBySegment, starts: null, readSegmentFile: () => null });
   assert.match(missing.problems.join("\n"), /examples\/spread\.py, which is missing/);
@@ -287,8 +290,9 @@ test("deliver: it writes the whole upload kit, and the numbers in it agree", () 
 
   const desc = readFileSync(join(dir, "description.txt"), "utf8");
   assert.match(desc, /0:10 What variance adds/);
-  assert.match(desc, /Example, not from the chapter/, "a derived example is declared in the description");
+  assert.ok(!/not from the chapter/i.test(desc), "the description does not label examples");
   assert.match(desc, /Jupyter notebook/);
+  assert.ok(!/not from the chapter/i.test(readFileSync(join(dir, "captions.srt"), "utf8")), "nor do the captions");
 
   const plan = readFileSync(join(dir, "plan.md"), "utf8");
   assert.match(plan, /Example \(derived, not from the chapter\): "Scene — two lists, one mean", computed by `examples\/spread\.py`/);
@@ -324,15 +328,15 @@ test("deliver: an unsourced line stops delivery, and nothing is stitched", () =>
   for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
 });
 
-test("deliver: a derived example with no on-screen tag stops delivery", () => {
+test("deliver: a derived example that names no computed-by script stops delivery", () => {
   if (!haveFfmpeg) return "ffmpeg is unavailable";
   const dir = buildVideo(join(tmp, "d5"));
   writeFileSync(join(dir, "segments/02/script.md"),
-    scene("two lists", { visual: "worked example", extra: "example: derived\ncomputed-by: examples/spread.py\n" },
-      [["Two lists, one mean.", "p004"]]));
+    scene("two lists", { visual: "worked example", extra: "example: derived\n" }, [["Two lists, one mean.", "p004"]]));
   const r = deliver(dir);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /not from the chapter/);
+  assert.match(r.stderr, /names no computed-by/);
+  for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
 });
 
 test("deliver: a derived example whose script is missing stops the notebook", () => {
@@ -342,6 +346,38 @@ test("deliver: a derived example whose script is missing stops the notebook", ()
   const r = deliver(dir, "--notebook");
   assert.equal(r.status, 1);
   assert.match(r.stderr, /examples\/spread\.py, which is missing/);
+});
+
+// The automatic pick is the longest still span, which can land mid-animation under a caption. The
+// manifest can name a frame instead, and a bad name must fail before anything is written.
+test("deliver: the manifest can pick the thumbnail frame", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildVideo(join(tmp, "d10"));
+  const m = JSON.parse(readFileSync(join(dir, "video.json"), "utf8"));
+  m.thumbnail = { segment: "02", at: 3 };
+  writeFileSync(join(dir, "video.json"), JSON.stringify(m));
+  const r = deliver(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /thumbnail\.png from 02 at 3\.00s/);
+  assert.equal(dims(join(dir, "thumbnail.png")), "1280,720");
+});
+
+test("deliver: a thumbnail naming a missing segment or a time outside it stops delivery", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  for (const [name, thumb, msg] of [
+    ["d11", { segment: "09", at: 1 }, /thumbnail names segment "09"/],
+    ["d12", { segment: "01", at: 99 }, /thumbnail time 99 is outside segment 01/],
+    ["d13", { segment: "01", at: -1 }, /thumbnail time -1 is outside segment 01/],
+  ]) {
+    const dir = buildVideo(join(tmp, name));
+    const m = JSON.parse(readFileSync(join(dir, "video.json"), "utf8"));
+    m.thumbnail = thumb;
+    writeFileSync(join(dir, "video.json"), JSON.stringify(m));
+    const r = deliver(dir);
+    assert.equal(r.status, 1, name);
+    assert.match(r.stderr, msg);
+    for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
+  }
 });
 
 test("deliver: --dry-run prints the chapters and writes nothing", () => {
