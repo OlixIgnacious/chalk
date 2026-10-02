@@ -31,10 +31,26 @@ duration: ~14s
   source: [p043]
 ```
 
+A scene that shows a worked example declares where it came from:
+
+```markdown
+## Scene 4 — two lists, one mean
+visual: worked example (tier 1)
+example: derived
+computed-by: examples/spread.py
+duration: ~20s
+
+- spoken: "Two lists can share a mean and still behave very differently."
+  display: "Example, not from the chapter: two lists, one mean."
+  source: [p004]
+```
+
+`example: chapter` needs no `computed-by`. See [fidelity.md](fidelity.md) § Examples.
+
 ## Lexicon
 
 Maintain `<output-dir>/lexicon.json` — the pronunciation of every term the chapter uses that TTS
-will get wrong. An unknown term **halts** this step until a pronunciation is set. A lesson that
+will get wrong. An unknown term **halts** this step until a pronunciation is set. A script that
 mispronounces its own subject undermines everything else in it.
 
 Each term carries **three** fields, because three different things want three different forms:
@@ -59,11 +75,11 @@ pronunciation, and the transcript renders a standalone letter glued to the word 
 
 ## Readability floor
 
-Any line the learner must read holds about 0.3s per word, counted from when the whole line is
+Any line the viewer must read holds about 0.3s per word, counted from when the whole line is
 settled — not from when it starts animating in.
 
 ```bash
-node <skill-dir>/scripts/check-readability.mjs <output-dir>/segments/*/script.md
+npx chalk-core check-readability <output-dir>/segments/*/script.md
 ```
 
 ## TODO

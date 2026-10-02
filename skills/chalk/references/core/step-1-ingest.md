@@ -4,7 +4,7 @@ Turn whatever the user handed over into `chapter.json` — paragraph-addressed b
 Those ids are the grounding currency for every later step, so they must be stable across re-runs.
 
 ```bash
-node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json
+npx chalk-core ingest <input> --out <output-dir>/chapter.json
 ```
 
 ## Schema
@@ -19,12 +19,21 @@ node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json
     { "id": "p012", "kind": "para", "text": "...", "page": 47 },
     { "id": "e003", "kind": "equation", "text": "...", "latex": null, "asset": "work/eq-003.png", "confidence": "low" },
     { "id": "f001", "kind": "figure", "caption": "...", "asset": "work/fig-1.png" },
-    { "id": "x002", "kind": "exercise", "text": "..." }
+    { "id": "x002", "kind": "exercise", "text": "..." },
+    { "id": "c004", "kind": "code", "lang": "python", "text": "def f(x):\n    return x" }
   ]
 }
 ```
 
-`kind` is one of `para`, `heading`, `quote`, `list`, `figure`, `equation`, `exercise`, `footnote`.
+`kind` is one of `para`, `heading`, `quote`, `list`, `figure`, `equation`, `exercise`, `footnote`,
+`code`.
+
+A `code` block keeps its text **verbatim, indentation included**, and its `lang` when the source tags
+one (a fenced block's info string, or `language-xxx` on an EPUB `<pre>`); otherwise `lang` is `null`.
+`has_code` at the top of `chapter.json` is `true` when any exist, and ingest prints a note — that is
+the cue to offer a hands-on notebook. In Markdown and text, a paragraph that opens with "Exercise",
+"Problem" or "Question" becomes an `exercise` block. PDF code is best-effort: the text layer loses
+indentation, so treat PDF code as needing review and never execute it unread.
 
 ## Chapter splitting
 

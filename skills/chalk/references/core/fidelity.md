@@ -2,14 +2,14 @@
 
 The rules that make "every claim is traceable to the source" true rather than aspirational.
 
-A teaching tool that invents is worse than useless — the learner has no way to tell which parts to
+A teaching tool that invents is worse than useless — the audience has no way to tell which parts to
 trust, so none of it can be trusted.
 
 ## Grounding
 
 **Every narration line and every piece of on-screen text maps to block ids in `chapter.json`.** The
 `source:` field on each script line is not decoration; it is the audit trail, and it ends up in
-`lesson-plan.md` where a reader can check it.
+the skill's plan file (`lesson-plan.md` in chalk) where a reader can check it.
 
 Prohibited:
 
@@ -27,14 +27,35 @@ Allowed, and not a claim:
 The line: **scaffolding must never read as a sourced fact.** An unlabelled curve illustrating shape
 is fine. A curve with invented numbers on the axis is a fabrication.
 
+## Examples
+
+A video with no example feels dry and gives the viewer nothing to compare against, so every segment
+should have one. But "add an example" must never become a way to invent facts. An example comes from
+one of three places, in this order of preference:
+
+1. **The chapter's own example.** Cite its block ids like any other line. Always preferred.
+2. **A derived example, with every number produced by running code.** The chapter has no suitable
+   example, so a small one is built. The script that computes it is named in `computed-by:`, ships
+   with the deliverable, and is the *only* source of the numbers on screen — never typed from memory.
+   It carries a visible tag, "Example, not from the chapter", so it cannot read as sourced. It may
+   illustrate only a claim the chapter makes, and the line's `source:` cites that claim. **A derived
+   example never introduces a new claim.**
+3. **No example.** If a concept cannot be illustrated without inventing a fact, say so at the review
+   stop instead of guessing.
+
+A *compare* is two cases shown side by side (before and after, right and wrong, small and large
+sample). Each side follows the same rule. `check-readability` enforces this: a worked-example scene
+must declare `example: chapter` or `example: derived`, and a derived one must name `computed-by:` and
+say "not from the chapter" on screen.
+
 ## Math integrity
 
 **Never render an equation the extractor could not read cleanly.**
 
 PDF extraction mangles notation routinely — ligatures, lost superscripts, mis-ordered subscripts.
-A model reconstructing "what it probably said" is how a stats lesson ships a wrong formula with
+A model reconstructing "what it probably said" is how a stats explainer ships a wrong formula with
 total confidence. That is the worst failure this tool can produce, because it is invisible to the
-learner and plausible to a skim.
+viewer and plausible to a skim.
 
 When `chapter.json` marks an equation `confidence: "low"` or has no `latex`:
 
@@ -57,11 +78,11 @@ path.
 
 ## Representing the chapter faithfully
 
-**Keep its hedges.** If the chapter says "some economists argue", the lesson says so too. Upgrading
+**Keep its hedges.** If the chapter says "some economists argue", the video says so too. Upgrading
 a hedged claim into a flat assertion is a distortion even when every word is sourced.
 
 **Do not silently correct the book.** If a claim is outdated or contested, flag it to the user and
-note it in `lesson-plan.md`. Do not present a correction as the chapter's view, and do not quietly
+note it in the plan file. Do not present a correction as the chapter's view, and do not quietly
 teach something the chapter did not say.
 
 **Surface ambiguity, don't resolve it.** Where the chapter is genuinely unclear, say so in
@@ -69,7 +90,7 @@ teach something the chapter did not say.
 
 **Name the gaps.** Where the chapter asserts something without explaining it, that is a gap in the
 source. Record it in the syllabus. Do not invent the missing explanation — but it is fine for the
-lesson to say the chapter takes it as given.
+script to say the chapter takes it as given.
 
 ## Sensitive domains
 

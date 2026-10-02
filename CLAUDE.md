@@ -16,6 +16,11 @@ If you find yourself writing a lot of code, stop — you are probably rebuilding
 already does. The scripts in `skills/chalk/scripts/` exist because nothing upstream covers them; that list should
 grow slowly and reluctantly.
 
+**The shared half is not here.** Ingest, the grounding gate, caption alignment, Manim and the shared
+references live in [chalk-core](../chalk-core), and chalk consumes them as `npx chalk-core <cmd>`
+plus a vendored copy of its references under `skills/chalk/references/core/`. What stays here is what
+is specific to an interactive lesson: the syllabus and pedagogy, the lesson page, and delivery.
+
 The layout is deliberate: a thin `SKILL.md`, one `references/step-N-*.md` per step loaded only when
 that step runs, and a hard gate between steps.
 
@@ -23,47 +28,17 @@ that step runs, and a hard gate between steps.
 
 These are the rules that erode silently if nobody writes them down.
 
-### Every claim is grounded
+### Inherited from chalk-core
 
-Every narration line and every piece of on-screen text maps to block ids in `chapter.json`. No
-invented numbers, dates, examples, entities or citations. Illustrative scaffolding (axis labels,
-generic placeholders) is fine, and must never read as a sourced fact.
+Three invariants are owned by chalk-core's CLAUDE.md and apply here unchanged. Read them there; they
+are not restated, so they cannot drift:
 
-**Never render an equation the extractor could not read cleanly.** If the source notation is
-uncertain, show the cropped source image or ask the user for the LaTeX. A silently mis-transcribed
-formula in a stats book is the worst failure this tool can produce.
-
-Where the chapter is ambiguous, surface it to the user. Do not resolve it by guessing.
-
-### The audio is the clock
-
-Scene timing derives from VO word timings, never the other way round. `hyperframes tts` does not
-emit word timings — get them by running `hyperframes transcribe` on the generated WAV, then map them
-onto display tokens with `scripts/align-captions.mjs`.
-
-Regenerating VO invalidates every downstream timing. Treat it as a hard reset, not a tweak.
-
-**And do not cut the clock.** TTS generates a segment as ONE continuous take: the last word of a
-scene lands a few milliseconds before the next scene's first word, so there is no pause there to
-sit in. A frame that runs longer than its narration splices digital silence (−240 dBFS, not room
-tone) into the middle of flowing speech and truncates the outgoing word mid-decay. The result is an
-audible bump at every cut, and shortening the gap only makes it briefer, not smoother. **A frame's
-duration equals its narration, exactly**, so the per-frame clips butt together at the sample
-positions they were cut from and reconstruct the original waveform.
-
-The one exception is the LAST frame of a segment, where the take has genuinely ended and a hold is
-just trailing silence. Which is also the only place "hold the payoff" applies — see below.
-
-### Tier routing is per scene, not per book
-
-- **Tier 1 — HTML/SVG + KaTeX.** The default. Everything conceptual and narrative, diagrams, charts,
-  and equations that only need to be displayed and annotated.
-- **Tier 2 — Manim.** Only when an equation must visibly *become* another equation, or for geometric
-  construction, limits, convergence, fields and 3D surfaces.
-- **Tier 3 — the book's own figure**, when it is already the clearest available visual.
-
-A Tier 2 scene is flat video: it cannot be interactive, cannot be restyled without re-rendering, and
-drags in a LaTeX toolchain. Tier 2 is earned by a scene, never chosen by default.
+- **Every claim is grounded** — every line and on-screen text maps to block ids, and an equation the
+  extractor could not read cleanly is never rendered.
+- **The audio is the clock** — scene timing derives from VO word timings, and a frame's duration
+  equals its narration exactly. The one exception, the last frame of a segment, is where the payoff
+  hold below applies.
+- **Tier routing is per scene, not per book** — Tier 1 by default, Tier 2 (Manim) earned by a scene.
 
 ### Hold the payoff — the payoff, not every frame
 
@@ -95,14 +70,14 @@ mistake is rendering before the teaching has been reviewed, so the step-3 gate s
 
 ## Vendored code
 
-`skills/chalk/scripts/align-captions.mjs` is vendored from `heygen-com/hyperframes` (Apache-2.0).
-Keep its header comment, do not let it silently diverge, and record upstream changes in
-`CREDITS.md`.
+`skills/chalk/references/core/` is vendored from chalk-core by `npx chalk-core sync skills/chalk`, and
+`npm test` fails if it drifts. **Never edit it here** — change chalk-core and sync, or the next sync
+overwrites the edit. `align-captions.mjs` and its `CREDITS.md` notes live in chalk-core now.
 
 ## The engine is not always right for a lesson
 
 `faceless-explainer` is tuned for promos. Four of its defaults are wrong here, and each one cost a
-real defect this run — they are documented with their fixes in `references/step-4-segments.md`
+real defect this run — they are documented with their fixes in `references/core/captions-and-engine.md`
 § Engine quirks. In short: `sync-durations` assumes frame duration should equal narration duration
 (right for a promo, wrong where text must stay readable); `fetch-sfx` rebuilds `audio_meta.json`
 from a neutral sidecar and drops every voice if you wrote only the PL-shape file; the frame-worker
@@ -133,26 +108,27 @@ pipeline stalls at step 4 — after the expensive planning work is already done.
 
 Tier 2 also needs `manim`, and `MathTex` additionally needs TinyTeX or BasicTeX.
 `manim-render.mjs` finds a TinyTeX that is installed but not on `PATH`, and passes it to manim,
-which shells out to `latex` itself. See `references/manim.md`.
+which shells out to `latex` itself. See `references/core/manim.md`.
 
 ## Testing
 
-Test against `fixtures/` — public-domain Project Gutenberg text. **Never test against a copyrighted
-book.** The tool paraphrases and caps verbatim quoting; development should not undercut that.
+Fixtures live in chalk-core (`../chalk-core/fixtures/`, public-domain Project Gutenberg text). **Never
+test against a copyrighted book.** The tool paraphrases and caps verbatim quoting; development should
+not undercut that.
 
-`test/smoke.mjs` is the regression gate for the scripts — one dependency-free file, run with `npm
-test`. It pins the grounding rules in particular: an unsourced spoken line and a `source:` that
-migrates onto the wrong entry both used to pass, and both are now asserted. Add a case there before
-fixing anything in `scripts/`. `test/player-browser.mjs` is the step-5 gate — file://, checkpoint
-holding, no-localStorage and phone width are things only a browser can answer. It skips when Chrome
-is absent, so `npm test` stays the everyday gate.
+`test/smoke.mjs` is the regression gate for chalk's own scripts — the lesson page and delivery — plus
+two checks on the core boundary: the vendored references match the installed core, and no script that
+core owns has crept back. It is one dependency-free file, run with `npm test`. Add a case there before
+fixing anything in `scripts/`. The grounding and ingest tests live in chalk-core's `test/smoke.mjs`.
+`test/player-browser.mjs` is the step-5 gate — file://, checkpoint holding, no-localStorage and phone
+width are things only a browser can answer. It skips when Chrome is absent, so `npm test` stays the
+everyday gate.
 
 Useful gates while working:
 
 ```bash
-npm test                                     # the script regression gate
+npm test                                     # lesson page, delivery, core boundary
 npm run test:player                          # the lesson page, driven in Chrome
-npm run test:tier2                           # the Manim render and its alpha
 npx hyperframes doctor                       # environment
 npx hyperframes check <project>              # the browser gate, zero errors required
 npx hyperframes snapshot <project> --at 2,15 # inspect stills instead of re-rendering

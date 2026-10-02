@@ -1,5 +1,7 @@
 # Tier 2: Manim
 
+`<core>` below is the chalk-core install directory: `npx chalk-core path` prints it.
+
 For the four registry rows that Manim earns: equation transforms, geometric construction,
 parametric sweeps, morphing densities. Everything else is Tier 1.
 
@@ -50,7 +52,7 @@ Both the construction and the `MathTex` paths render.
 ## Render
 
 ```bash
-node <skill-dir>/scripts/manim-render.mjs <scene.py> --fps 30 --resolution 1920x1080
+npx chalk-core manim-render <scene.py> --fps 30 --resolution 1920x1080
 ```
 
 The script wraps three steps, each of which is a real constraint:
@@ -108,13 +110,13 @@ A Manim scene that looks like stock Manim reads as pasted in from another video.
 design preset's tokens into the scene as config: background, foreground, the single accent, and the
 font.
 
-`<skill-dir>/assets/manim/scene_template.py` holds `ChalkScene`, a base class that reads those
+`<core>/templates/manim/scene_template.py` holds `ChalkScene`, a base class that reads those
 tokens from `CHALK_TOKENS` (JSON) so individual scenes only describe the maths. It exposes `tex`,
 `prose`, `label`, `axes`, `styled` and `draw`, and no scene should hard-code a colour.
 
 ```bash
 CHALK_TOKENS='{"fg":"#e7e9ee","accent":"#8aa7d6"}' \
-  node <skill-dir>/scripts/manim-render.mjs scene.py --fps 30 --resolution 1920x1080
+  npx chalk-core manim-render scene.py --fps 30 --resolution 1920x1080
 ```
 
 ## Cost
@@ -125,7 +127,7 @@ where watching the transformation *is* the explanation.
 
 ## Worked example
 
-`<skill-dir>/assets/manim/example_equation_transform.py` is the reference scene: `y = x²` visibly
+`<core>/templates/manim/example_equation_transform.py` is the reference scene: `y = x²` visibly
 becoming `dy/dx = 2x`, with `TransformMatchingTex` pairing the substrings so the motion carries the
 rule rather than merely accompanying it. Its maths is Thompson, *Calculus Made Easy* (1910), which
 is in `fixtures/` — a worked scene stays grounded for the same reason everything else does.

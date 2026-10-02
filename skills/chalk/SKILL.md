@@ -56,6 +56,11 @@ for this skill" when the skill loads. Assets are under `<skill-dir>/assets/`, sc
 `<skill-dir>/scripts/`. Don't guess the path — a plugin install, a `~/.claude/skills/` copy and this
 repo all put it somewhere different.
 
+The shared half of the pipeline — ingest, the grounding gate, caption alignment, Manim — is
+[chalk-core](https://github.com/OlixIgnacious/chalk-core), run as `npx chalk-core <command>`. Its
+reference docs are vendored under `<skill-dir>/references/core/` (`npx chalk-core sync <skill-dir>`
+refreshes them). Never edit those files here; change them in chalk-core.
+
 ---
 
 ## Teaching laws
@@ -89,13 +94,13 @@ asserts without explaining, anything outdated, and anything ambiguous — do not
 
 ## Step 1: Ingest
 
-**Read:** [references/step-1-ingest.md](references/step-1-ingest.md)
+**Read:** [references/core/step-1-ingest.md](references/core/step-1-ingest.md)
 
 Normalize the input into `chapter.json` — paragraph-addressed blocks with stable ids. Those ids are
 the grounding currency for everything that follows.
 
 ```bash
-node <skill-dir>/scripts/ingest.mjs <input> --out <output-dir>/chapter.json \
+npx chalk-core ingest <input> --out <output-dir>/chapter.json \
      [--chapter N|title] [--assets <output-dir>/work] [--list]
 ```
 
@@ -123,16 +128,16 @@ target; every concept traces to at least one block id; exactly one design preset
 
 ## Step 3: Script
 
-**Read:** [references/step-3-script.md](references/step-3-script.md),
-[references/visual-registry.md](references/visual-registry.md) and
-[references/fidelity.md](references/fidelity.md)
+**Read:** [references/core/step-3-script.md](references/core/step-3-script.md),
+[references/core/visual-registry.md](references/core/visual-registry.md) and
+[references/core/fidelity.md](references/core/fidelity.md)
 
 Per segment, write `<output-dir>/segments/NN/script.md` as a two-layer script — `spoken` for TTS,
 `display` for captions and on-screen text — with `source:` ids on every line and a registry visual
 plus tier on every scene.
 
 ```bash
-node <skill-dir>/scripts/check-readability.mjs <output-dir>/segments/*/script.md
+npx chalk-core check-readability <output-dir>/segments/*/script.md
 ```
 
 **Gate:** every line carries source ids; every scene names a visual and a tier; the pronunciation
@@ -145,8 +150,9 @@ the teaching. Everything after this costs tens of minutes of frame capture.
 
 ## Step 4: Build the segments
 
-**Read:** [references/step-4-segments.md](references/step-4-segments.md) and, for any Tier 2 scene,
-[references/manim.md](references/manim.md)
+**Read:** [references/step-4-segments.md](references/step-4-segments.md),
+[references/core/captions-and-engine.md](references/core/captions-and-engine.md) and, for any Tier 2
+scene, [references/core/manim.md](references/core/manim.md)
 
 Render Tier 2 clips first, then hand each segment to `faceless-explainer` via a `BRIEF.md`. Load the
 Hyperframes domain skills — `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`,
@@ -156,9 +162,9 @@ Hyperframes domain skills — `hyperframes-core`, `hyperframes-animation`, `hype
 Three chalk-owned steps sit inside the engine's loop — the reference explains why each exists:
 
 ```bash
-node <skill-dir>/scripts/build-tokens.mjs <segment>/script.md <out>/lexicon.json work/script-tokens.json
-node <skill-dir>/scripts/fix-index.mjs <project>/index.html          # after EVERY assemble-index
-node <skill-dir>/scripts/emit-vtt.mjs <project>/caption_groups.json <segment>/segment.vtt
+npx chalk-core build-tokens <segment>/script.md <out>/lexicon.json work/script-tokens.json
+npx chalk-core fix-index <project>/index.html          # after EVERY assemble-index
+npx chalk-core emit-vtt <project>/caption_groups.json <segment>/segment.vtt
 ```
 
 **A frame's duration equals its narration**, except the last in each segment. Anything longer
@@ -206,7 +212,8 @@ not a mid-transition one.
 
 ## Edge cases
 
-[references/edge-cases.md](references/edge-cases.md) covers scanned and multi-column PDFs, equations
+[references/edge-cases.md](references/edge-cases.md) and
+[references/core/edge-cases.md](references/core/edge-cases.md) cover scanned and multi-column PDFs, equations
 that don't extract, DRM'd EPUBs, whole books, non-English text, narrative rather than expository
 chapters, cross-chapter references, mispronounced jargon, partial render failures and player
 fallbacks. Consult it when the input is not a clean English expository chapter — which is most of

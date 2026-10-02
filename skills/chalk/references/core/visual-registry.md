@@ -38,6 +38,7 @@ a LaTeX toolchain. It is earned by a scene, never chosen by default. See [manim.
 | An analogy | side-by-side | 1 | familiar thing left, target right | familiar first, target second; matching parts tinted alike |
 | A stated formula | KaTeX card | 1 | centred equation, annotation gutter | terms fade in; each is annotated as it is named |
 | A count or magnitude | stat hit | 1 | one large tabular-nums figure | counts up on its spoken word, then holds |
+| A concept shown in use | worked example | 1 | one concrete case laid out in steps, inputs left, result right | each step lands on its spoken clause; the result is the held frame. A derived case carries the "Example, not from the chapter" tag for its whole life on screen. See [fidelity.md](fidelity.md) § Examples |
 | A concrete physical set-up | labelled figure | 1 | line-drawn figure, hairline leader lines to short labels | the figure draws in the order the prose introduces its parts; each label lands as its part is named, and the part under discussion takes the accent |
 | Code | code block | 1 | editor or terminal chrome | types in, then the relevant span highlights. Native Hyperframes — no new work |
 | **A derivation or rearrangement** | **equation transform** | **2** | before and after the same equation | terms **migrate** to their new positions; nothing teleports, nothing cross-fades |
@@ -57,9 +58,9 @@ what the idea *does*, and make the visual do that.
 a good diagram badly is a net loss. Attribute it.
 
 **Hold the payoff.** The frame that carries the point stays on screen after the narration lands.
-Cutting on the last word steals the moment the learner needs to absorb it.
+Cutting on the last word steals the moment the viewer needs to absorb it.
 
-**Reading time governs.** Any text the learner must read holds ~0.3s per word from when it is
+**Reading time governs.** Any text the viewer must read holds ~0.3s per word from when it is
 settled. Non-text accents can move faster.
 
 ## Adding a row

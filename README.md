@@ -81,14 +81,16 @@ page rather than a crop of the region.
 
 - Node ≥ 22, FFmpeg, Chrome. Check with `npx hyperframes doctor`.
 - `whisper-cpp`, which supplies the word timings.
-- Optional, for maths: `manim`, plus TinyTeX or BasicTeX for `MathTex` (see [manim.md](skills/chalk/references/manim.md)).
+- Optional, for maths: `manim`, plus TinyTeX or BasicTeX for `MathTex` (see [manim.md](skills/chalk/references/core/manim.md)).
 - For PDFs: `pdftotext` (poppler); `tesseract` as well for scanned pages.
 
 ### Install
 
 ```bash
+git clone https://github.com/OlixIgnacious/chalk-core.git   # the shared core, as a sibling
 git clone https://github.com/OlixIgnacious/chalk.git
 cd chalk
+npm install                # links chalk-core (the shared pipeline) from ../chalk-core
 npx hyperframes doctor     # environment gate
 npx hyperframes skills     # installs faceless-explainer + the hyperframes domain skills
 
@@ -117,7 +119,7 @@ symlink `skills/chalk` into `~/.claude/skills/`.
 ### Use
 
 ```bash
-/chalk fixtures/gutenberg-chapter.md
+/chalk path/to/chapter.md
 /chalk book.epub --chapter 4 --segments 5
 /chalk stats.pdf --chapter "Sampling" --math on
 /chalk this chapter, but assume they've never seen calculus
@@ -159,12 +161,14 @@ If the folder already exists, the run goes to a timestamped sibling instead of o
 skills/chalk/
 ├── SKILL.md             thin entry point and the six gates
 ├── references/          one step-N-*.md per step, loaded only when that step runs
-├── scripts/             ingest, build-tokens, align-captions, emit-vtt, fix-index,
-│                        manim-render, build-lesson-page, deliver, check-readability
-└── assets/
-fixtures/                public-domain Project Gutenberg test inputs
-test/                    smoke, player-browser and tier2 gates
+│   └── core/            vendored from chalk-core — never edit here
+├── scripts/             build-lesson-page, deliver
+└── assets/player/       the lesson page
+test/                    smoke (lesson page, delivery, core boundary) and player-browser gates
 ```
+
+Ingest, the grounding gate, caption alignment, Manim, the shared references and the fixtures live in
+[chalk-core](../chalk-core), which every chalk skill builds on.
 
 This repo is mostly Markdown and reference data, not an application. The scripts exist only where
 nothing upstream covers the job. Read [CLAUDE.md](CLAUDE.md) before changing anything under
@@ -172,18 +176,19 @@ nothing upstream covers the job. Read [CLAUDE.md](CLAUDE.md) before changing any
 
 ## Testing
 
-Tests run against `fixtures/` (public-domain text). Never test against a copyrighted book.
+Fixtures live in chalk-core (public-domain text). Never test against a copyrighted book.
 
 ```bash
-npm test              # the script regression gate
+npm test              # lesson page, delivery, and the core boundary
 npm run test:player   # the lesson page, driven in Chrome
-npm run test:tier2    # the Manim render and its alpha compositing
 npx hyperframes doctor
 ```
+
+The ingest, grounding and Manim tests run in chalk-core (`npm test`, `npm run test:tier2` there).
 
 ## Credits and licence
 
 Video engine: [Hyperframes](https://github.com/heygen-com/hyperframes) by HeyGen (Apache-2.0).
-`align-captions.mjs` is vendored from it; see [CREDITS.md](CREDITS.md).
+`align-captions.mjs`, vendored from it, lives in chalk-core; see its CREDITS.md.
 
 Apache-2.0. See [LICENSE](LICENSE).

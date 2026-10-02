@@ -16,7 +16,6 @@
 import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
 
 const argv = process.argv.slice(2);
 const die = (m) => {
@@ -128,19 +127,14 @@ function bakePoster(mp4, poster, video) {
 
 // ── 3. the written companion ──────────────────────────────────────────────────────────────────────
 
-const scriptsDir = dirname(fileURLToPath(import.meta.url));
-
-/** Parsed scripts, via check-readability's own parser — one shape for grounding, not two. */
+/** Parsed scripts, via chalk-core's check-readability — one shape for grounding, not two. */
 function readScripts(segments) {
   const files = segments
     .map((s) => join(outDir, "segments", s.id, "script.md"))
     .filter((f) => existsSync(f));
   if (!files.length) return null;
-  const r = spawnSync(
-    process.execPath,
-    [join(scriptsDir, "check-readability.mjs"), ...files, "--json"],
-    { encoding: "utf8" },
-  );
+  const r = spawnSync("npx", ["chalk-core", "check-readability", ...files, "--json"], { encoding: "utf8" });
+  if (r.error) die(`cannot run chalk-core (${r.error.message}) — see references/core/ and the README.`);
   // Exit 1 means the gate failed, and its complaints matter more than this step does.
   if (r.status !== 0 && r.status !== 1) die(`check-readability could not read the scripts:\n${r.stderr}`);
   let parsed;
