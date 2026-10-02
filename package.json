@@ -1,0 +1,19 @@
+{
+  "name": "chalk-youtube",
+  "version": "0.1.0",
+  "description": "Turn a book chapter into a chaptered YouTube video with an upload kit, worked examples and a hands-on notebook",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "chalk-core": "file:../chalk-core"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "doctor": "npx hyperframes doctor",
+    "skills": "npx hyperframes skills"
+  }
+}
