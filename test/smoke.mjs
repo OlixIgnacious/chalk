@@ -513,9 +513,9 @@ test("check-readability: --json reports the citation each line actually resolved
 
 // An example is the one place a script may show numbers the chapter did not print, so it is the one
 // place the gate has to be strict about where they came from.
-const exampleScene = (fields, entry = "display: \"Two lists, one mean.\"") =>
+const exampleScene = (fields, display = "Two lists, one mean.", spoken = display) =>
   `## Scene 1 — worked example\nvisual: worked example (tier 1)\nduration: ~30s\n${fields}\n\n` +
-  `- spoken: "Two lists can share a mean."\n  ${entry}\n  source: [p004]\n`;
+  `- spoken: "${spoken}"\n  display: "${display}"\n  source: [p004]\n`;
 
 test("check-readability: an example scene must say where its example came from", () => {
   const r = run("check-readability.mjs", write("ex-none.md", exampleScene("")));
@@ -530,26 +530,20 @@ test("check-readability: example: chapter passes, and an unknown value fails", (
   assert.match(bad.stderr, /example: must be chapter or derived/);
 });
 
-test("check-readability: a derived example needs the script that computes it and a visible tag", () => {
+test("check-readability: a derived example needs the script that computes it, and nothing on screen", () => {
   const noScript = run("check-readability.mjs", write("ex-d1.md", exampleScene("example: derived")));
   assert.equal(noScript.status, 1);
   assert.match(noScript.stderr, /derived example names no computed-by/);
 
-  const noTag = run("check-readability.mjs",
-    write("ex-d2.md", exampleScene("example: derived\ncomputed-by: examples/spread.py")));
-  assert.equal(noTag.status, 1);
-  assert.match(noTag.stderr, /not from the chapter/);
-
+  // The declaration is the record. The video itself carries no label: that lives in the logs.
   const ok = run("check-readability.mjs", write("ex-d3.md",
-    exampleScene("example: derived\ncomputed-by: examples/spread.py",
-                 'display: "Example, not from the chapter: two lists, one mean."')));
+    exampleScene("example: derived\ncomputed-by: examples/spread.py", "Take the list four, five, six.")));
   assert.equal(ok.status, 0, ok.stderr);
 });
 
 test("check-readability: --json reports the example source the scene declared", () => {
   const r = run("check-readability.mjs", write("ex-j.md", exampleScene(
-    "example: derived\ncomputed-by: examples/spread.py",
-    'display: "Example, not from the chapter: two lists."')), "--json");
+    "example: derived\ncomputed-by: examples/spread.py", "Two lists.")), "--json");
   const s = JSON.parse(r.stdout).files[0].scenes[0];
   assert.equal(s.example, "derived");
   assert.equal(s.computedBy, "examples/spread.py");
@@ -852,6 +846,113 @@ test("align-captions: a final word with no end still yields a numeric line end",
   assert.equal(typeof caps.lines[0].end, "number", "NaN serialises to null and loses the end time");
 });
 
+// ── apply-display ─────────────────────────────────────────────────────────────────────────────────
+
+// captions.mjs reads voices[].words, so the display layer only reaches the screen if the aligned
+// display tokens are written back there. A frame is a script scene; a scene may hold several entries.
+const adScript = [
+  "## Scene 1 — a", "visual: definition card (tier 1)", "duration: ~5s", "",
+  '- spoken: "One two."', '  display: "One two."', "  source: [p001]", "",
+  "## Scene 2 — b", "visual: definition card (tier 1)", "duration: ~5s", "",
+  '- spoken: "Three."', '  display: "Three."', "  source: [p002]", "",
+  '- spoken: "Four five."', '  display: "Four five."', "  source: [p003]", "",
+].join("\n");
+const adMeta = () => ({
+  bgm: null, sfx: [],
+  voices: [
+    { frame: 1, path: "a.wav", duration_s: 2, words: [{ id: "w0", text: "wun", start: 0.1, end: 0.5 }, { id: "w1", text: "too", start: 0.6, end: 1.0 }] },
+    { frame: 2, path: "b.wav", duration_s: 3, words: [
+      { id: "w0", text: "free", start: 0.1, end: 0.5 }, { id: "w1", text: "for", start: 1.0, end: 1.4 }, { id: "w2", text: "five", start: 1.5, end: 2.0 } ] },
+  ],
+});
+// absolute times: frame 2 starts at 2s
+const adCaptions = {
+  lines: [
+    { id: "l001", end: 2, w: [["One", 0.1], ["two.", 0.6]] },
+    { id: "l002", end: 3, w: [["Three.", 2.1]] },
+    { id: "l003", end: 5, w: [["Four", 3.0], ["five.", 3.5]] },
+  ],
+};
+
+function adSetup(name, meta = adMeta(), captions = adCaptions) {
+  const dir = join(tmp, name);
+  mkdirSync(dir, { recursive: true });
+  const s = join(dir, "script.md"), c = join(dir, "captions.json"), m = join(dir, "audio_meta.json");
+  writeFileSync(s, adScript); writeFileSync(c, JSON.stringify(captions)); writeFileSync(m, JSON.stringify(meta));
+  return { s, c, m, dir };
+}
+
+test("apply-display: aligned display tokens replace each frame's transcript words, frame-relative", () => {
+  const { s, c, m } = adSetup("ad1");
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 0, r.stderr);
+  const meta = JSON.parse(readFileSync(m, "utf8"));
+  assert.deepEqual(meta.voices[0].words.map((w) => w.text), ["One", "two."]);
+  assert.deepEqual(meta.voices[1].words.map((w) => w.text), ["Three.", "Four", "five."]);
+  // frame 2 starts at 2s, so an absolute 2.1 is 0.1 into the frame
+  assert.deepEqual(meta.voices[1].words.map((w) => w.start), [0.1, 1.0, 1.5]);
+  assert.equal(meta.voices[0].words[0].id, "w0");
+});
+
+test("apply-display: each word ends where the next begins, and the last where the voice did", () => {
+  const { s, c, m } = adSetup("ad2");
+  run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  const w = JSON.parse(readFileSync(m, "utf8")).voices[1].words;
+  assert.equal(w[0].end, w[1].start);
+  assert.equal(w[2].end, 2.0, "the last display word keeps the transcript's own last end");
+});
+
+test("apply-display: the original transcript is kept, and re-running starts from it", () => {
+  const { s, c, m, dir } = adSetup("ad3");
+  run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  const bak = join(dir, "audio_meta.transcript.json");
+  assert.ok(existsSync(bak), "the raw transcript is backed up beside the meta");
+  assert.equal(JSON.parse(readFileSync(bak, "utf8")).voices[0].words[0].text, "wun");
+  const once = readFileSync(m, "utf8");
+  run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(readFileSync(m, "utf8"), once, "running it twice must not compound");
+});
+
+// REGRESSION — re-generating the VO writes a fresh raw audio_meta.json. If the backup of the previous
+// transcript were trusted, the new voice would be silently replaced by the old one's words.
+test("apply-display: a regenerated transcript replaces the backup instead of being ignored", () => {
+  const { s, c, m, dir } = adSetup("ad7");
+  run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  const fresh = adMeta();
+  fresh.voices[0].words[0].text = "newtake";
+  writeFileSync(m, JSON.stringify(fresh));
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(readFileSync(join(dir, "audio_meta.transcript.json"), "utf8")).voices[0].words[0].text, "newtake");
+});
+
+test("apply-display: a script and captions that disagree about the entries are refused", () => {
+  const bad = { lines: adCaptions.lines.slice(0, 2) };
+  const { s, c, m } = adSetup("ad4", adMeta(), bad);
+  const before = readFileSync(m, "utf8");
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /3 spoken entr(y|ies) in the script but 2 caption line/);
+  assert.equal(readFileSync(m, "utf8"), before, "nothing is rewritten on a refusal");
+});
+
+test("apply-display: more scenes than voiced frames is refused", () => {
+  const meta = adMeta();
+  meta.voices.pop();
+  const { s, c, m } = adSetup("ad5", meta);
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /2 scenes but 1 voiced frame/);
+});
+
+test("apply-display: missing flags and unreadable files are reported", () => {
+  assert.equal(run("apply-display.mjs").status, 2);
+  const { s, c } = adSetup("ad6");
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", join(tmp, "nope.json"));
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /cannot read/);
+});
+
 // ── manim-render ──────────────────────────────────────────────────────────────────────────────────
 
 // Every manim-render call here passes --out into the temp dir. Its default is "assets" relative to
@@ -909,7 +1010,7 @@ const cli = (...args) =>
 test("cli: every command maps to a script that exists", () => {
   const src = readFileSync(join(root, "bin/chalk-core.mjs"), "utf8");
   const files = [...src.matchAll(/^\s+(?:"[a-z-]+"|[a-z]+):\s*"([a-z-]+\.mjs)",?$/gm)].map((m) => m[1]);
-  assert.equal(files.length, 7, "expected the seven shared scripts");
+  assert.equal(files.length, 8, "expected the eight shared scripts");
   for (const f of files) assert.ok(existsSync(join(scripts, f)), `${f} is mapped but missing`);
 });
 

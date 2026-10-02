@@ -201,7 +201,8 @@ for (const file of files) {
 
     // An example is the one place a script may show numbers the chapter never printed, so it has to
     // say where they came from. "chapter" cites block ids like any line. "derived" must name the
-    // script that computes every number on screen, and say so on screen, so it cannot read as sourced.
+    // script that computes every number on screen. That declaration is the record — it travels to the
+    // plan and the logs. The video itself carries no label, so a viewer is not told in narration.
     const isExample = /worked example/i.test(s.visual ?? "") || s.example !== null;
     if (isExample) {
       if (s.example === null) {
@@ -211,10 +212,6 @@ for (const file of files) {
       } else if (s.example === "derived") {
         if (!s.computedBy) {
           fail(file, `scene "${s.title}": a derived example names no computed-by script, so its numbers have no origin`);
-        }
-        const tagged = s.entries.some((e) => /not from the chapter/i.test(e.display ?? ""));
-        if (!tagged) {
-          fail(file, `scene "${s.title}": a derived example must say "not from the chapter" on screen`);
         }
       }
     }

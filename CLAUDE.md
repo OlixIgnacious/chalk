@@ -10,8 +10,8 @@ the bar is: *would every skill want this?* If only one would, it belongs in that
 
 ## What lives here
 
-- `scripts/` — `ingest`, `check-readability`, `build-tokens`, `align-captions`, `emit-vtt`,
-  `fix-index`, `manim-render`. One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
+- `scripts/` — `ingest`, `check-readability`, `build-tokens`, `align-captions`, `apply-display`,
+  `emit-vtt`, `fix-index`, `manim-render`. One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
 - `references/` — the shared method: `fidelity`, `step-1-ingest`, `step-3-script`, `visual-registry`,
   `manim`, `captions-and-engine`, `edge-cases`. Skills receive these through `chalk-core sync`.
 - `templates/manim/` — the Tier 2 base scene and the worked example.

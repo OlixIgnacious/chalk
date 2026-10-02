@@ -22,6 +22,7 @@ const COMMANDS = {
   "check-readability": "check-readability.mjs",
   "build-tokens": "build-tokens.mjs",
   "align-captions": "align-captions.mjs",
+  "apply-display": "apply-display.mjs",
   "emit-vtt": "emit-vtt.mjs",
   "fix-index": "fix-index.mjs",
   "manim-render": "manim-render.mjs",
