@@ -58,6 +58,10 @@ npx hyperframes skills                   # installs faceless-explainer + the hyp
 Node ≥ 22, FFmpeg, Chrome, `whisper-cpp`. Kokoro TTS needs its own interpreter; see chalk-core's
 [CLAUDE.md](../chalk-core/CLAUDE.md#local-setup).
 
+## CCAR-P build helpers
+
+`tools/ccarp/` holds the book-specific scripts, visual specs and lexicons used to build the CCAR-P chapter 2–4 videos. See its [README](tools/ccarp/README.md).
+
 ## Test
 
 ```bash

@@ -1,0 +1,13 @@
+{
+ "01": "The hook",
+ "02": "Context engineering",
+ "03": "Anatomy of good context",
+ "04": "Just-in-time retrieval",
+ "05": "Long-horizon techniques",
+ "06": "Managing token usage",
+ "07": "How prompt caching works",
+ "08": "What breaks the cache",
+ "09": "Modular prompts and Skills",
+ "10": "Choosing a reuse mechanism",
+ "11": "Exam traps and self-check"
+}
