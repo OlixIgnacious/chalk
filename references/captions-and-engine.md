@@ -5,6 +5,29 @@ The mechanics shared by every skill built on chalk-core that renders through Hyp
 for explanatory video, and how to check a frame without re-rendering. What to put in the brief, and
 how segments are delivered, belongs to the skill using this.
 
+## The voice
+
+On the offline route, `faceless-explainer`'s `audio.mjs` cannot do what a teacher does: its Kokoro path
+ignores `--speed`, exposes no pause control, and falls back to a fixed voice (`am_michael`). Use
+`chalk-core narrate` for the voice instead:
+
+```bash
+npx chalk-core narrate --script <project>/SCRIPT.md --out <project> --voice af_heart --speed 0.93 --lead 0.6
+npx chalk-core narrate --text "A paragraph to audition." --wav audition.wav --voice af_bella   # try a voice
+```
+
+Each sentence is synthesized alone and the silence between sentences is inserted by the narrator: longer
+after a question, and longer still where the script has `{beat}` (~0.5s), `{pause}` (~1s) or `{think}` (~2.5s), with a small
+deterministic jitter so the pauses are not metronomic. (Kokoro's own `sentence_pause` was tried and changed
+nothing.) A voice may be a blend, `--voice "af_heart:0.7,af_bella:0.3"`. The silence is baked into each take, so
+a frame's duration still equals its narration. `--lead 0.6` adds a breath of silence before every take but the
+first, so a scene change does not land the instant the last scene ends. `--polish` evens the level without
+changing the length.
+
+It writes `assets/voice/NN.wav`, transcribes each take (Parakeet if installed), and writes `audio_meta.json`
+and `audio_engine_meta.json` in the shape `audio.mjs` writes, so `sync-durations` and everything after run
+unchanged. Pick the voice by ear first: render the same paragraph in a few voices and listen.
+
 ## Captions
 
 `hyperframes tts` does **not** emit word timings, but the audio step (`faceless-explainer`'s
@@ -27,6 +50,15 @@ npx chalk-core apply-display \
 without it the captions show the raw transcript ("Amine"), not the script. It keeps the transcript as
 `audio_meta.transcript.json` and starts from it every run — re-run `align-captions` against *that*, not
 the rewritten file. Run `captions.mjs` only after it.
+
+**Install Parakeet first** (`npx hyperframes models install parakeet`, a one-off ~640 MB download). The
+default Whisper model (`small.en`) lets word times drift later through a long take: in an 11-second take the
+last word started after the audio had ended, and in a 30-second take a word came in 0.6s late and the final
+end overshot by 1.9s. Parakeet kept every word within about 0.2s (early, not late) of the real pauses.
+`audio.mjs` picks it automatically once it is installed. Check a take by comparing
+`ffmpeg … -af silencedetect` pause positions against the transcript's word starts; a transcript gap that the
+audio does not have means the times are being stretched. Either engine mishears some words ("evals" as "a
+vows", "Opus 5.5" as "Opus $5"), which is what the lexicon's `heard` field and a listen are for.
 
 Resolve every `MISMATCH` the aligner prints. A spoken interval with no caption is a red gate, not a
 style choice. Two causes account for nearly all of them, and both are the lexicon's job:
@@ -97,6 +129,17 @@ npx hyperframes snapshot <project> --at 2,15,45    # stills, including mid-trans
 
 Check mid-transition frames too: a crossfade between two busy layouts reads as a muddy double
 exposure. Stagger it, or dip through the background.
+
+## Checking the silences of a narrated segment
+
+A segment narrated with `{pause}` and `{think}` has long silences on purpose, so the old check ("one silent gap
+per segment, the end hold") no longer applies. The check that still catches a splice is positional: run
+`ffmpeg -i segment.mp4 -af silencedetect=n=-45dB:d=0.9 -f null -` and classify each silence by time. One inside a
+take is a marker; one in the last ~2s is the end hold; one at a frame boundary (the cumulative sum of
+`duration_s` in `audio_meta.json`) is the `--lead` breath between scenes, so it is expected when `--lead` is used.
+What is never right is silence in the middle of a word, which no silence scan reports: that is a splice, and it
+comes from cutting a take, so do not trim or retime a narrated take. Note a marker at the very end of a take
+is ignored, so put the pause's following words in the same take.
 
 ## Setting up a segment project
 

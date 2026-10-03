@@ -21,6 +21,12 @@ number words, case, punctuation, and the lexicon's terms. A condensed or paraphr
 `MISMATCH` for every word it cannot match. Short on-screen copy (a hero word, a label) lives in the
 frame itself, not in the script's display layer.
 
+**Write `spoken` for the ear, not the page.** The spoken layer is a person talking to one viewer: short
+sentences, "you", questions, plain-words restatement, and pauses. [spoken-style.md](spoken-style.md) has the
+rules, and `npx chalk-core check-spoken` measures them. Pause markers `{beat}` and `{pause}` may appear in
+the `spoken:` line (never in `display:`); they are stripped before words are matched, so the two layers still
+carry the same words.
+
 **A frame is a scene.** The audio step reads one narration block per storyboard frame, so each script
 scene becomes one frame and one voice take. Split a scene that carries two ideas; the one-visual-per-scene
 rule and the frame-per-scene mapping both want it.
@@ -102,7 +108,7 @@ npx chalk-core check-readability <output-dir>/segments/*/script.md
 
 - [ ] Worked script for a Tier 1 segment
 - [ ] Worked script for a segment with a Tier 2 scene
-- [ ] Guidance on narration that complements the visual rather than reading it aloud
+- [x] Guidance on narration that complements the visual rather than reading it aloud — see [spoken-style.md](spoken-style.md): the screen carries the list, the voice carries the reason
 
 ## Gate
 

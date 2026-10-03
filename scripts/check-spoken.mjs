@@ -1,0 +1,127 @@
+#!/usr/bin/env node
+// check-spoken.mjs — does the narration sound like a person, or like a document read aloud?
+//
+//   node check-spoken.mjs <script.md> [...] [--json]
+//
+// check-readability enforces grounding and reading time; nothing checked HOW the narration sounds, and
+// a faithful summary read aloud passed every gate while sounding like a robot (13.7 words a sentence, a
+// third of them comma lists, three questions in 110 sentences). This measures the spoken layer.
+//
+// It FAILS on two things that are never right for the ear: a sentence too long to say in one breath, and
+// a sentence that reads out a list. It only WARNS on the rest (long average sentences, no questions in a
+// long stretch, no talking to the viewer, a scene that changes topic without saying so), because those are
+// judgement. The limits are generous on purpose: a YouTube video has no word budget, and a teacher explaining
+// something properly uses full sentences. Pause markers do not count as words.
+//
+// Exit 0 ok (warnings allowed), 1 a hard failure, 2 usage.
+
+import { readFileSync } from "node:fs";
+
+const argv = process.argv.slice(2);
+const JSON_OUT = argv.includes("--json");
+const files = argv.filter((a) => !a.startsWith("--"));
+if (!files.length) {
+  console.error("usage: check-spoken.mjs <script.md> [...] [--json]");
+  process.exit(2);
+}
+
+const HARD_WORDS = 40; // a sentence longer than this cannot be said in one breath
+const HARD_LIST = 4; // a sentence with this many commas is reading out a list
+const SOFT_AVG = 16;
+const SOFT_LONG = 28;
+const WORDS_PER_SECOND = 2.4;
+
+const strip = (s) => s.replace(/\{(beat|pause|think)\}/g, " ").replace(/\s+/g, " ").trim();
+
+/** The spoken entries of a script.md, grouped by scene, outside any fenced example. */
+function scenesOf(md) {
+  const scenes = [];
+  let fenced = false;
+  for (const line of md.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (/^##\s/.test(line)) {
+      scenes.push([]);
+      continue;
+    }
+    const m = line.match(/^\s*(?:-\s*)?spoken:\s*"(.*)"\s*$/i);
+    if (m) (scenes.at(-1) ?? scenes[scenes.push([]) - 1]).push(m[1]);
+  }
+  return scenes.filter((s) => s.length);
+}
+
+// A scene change is a topic change, and saying so aloud is what stops it feeling rushed. A question is
+// always a signpost; otherwise the opening words should say what is happening ("let's look at an example").
+const SIGNPOST = /^(let'?s|now|next|so|here|before|alright|okay|time|back|one more|another|finally|last|first|second|third|then|imagine|say|take|think|remember|picture|and|but|why|what|how|when|where|which|who|there are|there'?s|a quick|quick|meanwhile|that'?s|ready|up next|on to)\b/i;
+const opensWithSignpost = (entry) => {
+  const first = strip(entry).split(/(?<=[.!?])\s+/)[0] ?? "";
+  return /\?$/.test(first) || SIGNPOST.test(first);
+};
+
+const YOU = /\byou(?:'re|'ll|'ve|'d|r|rs|rself)?\b/i;
+const CONTRACTION = /\b(?:\w+n't|\w+'(?:re|ll|ve|d|m)|it's|that's|here's|there's|what's|let's|who's)\b/gi;
+
+function measure(entries, scenes = []) {
+  const sentences = entries.flatMap((e) => strip(e).split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean));
+  const lens = sentences.map((s) => s.split(/\s+/).length);
+  const words = lens.reduce((a, b) => a + b, 0);
+  return {
+    sentences: sentences.length,
+    words,
+    avgWords: sentences.length ? Number((words / sentences.length).toFixed(1)) : 0,
+    maxWords: Math.max(0, ...lens),
+    questions: sentences.filter((s) => /\?$/.test(s)).length,
+    you: sentences.filter((s) => YOU.test(s)).length,
+    contractions: sentences.reduce((a, s) => a + (s.match(CONTRACTION)?.length ?? 0), 0),
+    lists: sentences.filter((s) => (s.match(/,/g)?.length ?? 0) >= 3).length,
+    seconds: Number((words / WORDS_PER_SECOND).toFixed(1)),
+    // scenes after the first that begin without saying what is happening (1-based)
+    unsignposted: scenes.map((s, i) => (i > 0 && !opensWithSignpost(s[0]) ? i + 1 : null)).filter(Boolean),
+    sentenceList: sentences,
+  };
+}
+
+let failed = 0;
+const report = [];
+for (const file of files) {
+  let md;
+  try {
+    md = readFileSync(file, "utf8");
+  } catch (e) {
+    console.error(`check-spoken: cannot read ${file} — ${e.message}`);
+    process.exit(2);
+  }
+  const scenes = scenesOf(md);
+  const m = measure(scenes.flat(), scenes);
+  const failures = [];
+  const warnings = [];
+  for (const s of m.sentenceList) {
+    const n = s.split(/\s+/).length;
+    const commas = s.match(/,/g)?.length ?? 0;
+    if (n > HARD_WORDS) failures.push(`a sentence of ${n} words is too long to say in one breath — "${s.slice(0, 60)}…"`);
+    if (commas >= HARD_LIST) failures.push(`a sentence reads out a list of ${commas + 1} items — say two or three and leave the rest on screen — "${s.slice(0, 60)}…"`);
+    else if (n > SOFT_LONG && n <= HARD_WORDS) warnings.push(`a ${n}-word sentence is long — "${s.slice(0, 50)}…"`);
+  }
+  if (m.sentences && m.avgWords > SOFT_AVG) warnings.push(`sentences average ${m.avgWords} words; aim for 12–14 or fewer, mixing in longer ones where an idea needs room`);
+  if (m.seconds > 60 && m.questions === 0) warnings.push(`about ${Math.round(m.seconds)}s of narration with no question to the viewer`);
+  for (const n of m.unsignposted) warnings.push(`scene ${n} opens without a signpost — say what is happening ("let's look at it through an example", "now, the other way round")`);
+  if (m.sentences >= 5 && m.you / m.sentences < 0.2) warnings.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences`);
+  failed += failures.length;
+  const { sentenceList, ...metrics } = m;
+  report.push({ file, metrics, warnings, failures });
+  if (!JSON_OUT) {
+    console.log(`${file} — ${m.sentences} sentences, ${m.words} words, avg ${m.avgWords}, max ${m.maxWords}, ${m.questions} question(s), you ${m.you}, contractions ${m.contractions}`);
+    for (const w of warnings) console.error(`  warn ${file}: ${w}`);
+  }
+  for (const f of failures) console.error(`  FAIL ${file}: ${f}`);
+}
+
+if (JSON_OUT) console.log(JSON.stringify({ files: report }, null, 2));
+if (failed) {
+  console.error(`\ncheck-spoken: ${failed} failure(s)`);
+  process.exit(1);
+}
+if (!JSON_OUT) console.log("\ncheck-spoken: ok");

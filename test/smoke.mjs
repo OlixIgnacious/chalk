@@ -15,7 +15,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import assert from "node:assert/strict";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -31,6 +31,10 @@ const write = (name, body) => {
 };
 const fixture = (name) => join(root, "fixtures", name);
 const out = (name) => join(tmp, name);
+
+// narrate.mjs exports its pure helpers; a missing file must fail its own tests, not the whole suite.
+const narr = await import(pathToFileURL(join(scripts, "narrate.mjs")).href).catch(() => null);
+const need = (m) => assert.ok(m, "scripts/narrate.mjs does not exist yet");
 
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
@@ -926,6 +930,44 @@ test("apply-display: a regenerated transcript replaces the backup instead of bei
   assert.equal(JSON.parse(readFileSync(join(dir, "audio_meta.transcript.json"), "utf8")).voices[0].words[0].text, "newtake");
 });
 
+// Two display tokens can share one misheard spoken word ("evals" heard as "a vows"), and the aligner can
+// then hand them times a millisecond apart in the wrong order. A caption cannot show a word before the
+// one that precedes it, so the order is enforced here rather than hoped for.
+test("apply-display: word starts never go backwards, even if the alignment did", () => {
+  const caps = { lines: [
+    { id: "l001", end: 2, w: [["One", 0.5], ["two.", 0.499]] },
+    { id: "l002", end: 3, w: [["Three.", 2.1]] },
+    { id: "l003", end: 5, w: [["Four", 3.0], ["five.", 3.5]] },
+  ] };
+  const { s, c, m } = adSetup("ad8", adMeta(), caps);
+  assert.equal(run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m).status, 0);
+  const w = JSON.parse(readFileSync(m, "utf8")).voices[0].words;
+  assert.ok(w[1].start >= w[0].start, `${w[0].start} then ${w[1].start}`);
+  assert.ok(w.every((x) => x.end > x.start), "and every word still has a positive length");
+});
+
+// REGRESSION — the recognizer heard "tiers." as "tears.", the aligner skipped it, and "Higher tiers are" came out
+// on one timestamp: a zero-length caption, with no MISMATCH printed. Three words on one start is never right.
+test("apply-display: three words squeezed onto one start time are refused, and nothing is rewritten", () => {
+  const caps = { lines: [
+    { id: "l001", end: 2, w: [["One", 0.5], ["two.", 0.5]] },
+    { id: "l002", end: 3, w: [["Three.", 2.1]] },
+    { id: "l003", end: 5, w: [["Four", 3.5], ["five.", 3.5]] },
+  ] };
+  // frame 2's three words land together
+  const bad = { lines: [caps.lines[0], { id: "l002", end: 3, w: [["Three.", 2.1]] }, { id: "l003", end: 5, w: [["Four", 2.1], ["five.", 2.1]] }] };
+  const { s, c, m } = adSetup("ad9", adMeta(), bad);
+  const before = readFileSync(m, "utf8");
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /share one start time/);
+  assert.match(r.stderr, /Three\. Four five\./);
+  assert.equal(readFileSync(m, "utf8"), before, "a refusal must not rewrite the meta");
+  // two words together is a clamp, not a collapse
+  const ok = adSetup("ad10", adMeta(), caps);
+  assert.equal(run("apply-display.mjs", "--script", ok.s, "--captions", ok.c, "--audio-meta", ok.m).status, 0);
+});
+
 test("apply-display: a script and captions that disagree about the entries are refused", () => {
   const bad = { lines: adCaptions.lines.slice(0, 2) };
   const { s, c, m } = adSetup("ad4", adMeta(), bad);
@@ -951,6 +993,233 @@ test("apply-display: missing flags and unreadable files are reported", () => {
   const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", join(tmp, "nope.json"));
   assert.equal(r.status, 2);
   assert.match(r.stderr, /cannot read/);
+});
+
+// ── narrate ───────────────────────────────────────────────────────────────────────────────────────
+// Kokoro's own sentence_pause did nothing in testing (0.25 and 0.55 gave identical audio), so pauses are made
+// here: each sentence is synthesized alone and silence is inserted between them, which also makes them variable.
+
+test("narrate: markers are stripped from spoken text, leaving clean words", () => {
+  need(narr);
+  assert.equal(narr.stripMarkers("So which one? {beat} It depends. {pause} Start small."), "So which one? It depends. Start small.");
+  assert.equal(narr.stripMarkers("No markers here."), "No markers here.");
+  assert.equal(narr.stripMarkers("First {beat}second"), "First second");
+  assert.equal(narr.stripMarkers("Why? {think} Because."), "Why? Because.");
+});
+
+// A viewer answering a question for themselves needs seconds, not a breath.
+test("narrate: {think} is a long silence, longer than a pause", () => {
+  need(narr);
+  const p = narr.splitSpoken("Name two ways. {think} Why put it last? {think} Because.");
+  assert.deepEqual(p.map((x) => x.gap), ["think", "think", null]);
+  const o = { sentence: 0.4, question: 0.7, beat: 0.5, pause: 1.0, think: 2.5, jitter: 0.2 };
+  assert.ok(narr.gapSeconds("think", "x", o) > narr.gapSeconds("pause", "x", o) * 1.5);
+  assert.ok(narr.gapSeconds("think", "x", o) >= 2.5 * 0.8);
+});
+
+test("narrate: text splits into sentences, each saying how long to wait after it", () => {
+  need(narr);
+  const p = narr.splitSpoken("So which one? It depends. Start small. {pause} Then measure.");
+  assert.deepEqual(p.map((x) => x.text), ["So which one?", "It depends.", "Start small.", "Then measure."]);
+  assert.deepEqual(p.map((x) => x.gap), ["question", "sentence", "pause", null]);
+});
+
+test("narrate: an explicit marker replaces the natural gap, and a trailing marker is ignored", () => {
+  need(narr);
+  const p = narr.splitSpoken("Ready? {beat} Here it is. {pause}");
+  assert.deepEqual(p.map((x) => x.gap), ["beat", null]);
+  const mid = narr.splitSpoken("First {beat} second.");
+  assert.deepEqual(mid.map((x) => x.text), ["First", "second."]);
+  assert.deepEqual(mid.map((x) => x.gap), ["beat", null]);
+});
+
+test("narrate: a gap's length is deterministic, varied, and within its jitter", () => {
+  need(narr);
+  const o = { sentence: 0.4, question: 0.7, beat: 0.5, pause: 1.0, think: 2.5, jitter: 0.2 };
+  assert.equal(narr.gapSeconds("sentence", "f1-0", o), narr.gapSeconds("sentence", "f1-0", o), "same key, same gap");
+  const gaps = ["a", "b", "c", "d", "e", "f"].map((k) => narr.gapSeconds("sentence", k, o));
+  assert.ok(new Set(gaps).size > 1, "different places must not all pause the same length");
+  for (const g of gaps) assert.ok(g >= 0.4 * 0.8 - 1e-9 && g <= 0.4 * 1.2 + 1e-9, `${g} is outside ±20% of 0.4`);
+  assert.ok(narr.gapSeconds("pause", "x", o) > narr.gapSeconds("beat", "x", o), "a pause is longer than a beat");
+  assert.equal(narr.gapSeconds(null, "x", o), 0);
+});
+
+test("narrate: a SCRIPT.md gives one narration block per frame, markers kept", () => {
+  need(narr);
+  const md = "# S\n\n## Line 1 — a (Frame 1)\n\n**Delivery:** x\n\n    Hello there. {beat} Welcome.\n\n## Line 2 — b (Frame 2)\n\n    Second frame.\n";
+  assert.deepEqual(narr.parseScript(md), [{ frame: 1, text: "Hello there. {beat} Welcome." }, { frame: 2, text: "Second frame." }]);
+});
+
+const pyKokoro = join(root, ".venv/bin/python");
+const haveKokoro = existsSync(pyKokoro) &&
+  spawnSync(pyKokoro, ["-c", "import kokoro_onnx,soundfile"], { stdio: "ignore" }).status === 0 &&
+  existsSync(join(process.env.HOME ?? "", ".cache/hyperframes/tts/models/kokoro-v1.0.onnx"));
+
+const wavSeconds = (f) =>
+  Number(spawnSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", f], { encoding: "utf8" }).stdout.trim());
+
+function narrateRun(name, text, ...extra) {
+  const dir = join(tmp, name);
+  mkdirSync(dir, { recursive: true });
+  const script = join(dir, "SCRIPT.md");
+  writeFileSync(script, `# S\n\n## Line 1 — a (Frame 1)\n\n    ${text}\n`);
+  const r = spawnSync(process.execPath, [join(scripts, "narrate.mjs"), "--script", script, "--out", dir, "--no-transcribe",
+    "--python", pyKokoro, ...extra], { encoding: "utf8" });
+  return { r, dir };
+}
+
+test("narrate: a {pause} makes the take longer by about that much, and the meta says so", () => {
+  if (!haveKokoro) return "kokoro is not installed here";
+  need(narr);
+  const a = narrateRun("nar1", "Which model do you pick? It depends.", "--voice", "af_heart");
+  assert.equal(a.r.status, 0, a.r.stderr);
+  const b = narrateRun("nar2", "Which model do you pick? {pause} It depends.", "--voice", "af_heart");
+  assert.equal(b.r.status, 0, b.r.stderr);
+  const da = wavSeconds(join(a.dir, "assets/voice/01.wav")), db = wavSeconds(join(b.dir, "assets/voice/01.wav"));
+  assert.ok(db - da > 0.25, `a {pause} should add at least ~0.3s over the natural gap (${da.toFixed(2)}s vs ${db.toFixed(2)}s)`);
+  const meta = JSON.parse(readFileSync(join(b.dir, "audio_meta.json"), "utf8"));
+  assert.equal(meta.voices.length, 1);
+  assert.equal(meta.voices[0].frame, 1);
+  assert.equal(meta.voices[0].path, "assets/voice/01.wav");
+  assert.ok(Math.abs(meta.voices[0].duration_s - db) < 0.05, "audio_meta duration must equal the file's");
+  assert.deepEqual(Object.keys(meta).sort(), ["bgm", "bgm_pending", "sfx", "voices"]);
+});
+
+test("narrate: the engine meta carries the voice id, and markers never reach the transcript text", () => {
+  if (!haveKokoro) return "kokoro is not installed here";
+  need(narr);
+  const { r, dir } = narrateRun("nar3", "Ready? {beat} Here it is.", "--voice", "af_bella");
+  assert.equal(r.status, 0, r.stderr);
+  const eng = JSON.parse(readFileSync(join(dir, "audio_engine_meta.json"), "utf8"));
+  assert.equal(eng.tts_provider, "kokoro");
+  assert.equal(eng.voice_id, "af_bella");
+  assert.ok(!/\{beat\}|\{pause\}/.test(readFileSync(join(dir, "audio_meta.json"), "utf8")));
+});
+
+test("narrate: missing flags, a missing script and an unknown voice are reported", () => {
+  need(narr);
+  assert.equal(run("narrate.mjs").status, 2);
+  assert.equal(run("narrate.mjs", "--script", join(tmp, "nope.md"), "--out", tmp, "--no-transcribe").status, 2);
+  if (!haveKokoro) return "kokoro is not installed here, so the voice check cannot run";
+  const { r } = narrateRun("nar4", "Hello there.", "--voice", "not_a_voice");
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /not_a_voice/);
+});
+
+// ── check-spoken ──────────────────────────────────────────────────────────────────────────────────
+
+const spokenScript = (...entries) =>
+  "## Scene 1 — t\nvisual: definition card (tier 1)\nduration: ~20s\n\n" +
+  entries.map((e) => `- spoken: "${e}"\n  display: "${e.replace(/\{(beat|pause)\}\s*/g, "")}"\n  source: [p001]\n`).join("\n");
+
+test("check-spoken: a conversational script passes and its metrics are reported", () => {
+  const p = write("sp-good.md", spokenScript(
+    "So, which model do you pick? {beat} It depends on what you're building.",
+    "Start with the one you trust. Then measure it."));
+  const r = run("check-spoken.mjs", p, "--json");
+  assert.equal(r.status, 0, r.stderr);
+  const m = JSON.parse(r.stdout).files[0].metrics;
+  assert.equal(m.sentences, 4);
+  assert.equal(m.questions, 1);
+  assert.ok(m.contractions >= 1, "you're is a contraction");
+  assert.ok(m.you >= 2, "you and you're address the viewer");
+  assert.ok(m.avgWords < 10);
+});
+
+test("check-spoken: markers do not count as words", () => {
+  const p = write("sp-markers.md", spokenScript("One two three. {pause} Four five six."));
+  const m = JSON.parse(run("check-spoken.mjs", p, "--json").stdout).files[0].metrics;
+  assert.equal(m.words, 6);
+  assert.equal(m.maxWords, 3);
+});
+
+test("check-spoken: a sentence over the hard limit fails", () => {
+  const long = "this sentence just keeps going and going and going without ever stopping for breath so that the listener has no chance to take anything in at all before it finally ends and even then it carries on a little further with yet another clause that nobody asked for";
+  const r = run("check-spoken.mjs", write("sp-long.md", spokenScript(long + ".")));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /sentence of \d+ words/);
+});
+
+test("check-spoken: a sentence that reads out a long list fails", () => {
+  const r = run("check-spoken.mjs", write("sp-list.md", spokenScript("It has role, task, rules, format, examples, and context.")));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /list/i);
+  // three items is a sentence, not a list
+  assert.equal(run("check-spoken.mjs", write("sp-list3.md", spokenScript("It has a role, a task, and some rules."))).status, 0);
+});
+
+test("check-spoken: soft problems warn but do not fail", () => {
+  // a long, lecture-like stretch with no question and no 'you'
+  const dull = Array.from({ length: 8 }, () => "The model reads the prompt and then it writes an answer for the user of the app").map((s) => s + ".");
+  const r = run("check-spoken.mjs", write("sp-dull.md", spokenScript(...dull)));
+  assert.equal(r.status, 0, "warnings must not fail the gate");
+  assert.match(r.stderr + r.stdout, /warn/i);
+  assert.match(r.stderr + r.stdout, /you/i);
+});
+
+// A YouTube video is not constrained to a word budget, so the sentence limits only catch what cannot be said
+// in one breath. A long explanatory sentence is a judgement call (a warning), not a failure.
+test("check-spoken: a long explanatory sentence warns but does not fail", () => {
+  const s = "when you raise the effort the model thinks harder about every problem it sees and that usually gives you better answers on the hard cases at the price of more tokens and more time";
+  const r = run("check-spoken.mjs", write("sp-medium.md", spokenScript(s + ".")));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr + r.stdout, /warn/i);
+});
+
+// A scene change is a topic change; saying so aloud is what stops it feeling rushed.
+const twoScenes = (second) =>
+  "## Scene 1 — a\nvisual: definition card (tier 1)\nduration: ~20s\n\n" +
+  '- spoken: "Welcome to the part about effort."\n  display: "Welcome to the part about effort."\n  source: [p001]\n\n' +
+  "## Scene 2 — b\nvisual: definition card (tier 1)\nduration: ~20s\n\n" +
+  `- spoken: "${second}"\n  display: "${second}"\n  source: [p001]\n`;
+
+test("check-spoken: a scene that opens without a signpost is flagged, one that opens with one is not", () => {
+  const flat = run("check-spoken.mjs", write("sp-flat.md", twoScenes("Capability-first is the current default.")));
+  assert.equal(flat.status, 0, "a missing signpost is advice, not a failure");
+  assert.match(flat.stderr + flat.stdout, /scene 2 opens without a signpost/i);
+  for (const ok of ["Let's look at it through an example.", "Now, the other way round.", "So which do you pick?", "Take a document app."]) {
+    const r = run("check-spoken.mjs", write("sp-sign.md", twoScenes(ok)));
+    assert.ok(!/opens without a signpost/i.test(r.stderr + r.stdout), `"${ok}" is a signpost`);
+  }
+});
+
+test("check-spoken: the first scene is never asked for a signpost, and --json lists the scenes that lack one", () => {
+  const r = run("check-spoken.mjs", write("sp-json.md", twoScenes("Capability-first is the current default.")), "--json");
+  const f = JSON.parse(r.stdout).files[0];
+  assert.deepEqual(f.metrics.unsignposted, [2]);
+});
+
+test("narrate: --lead puts a breath before every take except the first", () => {
+  if (!haveKokoro) return "kokoro is not installed here";
+  need(narr);
+  const two = (name, ...extra) => {
+    const dir = join(tmp, name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "SCRIPT.md"),
+      "# S\n\n## Line 1 — a (Frame 1)\n\n    Hello there.\n\n## Line 2 — b (Frame 2)\n\n    Let's look at it through an example.\n");
+    const r = spawnSync(process.execPath, [join(scripts, "narrate.mjs"), "--script", join(dir, "SCRIPT.md"), "--out", dir,
+      "--no-transcribe", "--python", pyKokoro, ...extra], { encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return [wavSeconds(join(dir, "assets/voice/01.wav")), wavSeconds(join(dir, "assets/voice/02.wav"))];
+  };
+  const [a1, a2] = two("lead0");
+  const [b1, b2] = two("lead1", "--lead", "0.8");
+  assert.ok(Math.abs(b1 - a1) < 0.05, `frame 1 must be unchanged (${a1.toFixed(2)}s vs ${b1.toFixed(2)}s)`);
+  assert.ok(Math.abs(b2 - a2 - 0.8) < 0.08, `frame 2 should gain ~0.8s (${a2.toFixed(2)}s vs ${b2.toFixed(2)}s)`);
+});
+
+test("check-spoken: usage errors and unreadable files are reported", () => {
+  assert.equal(run("check-spoken.mjs").status, 2);
+  assert.equal(run("check-spoken.mjs", join(tmp, "nope.md")).status, 2);
+});
+
+test("build-tokens: a pause marker in the spoken layer does not disturb the display tokens", () => {
+  const s = write("tok-marker.md", spokenScript("Ready? {beat} Here it is."));
+  const lex = write("tok-lex.json", JSON.stringify({ terms: [] }));
+  const r = run("build-tokens.mjs", s, lex, out("tok-marker.json"));
+  assert.equal(r.status, 0, r.stderr);
+  const toks = JSON.parse(readFileSync(out("tok-marker.json"), "utf8")).lines[0].tokens;
+  assert.deepEqual(toks.map((x) => (typeof x === "string" ? x : x.display)), ["Ready?", "Here", "it", "is."]);
 });
 
 // ── manim-render ──────────────────────────────────────────────────────────────────────────────────
@@ -1010,7 +1279,7 @@ const cli = (...args) =>
 test("cli: every command maps to a script that exists", () => {
   const src = readFileSync(join(root, "bin/chalk-core.mjs"), "utf8");
   const files = [...src.matchAll(/^\s+(?:"[a-z-]+"|[a-z]+):\s*"([a-z-]+\.mjs)",?$/gm)].map((m) => m[1]);
-  assert.equal(files.length, 8, "expected the eight shared scripts");
+  assert.equal(files.length, 10, "expected the ten shared scripts");
   for (const f of files) assert.ok(existsSync(join(scripts, f)), `${f} is mapped but missing`);
 });
 

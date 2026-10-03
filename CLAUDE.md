@@ -10,10 +10,10 @@ the bar is: *would every skill want this?* If only one would, it belongs in that
 
 ## What lives here
 
-- `scripts/` — `ingest`, `check-readability`, `build-tokens`, `align-captions`, `apply-display`,
-  `emit-vtt`, `fix-index`, `manim-render`. One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
-- `references/` — the shared method: `fidelity`, `step-1-ingest`, `step-3-script`, `visual-registry`,
-  `manim`, `captions-and-engine`, `edge-cases`. Skills receive these through `chalk-core sync`.
+- `scripts/` — `ingest`, `check-readability`, `check-spoken`, `build-tokens`, `align-captions`,
+  `apply-display`, `narrate`, `emit-vtt`, `fix-index`, `manim-render`. One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
+- `references/` — the shared method: `fidelity`, `spoken-style`, `step-1-ingest`, `step-3-script`,
+  `visual-registry`, `manim`, `captions-and-engine`, `edge-cases`. Skills receive these through `chalk-core sync`.
 - `templates/manim/` — the Tier 2 base scene and the worked example.
 - `fixtures/` — public-domain Project Gutenberg text and files built from it.
 
@@ -56,6 +56,13 @@ hold is just trailing silence.
 - **Tier 3 — the book's own figure**, when it is already the clearest available visual.
 
 Tier 2 is flat video and drags in a LaTeX toolchain. It is earned by a scene, never chosen by default.
+
+### The narration is for the ear
+
+A script can pass every grounding gate and still sound like a document read aloud by a robot. The spoken
+layer is a person talking to one viewer, written by the rules in `references/spoken-style.md` and measured
+by `check-spoken`. Grounding does not loosen for it: every conversational line still cites a block. Pauses
+are made by `narrate`, inside each take, so the audio-is-the-clock rule still holds.
 
 ### Gates are not advisory
 

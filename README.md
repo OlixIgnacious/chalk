@@ -21,7 +21,7 @@ npx chalk-core sync ./skills/my-skill    # vendor the shared references into a s
 npx chalk-core sync ./skills/my-skill --check
 ```
 
-Commands: `ingest`, `check-readability`, `build-tokens`, `align-captions`, `apply-display`, `emit-vtt`, `fix-index`,
+Commands: `ingest`, `check-readability`, `check-spoken`, `build-tokens`, `align-captions`, `apply-display`, `narrate`, `emit-vtt`, `fix-index`,
 `manim-render`. See [CLAUDE.md](CLAUDE.md) for the rules and for how a skill should depend on this.
 
 ## Test
