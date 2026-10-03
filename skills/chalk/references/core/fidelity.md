@@ -23,6 +23,9 @@ Allowed, and not a claim:
 - Illustrative scaffolding — axis labels, generic placeholders, "Item A / Item B"
 - Ordinary connective narration ("next", "but notice that")
 - Restating the chapter's own point in clearer words
+- Rhetorical questions, signposts ("that's the menu; now, how do you choose?"), recaps, and callbacks to an
+  example the chapter itself gave — see [spoken-style.md](spoken-style.md). Each such line still cites the
+  nearest block it echoes or leads into: a line with no block to point at is probably carrying a claim.
 
 The line: **scaffolding must never read as a sourced fact.** An unlabelled curve illustrating shape
 is fine. A curve with invented numbers on the axis is a fabrication.
