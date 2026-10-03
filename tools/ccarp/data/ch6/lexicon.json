@@ -1,0 +1,247 @@
+{
+  "terms": [
+    {
+      "display": "P95",
+      "spoken": "P ninety-five",
+      "heard": "P95",
+      "source": [
+        "p008",
+        "p011"
+      ]
+    },
+    {
+      "display": "P50",
+      "spoken": "P fifty",
+      "heard": "P50",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "P99",
+      "spoken": "P ninety-nine",
+      "heard": "P99",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "92%",
+      "spoken": "ninety-two percent",
+      "heard": "92%",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "600",
+      "spoken": "six hundred",
+      "heard": "600",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "300",
+      "spoken": "three hundred",
+      "heard": "300",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "2.5 s",
+      "spoken": "two point five seconds",
+      "heard": "2.5 seconds",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "50 requests/s",
+      "spoken": "fifty requests a second",
+      "heard": "50 requests a second",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "$0.015",
+      "spoken": "one and a half cents",
+      "heard": "1.5 cents",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "0.5%",
+      "spoken": "zero point five percent",
+      "heard": "0.5%",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "2%",
+      "spoken": "two percent",
+      "heard": "2%",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "100%",
+      "spoken": "one hundred percent",
+      "heard": "100%",
+      "source": [
+        "p016"
+      ]
+    },
+    {
+      "display": "15%",
+      "spoken": "fifteen percent",
+      "heard": "15%",
+      "source": [
+        "p037"
+      ]
+    },
+    {
+      "display": "$0.09",
+      "spoken": "nine cents",
+      "heard": "9 cents",
+      "source": [
+        "p031"
+      ]
+    },
+    {
+      "display": "$0.03",
+      "spoken": "three cents",
+      "heard": "3 cents",
+      "source": [
+        "p031"
+      ]
+    },
+    {
+      "display": "9K",
+      "spoken": "nine K",
+      "heard": "9K",
+      "source": [
+        "p031"
+      ]
+    },
+    {
+      "display": "pass@k",
+      "spoken": "pass at K",
+      "heard": "pass at K",
+      "source": [
+        "p011",
+        "p012"
+      ]
+    },
+    {
+      "display": "pass^k",
+      "spoken": "pass to the K",
+      "heard": "pass to the K",
+      "source": [
+        "p011",
+        "p012"
+      ]
+    },
+    {
+      "display": "recall@k",
+      "spoken": "recall at K",
+      "heard": "recall at K",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "precision@k",
+      "spoken": "precision at K",
+      "heard": "precision at K",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "MRR",
+      "spoken": "M R R",
+      "heard": "MRR",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "F1",
+      "spoken": "F one",
+      "heard": "F1",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "CSAT",
+      "spoken": "C S A T",
+      "heard": "CSAT",
+      "source": [
+        "p011"
+      ]
+    },
+    {
+      "display": "PII",
+      "spoken": "P I I",
+      "heard": "PII",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "LLM",
+      "spoken": "L L M",
+      "heard": "LLM",
+      "source": [
+        "p018"
+      ]
+    },
+    {
+      "display": "A/B",
+      "spoken": "A B",
+      "heard": "A/B",
+      "source": [
+        "p023"
+      ]
+    },
+    {
+      "display": "API",
+      "spoken": "A P I",
+      "heard": "API",
+      "source": [
+        "p030"
+      ]
+    },
+    {
+      "display": "max_tokens",
+      "spoken": "max tokens",
+      "heard": "max_tokens",
+      "source": [
+        "p030"
+      ]
+    },
+    {
+      "display": "Chapter 9",
+      "spoken": "Chapter nine",
+      "heard": "Chapter 9",
+      "source": [
+        "p009"
+      ]
+    },
+    {
+      "display": "Chapter 5",
+      "spoken": "Chapter five",
+      "heard": "Chapter 5",
+      "source": [
+        "p033"
+      ]
+    }
+  ]
+}
