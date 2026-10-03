@@ -1,0 +1,209 @@
+{
+  "terms": [
+    {
+      "display": "RAG",
+      "spoken": "R A G",
+      "heard": "RAG",
+      "source": [
+        "p005"
+      ]
+    },
+    {
+      "display": "BM25",
+      "spoken": "B M twenty-five",
+      "heard": "BM25",
+      "source": [
+        "p007",
+        "p015",
+        "p018"
+      ]
+    },
+    {
+      "display": "GDPR",
+      "spoken": "G D P R",
+      "heard": "GDPR",
+      "source": [
+        "p009"
+      ]
+    },
+    {
+      "display": "LLM",
+      "spoken": "L L M",
+      "heard": "LLM",
+      "source": [
+        "p023",
+        "p030"
+      ]
+    },
+    {
+      "display": "PII",
+      "spoken": "P I I",
+      "heard": "PII",
+      "source": [
+        "p034"
+      ]
+    },
+    {
+      "display": "PHI",
+      "spoken": "P H I",
+      "heard": "PHI",
+      "source": [
+        "p034",
+        "p036"
+      ]
+    },
+    {
+      "display": "SLA",
+      "spoken": "S L A",
+      "heard": "SLA",
+      "source": [
+        "p024"
+      ]
+    },
+    {
+      "display": "API",
+      "spoken": "A P I",
+      "heard": "API",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "SQL",
+      "spoken": "S Q L",
+      "heard": "SQL",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "ID",
+      "spoken": "I D",
+      "heard": "ID",
+      "source": [
+        "p031"
+      ]
+    },
+    {
+      "display": "PDF",
+      "spoken": "P D F",
+      "heard": "PDF",
+      "source": [
+        "p007"
+      ]
+    },
+    {
+      "display": "SKU",
+      "spoken": "S K U",
+      "heard": "SKU",
+      "source": [
+        "p018"
+      ]
+    },
+    {
+      "display": "max_tokens",
+      "spoken": "max tokens",
+      "heard": "max_tokens",
+      "source": [
+        "p031"
+      ]
+    },
+    {
+      "display": "TS-999",
+      "spoken": "T S nine nine nine",
+      "heard": "TS-999",
+      "source": [
+        "p018"
+      ]
+    },
+    {
+      "display": "E-4471",
+      "spoken": "E forty-four seventy-one",
+      "heard": "E-4471",
+      "source": [
+        "p038"
+      ]
+    },
+    {
+      "display": "14.3(b)",
+      "spoken": "fourteen point three B",
+      "heard": "14.3(b)",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "Q3",
+      "spoken": "Q three",
+      "heard": "Q3",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "3%",
+      "spoken": "three percent",
+      "heard": "3%",
+      "source": [
+        "p014"
+      ]
+    },
+    {
+      "display": "49%",
+      "spoken": "forty-nine percent",
+      "heard": "49%",
+      "source": [
+        "p016"
+      ]
+    },
+    {
+      "display": "67%",
+      "spoken": "sixty-seven percent",
+      "heard": "67%",
+      "source": [
+        "p016"
+      ]
+    },
+    {
+      "display": "200K",
+      "spoken": "two hundred thousand",
+      "heard": "200K",
+      "source": [
+        "p005",
+        "p039"
+      ]
+    },
+    {
+      "display": "50\u2013100",
+      "spoken": "fifty to one hundred",
+      "heard": "50 to 100",
+      "source": [
+        "p015"
+      ]
+    },
+    {
+      "display": "150",
+      "spoken": "one hundred fifty",
+      "heard": "150",
+      "source": [
+        "p018"
+      ]
+    },
+    {
+      "display": "top 20",
+      "spoken": "top twenty",
+      "heard": "top 20",
+      "source": [
+        "p018"
+      ]
+    },
+    {
+      "display": "Sample Question 3",
+      "spoken": "Sample Question three",
+      "heard": "Sample Question 3",
+      "source": [
+        "p026"
+      ]
+    }
+  ]
+}

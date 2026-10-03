@@ -1,6 +1,6 @@
 # tools/ccarp — building the CCAR-P chapter videos
 
-The helpers that turned CCAR-P *Complete Learning Material* chapters 2, 3 and 4 into YouTube videos
+The helpers that turned CCAR-P *Complete Learning Material* chapters 2, 3, 4 and 5 into YouTube videos
 with the `chalk-youtube` skill. They are book-specific: the skill is general, these are not.
 
 | File | Does |
@@ -47,3 +47,6 @@ node skills/chalk-youtube/scripts/deliver.mjs $CCARP_DIR
 - Avoid "A P I s" and "C L I s": the plural splits into a stray token. Say "endpoints" or "tools".
 - Hero text is lowercased by the preset; stat numbers opt out so `800M` is not `800m`.
 - Chip labels sit 42px above their chips: leave that gap under a row above them.
+- `scaffold` writes `SCRIPT.md`; if it stops early, narration uses the stale file. Re-check `grep` on SCRIPT.md after a reword, and set `CCARP_ASSETS` for real (it now fails fast).
+- Mid-sentence acronyms are heard inconsistently ("R A G" came back as "RG"; "every N tokens" as "every end tokens"). If `apply-display` refuses a run, reword that line rather than chase the transcript.
+- Table first columns hold about 16 characters of bold text; longer wraps and overflows.

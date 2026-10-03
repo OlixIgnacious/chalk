@@ -22,6 +22,8 @@ segs=sys.argv[2:] or sorted(TITLES)
 cmd=sys.argv[1]
 
 if cmd=="scaffold":
+    if not os.path.isdir(CH1+"fonts") or not os.path.isfile(CH1+"gsap.min.js"):
+        sys.exit("scaffold: set CCARP_ASSETS to a built segment's assets/ dir (fonts/ and gsap.min.js); got "+repr(CH1)+". Nothing was written.")
     chapter_md=open(R+f"source/ccarp-ch{CH}.md").read()
     for seg in segs:
         P=R+f"segments/{seg}/video/"
