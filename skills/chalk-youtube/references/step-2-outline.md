@@ -6,21 +6,25 @@ Write `<output-dir>/outline.md`. This is where the video is decided; the rest ju
 
 1. **Concept inventory** — each concept with the block ids that define it.
 2. **Prerequisite order** — what must be understood before what. Usually not page order.
-3. **The hook** — one 20–40s opening segment. It states the question the chapter answers, in the
-   chapter's own terms, and shows the title once. It cites the block ids of the thesis. It is **not**
-   a logo sting, a "welcome back", or a promise the chapter does not keep.
-4. **Chapters** — 4–8 segments of 60–150s, one idea each, about 8–15 minutes in all. Each is a
+3. **The hook** — one 20–40s opening segment. It opens on the viewer's problem as a question or a situation
+   they recognise ("which model do you pick?"), then leads to the question the chapter answers, and shows the
+   title once. It cites the block ids of the thesis. It is **not** the thesis sentence read verbatim, a logo
+   sting, a "welcome back", or a promise the chapter does not keep.
+4. **Chapters** — as many as the material needs, one idea each, as long as the idea needs. There is no cap on
+   the number or length of chapters and no word budget: do not cut an explanation to fit a number, and split a
+   chapter that runs long into two ideas. Each is a
    YouTube chapter, so its title is what a viewer reads in the progress bar: say the idea, not
    "Part 2".
 5. **Per chapter** — the concepts covered, the source block ids, and the **example slot** below.
-6. **The outro** — a 30–60s close that restates the chapter's point in the chapter's words and says
-   what to try next. It never claims more than the chapter does.
+6. **The outro** — a 30–60s close that says the chapter's point in plain words and what to try next, not a
+   restatement in the chapter's wording. It never claims more than the chapter does.
 7. **Design preset** — chosen once, for the whole video. House look: dark, high-contrast, low-chroma,
    one accent, generous negative space, line-drawn diagrams.
 8. **Gaps** — anything the chapter asserts without explaining. Name it; do not invent the explanation.
 
-Estimate length at about **2.85 spoken words per second**. A thin script yields a thin video, not a
-slower one, because frames are the narration's length.
+Estimate length at about **2.4 spoken words per second**, plus the pauses (`{beat}`, `{pause}`, `{think}`) the
+script will carry. The earlier estimate of 2.85 ran 20% short: real narration of a list-heavy chapter came out
+near 2.2. A thin script yields a thin video, not a slower one, because frames are the narration's length.
 
 Chapters are also what YouTube shows, and YouTube has rules: the first starts at 0:00, there are at
 least three, and each runs at least ten seconds. The hook counts as a chapter.
@@ -50,7 +54,7 @@ notebook cell. Exercise blocks become the notebook's try-it cells, so note which
 ## Gate
 
 - Exactly one hook and one outro
-- 4–8 chapters, each with source block ids and an example slot
+- At least three chapters (YouTube's minimum), each with source block ids and an example slot
 - Durations sum to the target
 - Chapters satisfy YouTube's rules (at least three, each at least 10s)
 - Exactly one design preset is named

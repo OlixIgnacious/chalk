@@ -37,6 +37,15 @@ from memory. `chalk-core check-readability` enforces the declaration. **The vide
 case is derived lives in the logs (`plan.md`), never in the narration, captions, on-screen text, the
 description or the notebook. Do not add it back.
 
+### The narration is for the ear
+
+Grounding is necessary and not sufficient: a faithful summary read in one even voice sounds like a robot.
+The spoken layer follows chalk-core's `references/spoken-style.md` (short sentences, "you", questions,
+the screen carrying the list while the voice carries the reason, pauses made with `{beat}` / `{pause}` /
+`{think}`), measured by `chalk-core check-spoken`, and is voiced by `chalk-core narrate`, not `audio.mjs`, whose
+offline voice cannot be tuned. Pauses live inside each take, so a frame's duration still equals its narration.
+Choose the voice by ear from an audition, never by default.
+
 ### Delivery refuses, and refuses before it writes
 
 `deliver.mjs` runs the grounding gate first, then the size and chapter gates, and only then touches the

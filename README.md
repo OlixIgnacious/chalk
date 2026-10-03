@@ -23,7 +23,7 @@ youtube-output/<chapter>/
 ## How it works
 
 1. **Ingest** — the chapter becomes paragraph-addressed blocks (chalk-core). Code is kept verbatim.
-2. **Outline** — a hook, 4–8 chapters of one idea each, an outro, and an example for every chapter.
+2. **Outline** — a hook, as many chapters as the material needs (one idea each), an outro, and an example for every chapter.
 3. **Script** — narration and on-screen text, each line citing its source. Stops for your review.
 4. **Segments** — one Hyperframes project per chapter, pinned to 1920x1080.
 5. **Deliver** — gates, then the stitched video and the kit.

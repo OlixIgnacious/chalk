@@ -19,6 +19,14 @@ duration: ~25s
 
 Cite the block ids that print it. Nothing on screen goes beyond what they say.
 
+## Come back to the same example
+
+A person teaching returns to one example instead of introducing a new one each time. If the chapter gives
+two or three (the document-analysis app, the Acme billing assistant), use them as the thread and call back:
+"remember the document app from a minute ago?" A callback is connective narration. Use only what the chapter
+says about the example; a new detail about it (what its users ask, how big it is) would be an invented fact.
+Cite the block that gave the example, plus the block the callback lands on.
+
 ## A derived example
 
 The chapter says something true but prints no case to look at. Build a small one, and make the code the

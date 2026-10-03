@@ -24,8 +24,10 @@ reasons for each fix are in [core/captions-and-engine.md](core/captions-and-engi
 5. **A script scene is a frame.** Generate `SCRIPT.md` and `STORYBOARD.md` from `script.md`, copying the
    spoken layer verbatim rather than retyping it. Name frames `f01-…`. Write one `## Line N (Frame N)` per
    scene, with all of that scene's spoken entries joined.
-6. **Audio:** `audio.mjs` (voice), then `audio.mjs sync-durations`, then **restore the last frame's ~1.8s
-   hold**, which `sync-durations` deletes.
+6. **Audio:** `npx chalk-core narrate --script SCRIPT.md --out . --voice <chosen> --speed 0.93 --lead 0.6`, **not**
+   `audio.mjs` (its offline voice ignores speed, has no pause control, and falls back to a fixed voice).
+   Audition the voice first (`narrate --text … --wav …`) and pick by ear. Then `audio.mjs sync-durations`,
+   then **restore the last frame's ~1.8s hold**, which `sync-durations` deletes.
 7. **Captions from the display layer:** build one absolute word stream from `audio_meta.json`, then
    `build-tokens` → `align-captions` → `apply-display`. Resolve every `MISMATCH` — they are almost always a
    display line that is not the same words as its spoken line, or a transcript mishearing for the lexicon.
@@ -86,3 +88,7 @@ this repo is dark, so choosing a light preset is a deliberate departure — say 
 - No composition reaches the network
 - Every segment is 1920x1080
 - Every frame's duration equals its narration, except the last in the segment
+- **Long silences are only where you put them.** With `{pause}`, `{think}` and `--lead` a segment has several
+  silences of a second or more, so "one gap per segment" no longer holds. What must hold: every silence of 0.9s or
+  more (`ffmpeg -af silencedetect=n=-45dB:d=0.9`) is a marker inside a take, the `--lead` breath at a join between
+  scenes, or the end hold. Compare each silence's time to the cumulative frame durations

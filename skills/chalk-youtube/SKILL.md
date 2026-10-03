@@ -37,7 +37,7 @@ Read `CLAUDE.md` at the repo root before changing how any of this behaves.
 | Option | Values | Default |
 |---|---|---|
 | `--chapter` | number or title | inferred; ask if a whole book has no clear split |
-| `--segments` | 4–8 | inferred from length |
+| `--segments` | any number | inferred from the material; no cap |
 | `--audience` | freeform | inferred from the text's own level |
 | `--math` | `auto`, `on`, `off` | `auto` |
 | `--notebook` | flag — write a Python notebook | **offered** when ingest finds code, otherwise off |
@@ -64,8 +64,14 @@ example is the chapter's own, or a derived one whose numbers come from running c
 the log as not from the chapter, or an honest gap. Never one made up from memory. See
 [references/core/fidelity.md](references/core/fidelity.md) § Examples.
 
-**Open on the point, not a logo.** The hook is the first thing a viewer judges; it states the
-question the chapter answers, in the chapter's own terms.
+**Sounds like a person.** The narration is a teacher talking to one viewer, not the chapter read aloud: short
+sentences mixed with full explanatory ones, "you", questions, a signpost whenever the topic changes, a beat of silence before an answer, the screen carrying the list while the
+voice carries the reason. A faithful summary spoken in one even voice passes every grounding gate and still
+sounds like a robot. See [references/core/spoken-style.md](references/core/spoken-style.md); `check-spoken`
+measures it.
+
+**Open on the viewer's problem, not a logo.** The hook is the first thing a viewer judges; it opens on a
+question or situation they recognise, and leads to the one the chapter answers.
 
 **One idea per chapter.** If a chapter needs "and", it is two.
 
@@ -102,7 +108,7 @@ skim first.
 Write `<output-dir>/outline.md`: the hook, the ordered chapters (one idea each), an **example slot**
 per chapter, the outro, and one design preset for the whole video.
 
-**Gate:** exactly one hook and one outro; 4–8 chapters; every chapter has source block ids and an
+**Gate:** exactly one hook and one outro; at least three chapters, as many as the material needs; every chapter has source block ids and an
 example (chapter, derived, or a named gap); durations sum to the target; one preset is named.
 
 ---
@@ -110,6 +116,7 @@ example (chapter, derived, or a named gap); durations sum to the target; one pre
 ## Step 3: Script
 
 **Read:** [references/core/step-3-script.md](references/core/step-3-script.md),
+[references/core/spoken-style.md](references/core/spoken-style.md),
 [references/step-3-examples.md](references/step-3-examples.md),
 [references/core/visual-registry.md](references/core/visual-registry.md) and
 [references/core/fidelity.md](references/core/fidelity.md)
@@ -120,10 +127,12 @@ Per chapter, write `<output-dir>/segments/NN/script.md` as a two-layer script, w
 
 ```bash
 npx chalk-core check-readability <output-dir>/segments/*/script.md
+npx chalk-core check-spoken <output-dir>/segments/*/script.md
 ```
 
 **Gate:** sources on every line, a visual and tier per scene, every example scene declares its source,
-no unknown lexicon terms, readability passes.
+no unknown lexicon terms, readability passes, and `check-spoken` reports no failure (it fails a sentence
+too long to say in one breath, or one that reads out a list; read its warnings too).
 
 **Then stop and show the user the outline and every script** — including each derived example and
 each gap. Rendering before the teaching has been reviewed is the expensive mistake.
