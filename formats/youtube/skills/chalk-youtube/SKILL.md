@@ -155,7 +155,7 @@ Per chapter, write `<output-dir>/segments/NN/script.md` as a two-layer script, w
 ```bash
 npx chalk-core check-readability <output-dir>/segments/*/script.md --chapter <output-dir>/chapter.json
 npx chalk-core check-spoken <output-dir>/segments/*/script.md --banned "chapter,chapters,book,section,the author,<channel banned_terms>" --max-avg 16
-node <skill-dir>/../../evals/run.mjs <output-dir> --channel <channel.json>     # the tutorial eval; text criteria run now
+npx chalk eval <output-dir> --channel <channel.json>     # the tutorial eval; text criteria run now
 ```
 
 **Gate:** sources on every line, a visual and tier per scene, every example scene declares its source,
@@ -191,7 +191,7 @@ except the last in the segment.
 **Read:** [references/step-5-deliver.md](references/step-5-deliver.md)
 
 ```bash
-node <skill-dir>/scripts/deliver.mjs <output-dir> [--notebook] [--keep-work] [--dry-run]
+npx chalk deliver <output-dir> [--notebook] [--keep-work] [--dry-run]
 ```
 
 Writes `video.mp4`, `captions.srt`, `chapters.txt`, `description.txt`, `thumbnail.png`, `plan.md` and,
@@ -205,7 +205,7 @@ is not 1080p, or the chapters would not show on YouTube.
 ## Step 6: Evaluate and review
 
 ```bash
-node <skill-dir>/../../evals/run.mjs <output-dir> --channel <channel.json> [--deep]
+npx chalk eval <output-dir> --channel <channel.json> [--deep]
 ```
 
 Writes `eval.md` / `eval.json`: every mechanical criterion of a good tutorial (orientation, teaching arc,

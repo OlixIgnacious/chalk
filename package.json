@@ -14,7 +14,11 @@
     "formats/lesson"
   ],
   "scripts": {
-    "test": "npm test --workspaces",
-    "doctor": "npx hyperframes doctor"
+    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs",
+    "eval": "node evals/run.mjs",
+    "doctor": "node bin/chalk.mjs doctor"
+  },
+  "bin": {
+    "chalk": "bin/chalk.mjs"
   }
 }

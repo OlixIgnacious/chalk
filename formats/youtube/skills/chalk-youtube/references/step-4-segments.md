@@ -8,16 +8,16 @@ timings from the VO, mapping them onto the display layer, building the VTT, the 
 `faceless-explainer` defaults that are wrong here, and `check` / `snapshot` before re-rendering. **Read
 it first.** What follows is only what differs for a YouTube video.
 
-## The series tooling
+## The frame tooling
 
-`tools/series/` in the chalk-youtube repo runs the steps below for one segment, from the output dir:
+`chalk` (the repo's `frames/`) runs the steps below for one segment, from the output dir:
 
 ```bash
-T=<chalk-youtube>/tools/series
-$T/build.sh assets            # once per machine: Barlow, IBM Plex Mono, GSAP into ~/.cache/chalk-youtube/assets
-$T/build.sh NN voice          # setup, narrate with channel.json's voice, sync, align, apply-display
-$T/build.sh NN frames         # <output-dir>/frames/sNN.py → frames, captions, assemble, fix-index, transitions, check
-$T/build.sh NN render         # render, copy segment.mp4, emit segment.vtt
+chalk assets                  # once per machine: Barlow, IBM Plex Mono, GSAP into ~/.cache/chalk-youtube/assets
+chalk voice NN                # setup, narrate with channel.json's voice, sync, align, apply-display
+chalk frames NN               # <output-dir>/frames/sNN.py → frames, captions, assemble, fix-index, transitions, check
+chalk render NN               # render, copy segment.mp4, emit segment.vtt
+chalk stills NN               # contact sheet → work/stills/NN.png, to look at before and after render
 ```
 
 The voice comes from `channel.json` (`voice`, `speed`, `polish`); there is no silent default. A frame spec

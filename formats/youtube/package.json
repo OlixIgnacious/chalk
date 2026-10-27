@@ -12,9 +12,8 @@
     "chalk-core": "*"
   },
   "scripts": {
-    "test": "node test/smoke.mjs && node test/evals.mjs",
+    "test": "node test/smoke.mjs",
     "doctor": "npx hyperframes doctor",
-    "skills": "npx hyperframes skills",
-    "eval": "node evals/run.mjs"
+    "skills": "npx hyperframes skills"
   }
 }
