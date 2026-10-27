@@ -26,3 +26,5 @@ frames/
 # os / editor
 .DS_Store
 *.swp
+.venv
+package-lock.json

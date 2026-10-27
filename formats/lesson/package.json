@@ -15,6 +15,6 @@
     "skills": "npx hyperframes skills"
   },
   "dependencies": {
-    "chalk-core": "file:../chalk-core"
+    "chalk-core": "*"
   }
 }

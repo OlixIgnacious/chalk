@@ -1,0 +1,20 @@
+{
+  "name": "chalk",
+  "version": "0.7.0",
+  "description": "Turn a source document into grounded teaching outputs: a YouTube video with its upload kit, an interactive lesson, and a notebook",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "core",
+    "formats/youtube",
+    "formats/lesson"
+  ],
+  "scripts": {
+    "test": "npm test --workspaces",
+    "doctor": "npx hyperframes doctor"
+  }
+}

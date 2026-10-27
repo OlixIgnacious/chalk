@@ -9,7 +9,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "chalk-core": "file:../chalk-core"
+    "chalk-core": "*"
   },
   "scripts": {
     "test": "node test/smoke.mjs && node test/evals.mjs",
