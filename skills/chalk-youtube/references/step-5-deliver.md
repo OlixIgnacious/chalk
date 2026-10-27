@@ -10,9 +10,12 @@ Write `<output-dir>/video.json` before running it:
 
 ```json
 {
-  "title": "Averages Without Hiding the Spread",
+  "title": "Stats Patterns #2: Averages — Without Hiding the Spread",
   "thesis": "A mean is one number standing in for a whole list, and that is its danger.",
   "source": "ch3.md",
+  "part_id": "averages",
+  "series": { "name": "Stats Patterns", "part": 2, "of": 5, "next": "Variance" },
+  "notebook": { "read_only": { "c007": "it raises a TypeError on purpose" }, "setup": { "c009": "segments/11/examples/setup_table.py" } },
   "segments": [
     { "id": "01", "title": "The hook",           "mp4": "segments/01/segment.mp4", "vtt": "segments/01/segment.vtt" },
     { "id": "02", "title": "What variance adds", "mp4": "segments/02/segment.mp4", "vtt": "segments/02/segment.vtt" }
@@ -27,6 +30,10 @@ caption is short. A thumbnail naming a missing segment, or a time outside it, st
 
 `title` and `thesis` go into the description, so they must be the chapter's own: the thesis is the
 sentence you stated at the end of step 1. A segment `title` is what a viewer sees in the progress bar.
+Neither names the source: `source` goes to `plan.md` only. `part_id` and `series` come from
+`channel.json`; the description says "Part n of m in the <series> series. Next: …". `notebook.read_only`
+lists blocks to show but not run (a block that does not compile alone is detected and shown that way
+anyway); `notebook.setup` runs a segment file before a block that needs it.
 
 ## What it does, in order
 

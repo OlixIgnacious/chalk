@@ -42,6 +42,12 @@ Read `CLAUDE.md` at the repo root before changing how any of this behaves.
 | `--math` | `auto`, `on`, `off` | `auto` |
 | `--notebook` | flag — write a Python notebook | **offered** when ingest finds code, otherwise off |
 | `--draft` | flag — render at 720p to check the storyboard | full 1080p |
+| `--channel` | path to `channel.json` | `./channel.json` in the workspace, if present |
+
+**`channel.json`** holds what stays the same across a channel's videos: the narration `voice` (a Kokoro
+voice or blend), `speed` and `polish`, the `series` (its name and ordered `parts`, each with an `id` and a
+viewer-facing `title`), and `banned_terms` the viewer must never hear. Read it before step 2, and say which
+voice you are using. With no `channel.json`, audition voices and ask; never fall back silently.
 
 `--draft` output is for checking the storyboard only. Delivery refuses anything that is not
 1920x1080, so a draft cannot be uploaded by accident.
@@ -73,7 +79,24 @@ measures it.
 **Open on the viewer's problem, not a logo.** The hook is the first thing a viewer judges; it opens on a
 question or situation they recognise, and leads to the one the chapter answers.
 
-**One idea per chapter.** If a chapter needs "and", it is two.
+**One idea per part.** A part is one YouTube chapter of the video. If a part needs "and", it is two.
+
+**One problem per video, every step with its reason.** Depth, not coverage: about one new idea per 30–45s,
+and each claim carries its *because*. A video that states ten topics' facts in ten minutes feels rushed and
+teaches none of them. Related problems become their own videos. See step-2-outline.md § Scope.
+
+**Orient the viewer, never the book.** The viewer never saw the source. Nothing they see or hear names a
+book, chapter, section, author or file — not the narration, the frames, the captions, the title or the
+description. Orient them by topic instead: the series and part number, a roadmap of this video's stages in
+the hook, a stage card as each part after the hook opens, a progress strip throughout, and what comes next at the end.
+Citations live in `plan.md`, which is the private audit trail.
+
+**Teach the code, don't just show it.** For a coding topic every main problem walks the arc in
+[references/step-2-outline.md](references/step-2-outline.md): spot the pattern, the problem, think it
+through from brute force to the insight, a plan in plain words, the code built line by line, a trace on
+the same example, why it is fast, the bug to avoid, other ways, the interview answer. A bonus problem walks
+the same arc with real solution code from the source, or it is cut and named as a gap — never a vague
+explanation. No quizzes or exercise segments: engagement comes from the explanation itself.
 
 **Readable.** Text the viewer must read holds about 0.3s per word from when it settles.
 
@@ -105,11 +128,15 @@ skim first.
 
 **Read:** [references/step-2-outline.md](references/step-2-outline.md)
 
-Write `<output-dir>/outline.md`: the hook, the ordered chapters (one idea each), an **example slot**
-per chapter, the outro, and one design preset for the whole video.
+Write `<output-dir>/outline.md`: the hook (with its roadmap), the ordered parts (each a YouTube chapter,
+one idea, one `stage`), an **example slot** per part, the outro (naming the next part of the series), one
+design preset, and the gaps — including every topic cut for having no solution code.
 
-**Gate:** exactly one hook and one outro; at least three chapters, as many as the material needs; every chapter has source block ids and an
-example (chapter, derived, or a named gap); durations sum to the target; one preset is named.
+**Gate:** exactly one hook and one outro; at least three parts; every part has source block ids, a stage
+and an example (chapter, derived, or a named gap); for a coding topic every main problem walks the arc in
+order and every bonus part has a source code block (else it is cut and listed); no title or planned line
+names the source; the title follows `channel.json`'s series; one preset is named. Catching a missing
+stage here is free; catching it after render costs the render.
 
 ---
 
@@ -126,13 +153,16 @@ Per chapter, write `<output-dir>/segments/NN/script.md` as a two-layer script, w
 `segments/NN/examples/` and **run it**: the numbers on screen come from its output.
 
 ```bash
-npx chalk-core check-readability <output-dir>/segments/*/script.md
-npx chalk-core check-spoken <output-dir>/segments/*/script.md
+npx chalk-core check-readability <output-dir>/segments/*/script.md --chapter <output-dir>/chapter.json
+npx chalk-core check-spoken <output-dir>/segments/*/script.md --banned "chapter,chapters,book,section,the author,<channel banned_terms>" --max-avg 16
+node <skill-dir>/../../evals/run.mjs <output-dir> --channel <channel.json>     # the tutorial eval; text criteria run now
 ```
 
 **Gate:** sources on every line, a visual and tier per scene, every example scene declares its source,
-no unknown lexicon terms, readability passes, and `check-spoken` reports no failure (it fails a sentence
-too long to say in one breath, or one that reads out a list; read its warnings too).
+no unknown lexicon terms, readability passes (every code build narrates every line of its block), and
+`check-spoken` reports no failure (a sentence too long for one breath, one that reads out a list, a banned
+term, an average over the limit; read its warnings too). The eval's orientation, teaching and bonus groups
+pass.
 
 **Then stop and show the user the outline and every script** — including each derived example and
 each gap. Rendering before the teaching has been reviewed is the expensive mistake.
@@ -169,6 +199,22 @@ with `--notebook`, `notebook.ipynb`. It refuses, writing nothing, if a script is
 is not 1080p, or the chapters would not show on YouTube.
 
 **Gate:** all of the above exist; `plan.md` cites every line; chapters pass YouTube's rules.
+
+---
+
+## Step 6: Evaluate and review
+
+```bash
+node <skill-dir>/../../evals/run.mjs <output-dir> --channel <channel.json> [--deep]
+```
+
+Writes `eval.md` / `eval.json`: every mechanical criterion of a good tutorial (orientation, teaching arc,
+bonus, grounding, ease, voice, render, notebook) with evidence. Then dispatch the **chalk-reviewer** agent
+on the output dir: it judges what the eval cannot, traces each gap to the file in chalk, chalk-core or
+chalk-youtube that let it through, and writes `review.md`. Tell the user the score and the top findings.
+
+**Gate:** no eval criterion fails; `review.md` has no high-severity finding, or each one is shown to the
+user.
 
 ---
 

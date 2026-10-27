@@ -14,17 +14,18 @@ import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from "node
 import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { stamp, buildChapters, chaptersText, mergeCaptions, buildDescription } from "./kit.mjs";
-import { buildNotebook, checkSyntax, loadScenes } from "./build-notebook.mjs";
+import { buildNotebook, checkSyntax, loadScenes, findFragments } from "./build-notebook.mjs";
 
 const argv = process.argv.slice(2);
 const die = (m) => {
   console.error("deliver:", m);
   process.exit(2);
 };
-const outDir = resolve(argv.find((a) => !a.startsWith("--")) ?? ".");
+const outDir = resolve(argv.find((a, i) => !a.startsWith("--") && argv[i - 1] !== "--channel") ?? ".");
 const wantNotebook = argv.includes("--notebook");
 const keepWork = argv.includes("--keep-work");
 const dryRun = argv.includes("--dry-run");
+const channelArg = argv.indexOf("--channel") >= 0 ? argv[argv.indexOf("--channel") + 1] : null;
 
 const WIDTH = 1920;
 const HEIGHT = 1080;
@@ -63,7 +64,8 @@ for (const s of segments) {
 
 const scriptFiles = segments.map((s) => join(outDir, "segments", s.id, "script.md")).filter(existsSync);
 if (!scriptFiles.length) die("no segments/NN/script.md found, so nothing can be shown to be grounded.");
-const gate = spawnSync("npx", ["chalk-core", "check-readability", ...scriptFiles], { encoding: "utf8" });
+const chapterJsonPath = join(outDir, "chapter.json");
+const gate = spawnSync("npx", ["chalk-core", "check-readability", ...scriptFiles, ...(existsSync(chapterJsonPath) ? ["--chapter", chapterJsonPath] : [])], { encoding: "utf8" });
 if (gate.error) die(`cannot run chalk-core (${gate.error.message}).`);
 if (gate.status !== 0) {
   console.error("deliver: the scripts do not pass the step-3 gate:\n" + gate.stderr.trim());
@@ -71,6 +73,49 @@ if (gate.status !== 0) {
   process.exit(1);
 }
 const scenesBySegment = loadScenes(outDir, segments);
+
+// ── gate 1b: the channel's rules — the viewer never hears the source, and hears the chosen voice ──────
+//
+// channel.json (--channel, or the nearest one above the output dir) is what makes a video part of a
+// channel. When there is one, a script line, title or thesis that names the source (chapter, book,
+// section, the author, or a channel banned term) is refused, and so is a part narrated in another voice.
+
+const channelPath = channelArg ? resolve(channelArg) : (() => {
+  for (let d = outDir; ; d = dirname(d)) {
+    if (existsSync(join(d, "channel.json"))) return join(d, "channel.json");
+    if (dirname(d) === d) return null;
+  }
+})();
+if (channelPath) {
+  let channel;
+  try {
+    channel = JSON.parse(readFileSync(channelPath, "utf8"));
+  } catch (e) {
+    die(`cannot read ${channelPath} — ${e.message}`);
+  }
+  const banned = ["chapter", "chapters", "book", "section", "the author", ...(channel.banned_terms ?? [])];
+  const channelProblems = [];
+  const spoken = spawnSync("npx", ["chalk-core", "check-spoken", ...scriptFiles, "--banned", banned.join(",")], { encoding: "utf8" });
+  for (const l of spoken.stderr.split("\n")) if (/says ".*", which this video must not/.test(l)) channelProblems.push(l.trim().replace(/^FAIL /, ""));
+  const re = new RegExp(`(^|[^\\w])(${banned.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?=$|[^\\w])`, "i");
+  for (const [what, text] of [["title", manifest.title], ["thesis", manifest.thesis], ...segments.map((s) => [`part ${s.id} title`, s.title])]) {
+    const m = (text ?? "").match(re);
+    if (m) channelProblems.push(`video.json ${what} says "${m[2]}": "${text}"`);
+  }
+  if (channel.voice) {
+    for (const s of segments) {
+      const meta = join(outDir, "segments", s.id, "video", "audio_meta.json");
+      if (!existsSync(meta)) continue;
+      const v = JSON.parse(readFileSync(meta, "utf8")).voice_id;
+      if (v && v !== channel.voice) channelProblems.push(`part ${s.id} was narrated as ${v}; ${basename(channelPath)} says ${channel.voice}`);
+    }
+  }
+  if (channelProblems.length) {
+    console.error(`deliver: the video breaks ${channelPath}'s rules:\n  ` + channelProblems.join("\n  "));
+    console.error("deliver: refusing to deliver. Nothing was written.");
+    process.exit(1);
+  }
+}
 
 // ── gate 2: size and chapters ─────────────────────────────────────────────────────────────────────
 
@@ -187,8 +232,10 @@ let notebookMade = false;
 if (wantNotebook) {
   const chapterPath = join(outDir, "chapter.json");
   if (!existsSync(chapterPath)) die("--notebook needs chapter.json beside video.json.");
+  const chapterJson = JSON.parse(readFileSync(chapterPath, "utf8"));
   const { notebook, skipped, problems: nbProblems } = buildNotebook({
-    chapter: JSON.parse(readFileSync(chapterPath, "utf8")),
+    chapter: chapterJson,
+    fragments: findFragments(chapterJson),
     manifest,
     scenesBySegment,
     starts,
@@ -218,9 +265,9 @@ writeFileSync(
   buildDescription({
     title: manifest.title ?? basename(outDir),
     thesis: manifest.thesis,
-    source: manifest.source,
     chapters,
     notebook: notebookMade,
+    series: manifest.series,
   }),
 );
 

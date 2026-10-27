@@ -99,13 +99,17 @@ export function mergeCaptions(vtts, offsets, durations) {
 /**
  * Built only from the manifest and the chapters, so it cannot add a claim the script did not make.
  * It says nothing about which examples are derived: that is a matter for the logs (plan.md), not for
- * anything a viewer reads or hears.
+ * anything a viewer reads or hears. Nor does it name the source: the viewer never saw the book, so the
+ * description places the video in its series instead (`series`: { name, part, of, next }). The source
+ * stays in plan.md. The timestamps heading avoids the word "chapters" for the same reason.
  */
-export function buildDescription({ title, thesis, source, chapters, notebook }) {
+export function buildDescription({ title, thesis, chapters, notebook, series }) {
   const lines = [title, ""];
   if (thesis) lines.push(thesis, "");
-  lines.push("Chapters", chaptersText(chapters).trimEnd(), "");
-  if (source) lines.push(`Based on: ${source}`, "");
+  if (series?.name && series.part) {
+    lines.push(`Part ${series.part}${series.of ? ` of ${series.of}` : ""} in the ${series.name} series.${series.next ? ` Next: ${series.next}.` : ""}`, "");
+  }
+  lines.push("In this video", chaptersText(chapters).trimEnd(), "");
   if (notebook) lines.push("A hands-on Jupyter notebook accompanies this video.", "");
   return lines.join("\n");
 }

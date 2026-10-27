@@ -8,6 +8,26 @@ timings from the VO, mapping them onto the display layer, building the VTT, the 
 `faceless-explainer` defaults that are wrong here, and `check` / `snapshot` before re-rendering. **Read
 it first.** What follows is only what differs for a YouTube video.
 
+## The series tooling
+
+`tools/series/` in the chalk-youtube repo runs the steps below for one segment, from the output dir:
+
+```bash
+T=<chalk-youtube>/tools/series
+$T/build.sh assets            # once per machine: Barlow, IBM Plex Mono, GSAP into ~/.cache/chalk-youtube/assets
+$T/build.sh NN voice          # setup, narrate with channel.json's voice, sync, align, apply-display
+$T/build.sh NN frames         # <output-dir>/frames/sNN.py → frames, captions, assemble, fix-index, transitions, check
+$T/build.sh NN render         # render, copy segment.mp4, emit segment.vtt
+```
+
+The voice comes from `channel.json` (`voice`, `speed`, `polish`); there is no silent default. A frame spec
+`frames/sNN.py` (kept beside the video, not in `work/`, which delivery deletes) draws only its scenes with
+`framelib.py`'s components — `code_build`, `code_trace`, `plan_card`, `roadmap`, `code_show`, `cells`,
+`table`, … — and every reveal is cued on a spoken word. The orientation is added for you: series chrome,
+the progress strip of this video's stages, and the stage card on each part's first frame (not the hook's: it opens on its example). Code panels are
+auto-fitted to their longest line and marked for the eval's verbatim check. `setup` refuses a take that
+ends on a pause marker, because `narrate` drops it.
+
 ## Order of operations
 
 One segment at a time; the whole sequence below takes about a minute of machine time per segment. The
@@ -24,7 +44,7 @@ reasons for each fix are in [core/captions-and-engine.md](core/captions-and-engi
 5. **A script scene is a frame.** Generate `SCRIPT.md` and `STORYBOARD.md` from `script.md`, copying the
    spoken layer verbatim rather than retyping it. Name frames `f01-…`. Write one `## Line N (Frame N)` per
    scene, with all of that scene's spoken entries joined.
-6. **Audio:** `npx chalk-core narrate --script SCRIPT.md --out . --voice <chosen> --speed 0.93 --lead 0.6`, **not**
+6. **Audio:** `npx chalk-core narrate --script SCRIPT.md --out . --voice <chosen> --speed <channel.json speed> --lead 0.6`, **not**
    `audio.mjs` (its offline voice ignores speed, has no pause control, and falls back to a fixed voice).
    Audition the voice first (`narrate --text … --wav …`) and pick by ear. Then `audio.mjs sync-durations`,
    then **restore the last frame's ~1.8s hold**, which `sync-durations` deletes.

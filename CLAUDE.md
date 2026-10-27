@@ -90,6 +90,19 @@ is written. A derived example whose script is missing stops delivery.
 the Python venv (`HYPERFRAMES_PYTHON`). Tests also use `.venv/bin/python` to parse and run notebook
 cells; a symlink to another checkout's venv works.
 
+## Evals and review
+
+`npm test` is whether the scripts work; `evals/` is whether the **video teaches**. `node evals/run.mjs
+<output-dir> --channel <channel.json>` scores an output dir against `evals/criteria.mjs` — orientation (the
+source is never named, series, roadmap, stage cards, next part), the teaching arc, bonus parts with real
+solutions, grounding (code on screen verbatim, example numbers from output), ease, voice, render and
+notebook — and writes `eval.md`. `test/evals.mjs` pins it with two original fixtures (`good/`, `bad/`).
+**When a video shows a new kind of failure, add a criterion and a `bad/` case before fixing the pipeline.**
+
+`agents/chalk-reviewer.md` (linked into a workspace's `.claude/agents/`) runs the evals and the repos'
+tests, judges what the evals cannot, traces each gap to the file in chalk, chalk-core or chalk-youtube that
+let it through, and writes `review.md`. It edits nothing else.
+
 ## Testing
 
 `test/smoke.mjs` is the regression gate, one dependency-free file, run with `npm test`. It covers chapter

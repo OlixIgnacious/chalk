@@ -90,6 +90,32 @@ The chapter's own code is shown with the `code block` visual, verbatim — never
 Show its output only if you ran it. A derived example's script is shown the same way and is the same
 file that ships as a notebook cell, so what the viewer saw is what they can run.
 
+## A trace of the code
+
+The `trace` stage shows the source's code running on the running example: the line that executes, and the
+variables as they change. Those steps come from running the code, never from typing them.
+
+`segments/NN/examples/trace_<function>.py`:
+
+1. contains the source's function **verbatim** (copy the code block; do not tidy it);
+2. runs it on the running example under `sys.settrace`, recording `{"line": <1-based line in the block>,
+   "locals": {...}}` at each `line` and `return` event of that function;
+3. **asserts** the result against the source's walkthrough table when there is one (e.g. the set before
+   each check), so a trace that disagrees with the source fails loudly;
+4. prints `{"result": ..., "steps": [...]}` as JSON. The frame builder reads it; `computed-by:` names it.
+
+```markdown
+## Scene 1 — trace it
+visual: code + trace (tier 1)
+stage: trace
+code: c036
+example: chapter
+computed-by: examples/trace_contains_duplicate.py
+duration: ~30s
+```
+
+Narrate the steps that teach (the first add, the moment the check hits), not every line event.
+
 ## Gaps
 
 If an idea cannot be illustrated without inventing a fact, leave the scene out, write `gap:` in the

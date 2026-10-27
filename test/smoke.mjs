@@ -85,16 +85,54 @@ test("kit: hour-form VTT timestamps parse", () => {
 
 // ── kit: description ──────────────────────────────────────────────────────────────────────────────
 
-test("kit: the description carries the chapters and the source, and says nothing about examples", () => {
+test("kit: the description carries the timestamps and the series, never the source, and says nothing about examples", () => {
   const { chapters } = kit.buildChapters([{ title: "Hook" }, { title: "Mean" }, { title: "Spread" }], [12, 40, 31]);
-  const d = kit.buildDescription({ title: "Averages", thesis: "A mean hides the spread.", source: "ch3.md", chapters, derived: true, notebook: true });
-  assert.match(d, /^Averages\n\nA mean hides the spread\.\n\nChapters\n0:00 Hook\n0:12 Mean\n0:52 Spread/);
-  assert.match(d, /Based on: ch3\.md/);
+  const series = { name: "Stats Patterns", part: 2, of: 5, next: "Variance" };
+  const d = kit.buildDescription({ title: "Averages", thesis: "A mean hides the spread.", source: "ch3.md", chapters, derived: true, notebook: true, series });
+  assert.match(d, /^Averages\n\nA mean hides the spread\.\n\nPart 2 of 5 in the Stats Patterns series\. Next: Variance\.\n\nIn this video\n0:00 Hook\n0:12 Mean\n0:52 Spread/);
+  assert.ok(!/ch3\.md|Based on|chapter/i.test(d), "the viewer never sees the source");
   // That a case is derived is a matter for the logs (plan.md); nothing viewer-facing says it.
   assert.ok(!/not from the chapter|illustrative/i.test(d), "the description must not carry the example note");
   assert.match(d, /Jupyter notebook/);
   const plain = kit.buildDescription({ title: "T", chapters, notebook: false });
   assert.ok(!/notebook/.test(plain), "no note without the thing it notes");
+});
+
+// ── notebook: cells that cannot run alone ─────────────────────────────────────────────────────────
+
+test("notebook: checkSyntax compiles, so a top-level return is caught", () => {
+  const book = { cells: [{ cell_type: "code", source: ["seen = set()\n", "return None\n"] }] };
+  const r = nb.checkSyntax(book, join(root, ".venv/bin/python"));
+  assert.equal(r.checked, true);
+  assert.equal(r.errors.length, 1, "ast.parse alone accepts this; compile must not");
+});
+
+test("notebook: a fragment, a read_only block and a setup file are handled; a block cited twice appears once", () => {
+  const chapter = {
+    title: "T",
+    blocks: [
+      { id: "c1", kind: "code", lang: "python", text: "for x in xs:\n    return x" },
+      { id: "c2", kind: "code", lang: "python", text: "{[1]: 'x'}" },
+      { id: "c3", kind: "code", lang: "python", text: "print(len(df))" },
+    ],
+  };
+  const fragments = nb.findFragments(chapter, join(root, ".venv/bin/python"));
+  assert.ok(fragments.has("c1") && !fragments.has("c2"), [...fragments.keys()].join());
+  const scene = (ids) => [{ title: "s", entries: [{ source: ids }] }];
+  const { notebook, problems } = nb.buildNotebook({
+    chapter,
+    manifest: { title: "T", segments: [{ id: "01", title: "a" }, { id: "02", title: "b" }], notebook: { read_only: { c2: "it raises TypeError on purpose" }, setup: { c3: "segments/02/examples/setup.py" } } },
+    scenesBySegment: { "01": scene(["c1", "c2"]), "02": scene(["c1", "c3"]) },
+    readSegmentFile: (id, f) => (id === "02" && f === "examples/setup.py" ? "df = [1, 2]\n" : null),
+    fragments,
+  });
+  assert.deepEqual(problems, []);
+  const text = notebook.cells.map((c) => `${c.cell_type}: ${c.source.join("")}`).join("\n---\n");
+  assert.equal((text.match(/for x in xs/g) ?? []).length, 1, "c1 appears once");
+  assert.match(text, /markdown: Read this one, don't run it: it is a fragment[\s\S]*for x in xs/);
+  assert.match(text, /markdown: Read this one, don't run it: it raises TypeError on purpose/);
+  assert.match(text, /code: # setup for the next cell\ndf = \[1, 2\]\n---\ncode: # source: c3/);
+  assert.ok(!/Source:|Cites:/.test(text), "the notebook names no source file and no block ids as citations");
 });
 
 // ── a chapter, a script and a notebook ────────────────────────────────────────────────────────────
@@ -325,6 +363,21 @@ test("deliver: an unsourced line stops delivery, and nothing is stitched", () =>
   const r = deliver(dir);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /refusing to deliver/);
+  for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
+});
+
+test("deliver: with a channel.json, a script that names the book, or the wrong voice, stops delivery", () => {
+  if (!haveFfmpeg) return "ffmpeg is unavailable";
+  const dir = buildVideo(join(tmp, "dch"));
+  writeFileSync(join(dir, "channel.json"), JSON.stringify({ voice: "af_heart:0.7,af_bella:0.3", banned_terms: [".docx"] }));
+  writeFileSync(join(dir, "segments/01/script.md"),
+    `## Scene — hook\nvisual: plot (tier 1)\nduration: ~20s\n\n- spoken: "Here is the chapter's example."\n  display: "Here is the chapter's example."\n  source: [p001]\n`);
+  mkdirSync(join(dir, "segments/02/video"), { recursive: true });
+  writeFileSync(join(dir, "segments/02/video/audio_meta.json"), JSON.stringify({ voice_id: "af_heart", voices: [] }));
+  const r = deliver(dir);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /says "chapter", which this video must not/);
+  assert.match(r.stderr, /part 02 was narrated as af_heart; channel\.json says af_heart:0\.7,af_bella:0\.3/);
   for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
 });
 
