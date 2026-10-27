@@ -802,6 +802,71 @@ test("align-captions: a number word and its digit are the same word", () => {
   assert.equal(w[4][1], 1.1, '"3" matches the heard "three"');
 });
 
+// The same VO returns "100,000" in one sentence and "a hundred thousand" in the next, and reads 217 as
+// "two seventeen". A numeral token must take the run of number words that says it.
+test("align-captions: a numeral matches the number words that say it", () => {
+  const tokens = write(
+    "numw-tokens.json",
+    JSON.stringify({ lines: [{ id: "l1", tokens: ["Up", "to", "100,000", "values,", "LeetCode", "217.", "Yes,", "two."] }] }),
+  );
+  const words = write(
+    "numw-words.json",
+    JSON.stringify([
+      { text: "Up", start: 0.0, end: 0.2 },
+      { text: "to", start: 0.2, end: 0.4 },
+      { text: "a", start: 0.4, end: 0.5 },
+      { text: "hundred", start: 0.5, end: 0.8 },
+      { text: "thousand", start: 0.8, end: 1.1 },
+      { text: "values,", start: 1.1, end: 1.5 },
+      { text: "LeetCode", start: 1.5, end: 1.9 },
+      { text: "two", start: 1.9, end: 2.1 },
+      { text: "seventeen.", start: 2.1, end: 2.6 },
+      { text: "Yes,", start: 2.6, end: 2.9 },
+      { text: "too.", start: 2.9, end: 3.2 },
+    ]),
+  );
+  const dest = out("numw.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, `spoken numbers must align to numerals:\n${r.stderr}`);
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.equal(w[2][1], 0.4, '"100,000" starts at the heard "a"');
+  assert.equal(w[3][1], 1.1, "the word after the number resyncs");
+  assert.equal(w[5][1], 1.9, '"217" matches "two seventeen"');
+  assert.equal(w[7][1], 2.9, '"two" matches the heard "too"');
+});
+
+test("align-captions: tens, plural numerals and homophones match what was said", () => {
+  const tokens = write(
+    "homo-tokens.json",
+    JSON.stringify({ lines: [{ id: "l1", tokens: ["about", "thirty", "seconds.", "The", "two", "1s", "in", "seen", "queue.", { display: "seen-set", spoken: "scene set" }] }] }),
+  );
+  const words = write(
+    "homo-words.json",
+    JSON.stringify([
+      { text: "about", start: 0.0, end: 0.3 },
+      { text: "30", start: 0.3, end: 0.6 },
+      { text: "seconds.", start: 0.6, end: 1.0 },
+      { text: "The", start: 1.0, end: 1.1 },
+      { text: "two", start: 1.1, end: 1.3 },
+      { text: "ones", start: 1.3, end: 1.6 },
+      { text: "in", start: 1.6, end: 1.7 },
+      { text: "scene", start: 1.7, end: 2.0 },
+      { text: "cue.", start: 2.0, end: 2.4 },
+      { text: "seen", start: 2.4, end: 2.6 },
+      { text: "set", start: 2.6, end: 2.8 },
+    ]),
+  );
+  const dest = out("homo.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, `misheard spellings must still align:\n${r.stderr}`);
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.equal(w[1][1], 0.3, '"thirty" matches the heard "30"');
+  assert.equal(w[5][1], 1.3, '"1s" matches the heard "ones"');
+  assert.equal(w[7][1], 1.7, '"seen" matches the heard "scene"');
+  assert.equal(w[8][1], 2.0, '"queue" matches the heard "cue"');
+  assert.equal(w[9][1], 2.4, 'a lexicon spoken form ("scene set") is normalised word by word');
+});
+
 test("align-captions: a VO that does not match the script reports MISMATCH and fails", () => {
   const tokens = write("t2.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["price", "rises"] }] }));
   const words = write(
@@ -1007,6 +1072,19 @@ test("narrate: markers are stripped from spoken text, leaving clean words", () =
   assert.equal(narr.stripMarkers("Why? {think} Because."), "Why? Because.");
 });
 
+test("narrate: --lexicon respells display-form terms in the spoken text, whole words only", () => {
+  need(narr);
+  const terms = [
+    { display: "dict", spoken: "dikt" },
+    { display: "SQL", spoken: "S Q L" },
+    { display: "O(n)", spoken: "oh of n" },
+    { display: "set", spoken: "set" },
+  ];
+  assert.equal(narr.applyLexicon("Use a dict, then SQL. That's O(n).", terms), "Use a dikt, then S Q L. That's oh of n.");
+  assert.equal(narr.applyLexicon("A dictionary and MySQL stay as they are.", terms), "A dictionary and MySQL stay as they are.");
+  assert.equal(narr.applyLexicon("No terms here.", []), "No terms here.");
+});
+
 // A viewer answering a question for themselves needs seconds, not a breath.
 test("narrate: {think} is a long silence, longer than a pause", () => {
   need(narr);
@@ -1104,6 +1182,78 @@ test("narrate: missing flags, a missing script and an unknown voice are reported
   const { r } = narrateRun("nar4", "Hello there.", "--voice", "not_a_voice");
   assert.equal(r.status, 2);
   assert.match(r.stderr, /not_a_voice/);
+});
+
+// ── check-readability: code is built, not dumped ──────────────────────────────────────────────────
+
+const codeChapter = () =>
+  write(
+    "code-chapter.json",
+    JSON.stringify({
+      blocks: [
+        { id: "p001", kind: "para", text: "Keep a running total." },
+        { id: "c001", kind: "code", lang: "python", text: "def total(nums):\n    s = 0\n\n    for x in nums:\n        s += x\n    return s" },
+      ],
+    }),
+  );
+const build = (entries, head = "code: c001\n") =>
+  `## Scene 1 — write it\nvisual: code build (tier 1)\nduration: ~40s\n${head}\n` +
+  entries.map(([text, lines]) => `- spoken: "${text}"\n  display: "${text}"\n  source: [c001]\n` + (lines ? `  lines: ${lines}\n` : "")).join("\n");
+
+test("check-readability: a code build that narrates every line passes", () => {
+  const p = write("build-ok.md", build([["Name it.", "[1]"], ["Start at zero.", "[2]"], ["Walk and add.", "[4-5]"], ["Return it.", "[6]"]]));
+  const r = run("check-readability.mjs", p, "--chapter", codeChapter());
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test("check-readability: a code build that skips lines names them", () => {
+  const p = write("build-gap.md", build([["Here is all the code.", "[1]"]]));
+  const r = run("check-readability.mjs", p, "--chapter", codeChapter());
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /c001 lines 2, 4, 5, 6 are shown but never narrated/);
+});
+
+test("check-readability: a code build with no block or no lines fails even without --chapter", () => {
+  assert.match(run("check-readability.mjs", write("build-noblock.md", build([["Code.", "[1]"]], ""))).stderr, /names no code: block/);
+  assert.match(run("check-readability.mjs", write("build-nolines.md", build([["Code.", null]]))).stderr, /no entry says which lines/);
+});
+
+test("check-readability: a code build naming a prose block is refused", () => {
+  const p = write("build-prose.md", build([["Name it.", "[1]"]], "code: p001\n"));
+  assert.match(run("check-readability.mjs", p, "--chapter", codeChapter()).stderr, /p001 is not a code block/);
+});
+
+// ── check-spoken: opt-in gates ───────────────────────────────────────────────────────────────────
+
+test("check-spoken: a spoken array is one value, not a list", () => {
+  const md = write("arr.md", '# t\n\n## Scene 1 — x\n\n- spoken: "So one, two, three, one gives true, because the one appears twice."\n  display: "So 1, 2, 3, 1 gives true."\n  source: [p1]\n\n- spoken: "We need apples, pears, plums, figs, and dates."\n  display: "x"\n  source: [p1]\n');
+  const r = run("check-spoken.mjs", md);
+  assert.equal((r.stdout + r.stderr).match(/reads out a list/g)?.length, 1, `only the real list fails:\n${r.stdout}${r.stderr}`);
+  assert.match(r.stdout + r.stderr, /apples, pears/);
+});
+
+test("check-spoken: --banned fails a term in either layer, as a whole word only", () => {
+  const p = write(
+    "banned.md",
+    `## Scene 1 — x\n- spoken: "Here is the chapter's example."\n  display: "Here is the chapter's example."\n  source: [p1]\n\n` +
+      `## Scene 2 — y\n- spoken: "Now let's look at a notebook."\n  display: "Now let's look at a notebook."\n  source: [p1]\n`,
+  );
+  const r = run("check-spoken.mjs", p, "--banned", "chapter,book");
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /spoken layer says "chapter"/);
+  assert.match(r.stderr, /display layer says "chapter"/);
+  assert.doesNotMatch(r.stderr, /"book"/, "notebook is not book");
+  assert.equal(run("check-spoken.mjs", p).status, 0, "without --banned nothing is banned");
+});
+
+test("check-spoken: --max-avg turns long average sentences into a failure", () => {
+  const p = write(
+    "avg.md",
+    `## Scene 1 — x\n- spoken: "This sentence has quite a lot of words in it for one breath of air today."\n  display: "x"\n  source: [p1]\n`,
+  );
+  assert.match(run("check-spoken.mjs", p, "--max-avg", "12").stderr, /this video's limit is 12/);
+  assert.equal(run("check-spoken.mjs", p).status, 0);
+  assert.equal(run("check-spoken.mjs", p, "--max-avg").status, 2);
 });
 
 // ── check-spoken ──────────────────────────────────────────────────────────────────────────────────

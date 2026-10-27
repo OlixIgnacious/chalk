@@ -4,7 +4,7 @@
 //   node narrate.mjs --script SCRIPT.md --out <project> [--voice af_heart] [--speed 0.93]
 //        [--sentence 0.42] [--question 0.7] [--beat 0.55] [--pause 1.0] [--think 2.5] [--jitter 0.18]
 //        [--lead 0.6]
-//        [--engine parakeet] [--polish] [--no-transcribe] [--python <venv python>]
+//        [--engine parakeet] [--polish] [--no-transcribe] [--python <venv python>] [--lexicon lexicon.json]
 //   node narrate.mjs --text "One paragraph." --wav out.wav [--voice ...]     (audition one voice)
 //
 // It replaces the VOICE half of faceless-explainer's `audio.mjs`, which on the offline route cannot do
@@ -74,6 +74,21 @@ export function gapSeconds(kind, key, o) {
   const base = o[kind];
   if (typeof base !== "number") throw new Error(`unknown gap kind "${kind}"`);
   return Number((base * (1 + o.jitter * unit(`${kind}:${key}`))).toFixed(3));
+}
+
+/**
+ * The lexicon's `spoken` form is what TTS must say (step-3-script.md § Lexicon). A term written in its
+ * display form inside the spoken text — "dict", "SQL", "LeetCode" — is replaced by its spoken form, whole
+ * words only, longest term first. A term whose spoken form equals its display form changes nothing.
+ */
+export function applyLexicon(text, terms) {
+  const sorted = [...terms].filter((t) => t.display && t.spoken && t.display !== t.spoken).sort((a, b) => b.display.length - a.display.length);
+  let out = text;
+  for (const t of sorted) {
+    const esc = t.display.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(^|[^\\w])${esc}(?=$|[^\\w])`, "g"), (m, pre) => pre + t.spoken);
+  }
+  return out;
 }
 
 /** SCRIPT.md → [{ frame, text }]: the indented block under each `## … (Frame N)`. Markers are kept. */
@@ -147,8 +162,18 @@ function main() {
     }
     return JSON.parse(r.stdout.trim().split("\n").at(-1)).takes;
   };
+  const lexPath = flag("lexicon", null);
+  let lexTerms = [];
+  if (lexPath) {
+    try {
+      const lx = JSON.parse(readFileSync(resolve(lexPath), "utf8"));
+      lexTerms = Array.isArray(lx.terms) ? lx.terms : die(`${lexPath} has no terms[]`);
+    } catch (e) {
+      die(`cannot read ${lexPath} — ${e.message}`);
+    }
+  }
   const piecesFor = (text, key) =>
-    splitSpoken(text).map((p, i) => ({ text: p.text, gap: gapSeconds(p.gap, `${key}-${i}`, gaps) }));
+    splitSpoken(applyLexicon(text, lexTerms)).map((p, i) => ({ text: p.text, gap: gapSeconds(p.gap, `${key}-${i}`, gaps) }));
 
   // Audition mode: one text, one WAV, nothing else.
   const audition = flag("text", null);

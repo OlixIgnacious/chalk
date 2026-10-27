@@ -12,7 +12,7 @@ ignores `--speed`, exposes no pause control, and falls back to a fixed voice (`a
 `chalk-core narrate` for the voice instead:
 
 ```bash
-npx chalk-core narrate --script <project>/SCRIPT.md --out <project> --voice af_heart --speed 0.93 --lead 0.6
+npx chalk-core narrate --script <project>/SCRIPT.md --out <project> --voice <the chosen voice> --speed <channel.json speed> --lead 0.6 --lexicon <output-dir>/lexicon.json
 npx chalk-core narrate --text "A paragraph to audition." --wav audition.wav --voice af_bella   # try a voice
 ```
 
@@ -23,6 +23,11 @@ nothing.) A voice may be a blend, `--voice "af_heart:0.7,af_bella:0.3"`. The sil
 a frame's duration still equals its narration. `--lead 0.6` adds a breath of silence before every take but the
 first, so a scene change does not land the instant the last scene ends. `--polish` evens the level without
 changing the length.
+
+`--lexicon` respells every lexicon term written in its display form ("dict", "SQL") to its `spoken` form
+before synthesis, so the script can say "dict" and the voice still gets it right. Without it the spoken
+layer goes to TTS as written. There is no default voice worth trusting: the skill records the chosen one
+(chalk-youtube reads it from the channel's `channel.json`).
 
 It writes `assets/voice/NN.wav`, transcribes each take (Parakeet if installed), and writes `audio_meta.json`
 and `audio_engine_meta.json` in the shape `audio.mjs` writes, so `sync-durations` and everything after run

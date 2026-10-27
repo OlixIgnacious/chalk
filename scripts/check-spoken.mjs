@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-spoken.mjs — does the narration sound like a person, or like a document read aloud?
 //
-//   node check-spoken.mjs <script.md> [...] [--json]
+//   node check-spoken.mjs <script.md> [...] [--banned "chapter,book,section"] [--max-avg 12] [--json]
 //
 // check-readability enforces grounding and reading time; nothing checked HOW the narration sounds, and
 // a faithful summary read aloud passed every gate while sounding like a robot (13.7 words a sentence, a
@@ -13,17 +13,41 @@
 // judgement. The limits are generous on purpose: a YouTube video has no word budget, and a teacher explaining
 // something properly uses full sentences. Pause markers do not count as words.
 //
+// Two opt-in gates for a skill that needs them: `--banned` fails any spoken or display line that says one of
+// the terms (whole words, case-insensitive) — a video for people who never saw the book must not say
+// "the chapter"; `--max-avg` turns the average-sentence-length warning into a failure at that limit.
+//
 // Exit 0 ok (warnings allowed), 1 a hard failure, 2 usage.
 
 import { readFileSync } from "node:fs";
 
 const argv = process.argv.slice(2);
 const JSON_OUT = argv.includes("--json");
-const files = argv.filter((a) => !a.startsWith("--"));
-if (!files.length) {
-  console.error("usage: check-spoken.mjs <script.md> [...] [--json]");
+const opt = (n) => {
+  const i = argv.indexOf(`--${n}`);
+  if (i < 0) return null;
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith("--")) {
+    console.error(`check-spoken: --${n} needs a value`);
+    process.exit(2);
+  }
+  return v;
+};
+const BANNED = (opt("banned") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const MAX_AVG = opt("max-avg") === null ? null : Number(opt("max-avg"));
+if (MAX_AVG !== null && !(MAX_AVG > 0)) {
+  console.error("check-spoken: --max-avg needs a positive number");
   process.exit(2);
 }
+const values = new Set(["banned", "max-avg"].map((n) => argv.indexOf(`--${n}`) + 1).filter((i) => i > 0));
+const files = argv.filter((a, i) => !a.startsWith("--") && !values.has(i));
+if (!files.length) {
+  console.error('usage: check-spoken.mjs <script.md> [...] [--banned "chapter,book"] [--max-avg 12] [--json]');
+  process.exit(2);
+}
+const bannedRe = BANNED.length
+  ? new RegExp(`(^|[^\\w])(${BANNED.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?=$|[^\\w])`, "i")
+  : null;
 
 const HARD_WORDS = 40; // a sentence longer than this cannot be said in one breath
 const HARD_LIST = 4; // a sentence with this many commas is reading out a list
@@ -85,6 +109,8 @@ function measure(entries, scenes = []) {
 }
 
 let failed = 0;
+const NUM = "(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|-?\\d+)";
+const ARRAY_RUN = new RegExp(`\\b${NUM}(?:,\\s*${NUM}){2,}\\b`, "gi");
 const report = [];
 for (const file of files) {
   let md;
@@ -98,14 +124,23 @@ for (const file of files) {
   const m = measure(scenes.flat(), scenes);
   const failures = [];
   const warnings = [];
+  if (bannedRe) {
+    md.split("\n").forEach((line, i) => {
+      const f = line.match(/^\s*(?:-\s*)?(spoken|display):\s*"(.*)"\s*$/i);
+      const hit = f && f[2].match(bannedRe);
+      if (hit) failures.push(`line ${i + 1}: the ${f[1].toLowerCase()} layer says "${hit[2]}", which this video must not — "${f[2].slice(0, 60)}"`);
+    });
+  }
   for (const s of m.sentenceList) {
     const n = s.split(/\s+/).length;
-    const commas = s.match(/,/g)?.length ?? 0;
+    // a spoken array ("one, two, three, one") is one value, not a list of items to hold in mind
+    const commas = s.replace(ARRAY_RUN, "ARRAY").match(/,/g)?.length ?? 0;
     if (n > HARD_WORDS) failures.push(`a sentence of ${n} words is too long to say in one breath — "${s.slice(0, 60)}…"`);
     if (commas >= HARD_LIST) failures.push(`a sentence reads out a list of ${commas + 1} items — say two or three and leave the rest on screen — "${s.slice(0, 60)}…"`);
     else if (n > SOFT_LONG && n <= HARD_WORDS) warnings.push(`a ${n}-word sentence is long — "${s.slice(0, 50)}…"`);
   }
-  if (m.sentences && m.avgWords > SOFT_AVG) warnings.push(`sentences average ${m.avgWords} words; aim for 12–14 or fewer, mixing in longer ones where an idea needs room`);
+  if (MAX_AVG !== null && m.sentences && m.avgWords > MAX_AVG) failures.push(`sentences average ${m.avgWords} words; this video's limit is ${MAX_AVG}`);
+  else if (m.sentences && m.avgWords > SOFT_AVG) warnings.push(`sentences average ${m.avgWords} words; aim for 12–14 or fewer, mixing in longer ones where an idea needs room`);
   if (m.seconds > 60 && m.questions === 0) warnings.push(`about ${Math.round(m.seconds)}s of narration with no question to the viewer`);
   for (const n of m.unsignposted) warnings.push(`scene ${n} opens without a signpost — say what is happening ("let's look at it through an example", "now, the other way round")`);
   if (m.sentences >= 5 && m.you / m.sentences < 0.2) warnings.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences`);

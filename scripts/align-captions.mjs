@@ -49,14 +49,74 @@ const lastEnd = stream.at(-1).end ?? stream.at(-1).start ?? 0;
 // LOCAL FIX: whisper digitises number words unpredictably — the same VO returns "one" in one
 // sentence and "1" in the next — so a bare numeral and its word must normalise alike. Whole-token
 // only: this must not rewrite digits inside a longer string such as "1.73".
+// LOCAL FIX: "too" is how a transcript most often mishears a spoken "two" ("Yes, two." → "Yes, too.").
+// LOCAL FIX: thirteen–nineteen and the tens ("thirty" → "30") too, and a plural numeral ("the two 1s",
+// heard "ones") normalises like its word. A few homophones a transcript writes for the word that was
+// said ("seen" → "scene", "queue" → "cue") compare as one word: the audio is right, the spelling is not.
 const NUMBER_WORDS = {
   zero: "0", one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7",
-  eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12", nought: "0",
+  eight: "8", nine: "9", ten: "10", eleven: "11", twelve: "12", nought: "0", too: "2",
+  thirteen: "13", fourteen: "14", fifteen: "15", sixteen: "16", seventeen: "17", eighteen: "18",
+  nineteen: "19", twenty: "20", thirty: "30", forty: "40", fifty: "50", sixty: "60", seventy: "70",
+  eighty: "80", ninety: "90",
 };
+const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues" };
 const norm = (s) => {
   const t = s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return NUMBER_WORDS[t] ?? t;
+  if (NUMBER_WORDS[t]) return NUMBER_WORDS[t];
+  if (t.endsWith("s") && t !== "twos" && NUMBER_WORDS[t.slice(0, -1)]) return NUMBER_WORDS[t.slice(0, -1)] + "s";
+  if (t === "twos") return "2s";
+  return HOMOPHONES[t] ?? t;
 };
+
+// LOCAL FIX: a numeral the transcript wrote out in words. The same VO returns "100,000" in one line
+// and "a hundred thousand" in the next, and a figure like 217 is read digit-group by digit-group
+// ("two seventeen"). Used only when a numeral token fails to match directly. Returns the number of
+// stream words, from k, whose reading (standard or digit-group) is `digits`, or 0.
+const UNITS = {
+  zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19,
+};
+const TENS = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+const SCALES = { thousand: 1e3, million: 1e6, billion: 1e9 };
+function numberWords(k, digits) {
+  const words = [];
+  for (let j = k; j < Math.min(stream.length, k + 6); j++) {
+    const t = stream[j].text.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (/^\d+$/.test(t) || t in UNITS || t in TENS || t in SCALES || t === "hundred" || t === "and" ||
+        ((t === "a" || t === "an") && j === k)) words.push(t);
+    else break;
+  }
+  for (let n = words.length; n >= 1; n--) {
+    const ws = words.slice(0, n);
+    // standard: a hundred thousand = 100000
+    let total = 0, cur = 0, ok = true;
+    for (const t of ws) {
+      if (t === "a" || t === "an") cur = Math.max(cur, 1);
+      else if (t === "and") continue;
+      else if (/^\d+$/.test(t)) cur += +t;
+      else if (t in UNITS) cur += UNITS[t];
+      else if (t in TENS) cur += TENS[t];
+      else if (t === "hundred") cur = (cur || 1) * 100;
+      else if (t in SCALES) { total += (cur || 1) * SCALES[t]; cur = 0; }
+      else ok = false;
+    }
+    if (ok && String(total + cur) === digits) return n;
+    // digit-group: two seventeen = 217, two eighty seven = 287
+    let s = "";
+    for (let i = 0; i < ws.length; i++) {
+      const t = ws[i];
+      if (t in TENS && UNITS[ws[i + 1]] > 0 && UNITS[ws[i + 1]] < 10) { s += TENS[t] + UNITS[ws[++i]]; continue; }
+      if (t in UNITS) s += UNITS[t];
+      else if (t in TENS) s += TENS[t];
+      else if (/^\d+$/.test(t)) s += t;
+      else { s = null; break; }
+    }
+    if (s === digits) return n;
+  }
+  return 0;
+}
 const lev = (a, b) => {
   if (a === b) return 0;
   const m = a.length,
@@ -132,7 +192,7 @@ for (const line of script.lines) {
   for (const tok of line.tokens) {
     const display = typeof tok === "string" ? tok : tok.display;
     const spoken = typeof tok === "string" ? tok : tok.spoken;
-    const spokenNorm = norm(spoken);
+    const spokenNorm = spoken.split(/\s+/).map(norm).join(""); // word by word, as the stream is normalised
     if (!spokenNorm) {
       w.push([display, si < stream.length ? stream[si].start : 0]);
       continue;
@@ -141,6 +201,12 @@ for (const line of script.lines) {
     let hit = null;
     for (let skip = 0; skip <= 4 && !hit; skip++) {
       hit = consume(si + skip, skip === 0 ? soff : 0, spokenNorm);
+    }
+    if (!hit && /^\d+$/.test(spokenNorm)) {
+      for (let skip = 0; skip <= 4 && !hit; skip++) {
+        const n = numberWords(si + skip, spokenNorm);
+        if (n) hit = { start: stream[si + skip].start, next: si + skip + n, off: 0 };
+      }
     }
     if (!hit) {
       console.error(

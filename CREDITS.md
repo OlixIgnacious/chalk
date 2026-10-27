@@ -19,12 +19,12 @@ marketplace-distributed, so it cannot be installed as a dependency.
 - Upstream: https://github.com/heygen-com/hyperframes/blob/main/.claude/skills/changelog-video/scripts/align-captions.mjs
 - Licence: Apache-2.0
 - Vendored: 2026-09-30
-- Local changes: two crash/correctness guards + two alignment fixes, 2026-09-30 — see below
+- Local changes: two crash/correctness guards + four alignment fixes (2026-09-30, 2026-10-26, 2026-10-27) — see below
 
 Keep the file's header comment intact. If it is modified, record what changed and why here.
 
-**Local changes (2026-09-30).** All four are marked `LOCAL FIX` in the file, and all four should
-go upstream. The first two change neither the alignment algorithm nor the output shape; the last two
+**Local changes (2026-09-30, 2026-10-26).** All five are marked `LOCAL FIX` in the file, and all five should
+go upstream. The first two change neither the alignment algorithm nor the output shape; the last three
 change matching behaviour, and are described in full below.
 
 1. The line-end pass read `outLines[i + 1].w[0][1]` without checking that the next line had any
@@ -51,6 +51,19 @@ change matching behaviour, and are described in full below.
    sentence and `1` in the next, so `norm()` maps zero–twelve (and `nought`) to their digit,
    whole-token only — it must not rewrite the digits inside `1.73`. Pinned by `align-captions: a
    number word and its digit are the same word`.
+
+5. **A numeral matches the number words that say it** (2026-10-26). The same transcript returns
+   `100,000` in one sentence and `a hundred thousand` in the next, and reads `217` digit-group by
+   digit-group (`two seventeen`). When a token whose spoken form is all digits fails to match
+   directly, `numberWords()` lets it take up to six number words whose standard or digit-group
+   reading is that numeral. `too` also normalises to `2`, the commonest mishearing of a spoken
+   "two". Pinned by `align-captions: a numeral matches the number words that say it`.
+
+6. **Tens, plural numerals and a few homophones** (2026-10-27). `norm()` also maps thirteen–ninety to
+   digits (`thirty` heard as `30`), a plural numeral to its word (`1s` heard as `ones`), and a short
+   table of homophones the transcript writes for the word the voice said (`seen` heard as `scene`,
+   `queue` as `cue`). The audio was right each time; only the transcript's spelling differed. Pinned by
+   `align-captions: tens, plural numerals and homophones match what was said`.
 
 ## Prior art
 

@@ -64,6 +64,27 @@ duration: ~20s
 The declaration is the record: it feeds the plan and the logs, and the video carries no label.
 `example: chapter` needs no `computed-by`. See [fidelity.md](fidelity.md) § Examples.
 
+## Teaching code
+
+A scene that teaches how to write code uses `visual: code build`, names its block, and says which lines
+each entry narrates:
+
+```markdown
+## Scene 2 — write it
+visual: code build (tier 1)
+code: c036
+duration: ~30s
+
+- spoken: "First, an empty set. This is what you remember."
+  display: "First, an empty set. This is what you remember."
+  source: [c036, p026]
+  lines: [2]
+```
+
+`check-readability --chapter chapter.json` fails a code build that leaves a line of its block un-narrated.
+Explain what each line does and why, from the code and the source's own explanation — see
+[fidelity.md](fidelity.md) § Explaining code.
+
 ## Lexicon
 
 Maintain `<output-dir>/lexicon.json` — a file of the shape `{ "terms": [ … ] }` (a bare array is refused),

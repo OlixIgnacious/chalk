@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-readability.mjs — enforce the reading-time floor and the grounding rule over a segment script.
 //
-//   node check-readability.mjs <script.md> [...] [--rate 0.3] [--min 0.8] [--json]
+//   node check-readability.mjs <script.md> [...] [--rate 0.3] [--min 0.8] [--chapter chapter.json] [--json]
 //
 // A scene may declare `example: chapter|derived` (and, for derived, `computed-by: <script>`). Any
 // "worked example" scene must. See references/fidelity.md § Examples.
@@ -12,6 +12,11 @@
 // It also enforces that every line carries `source:` ids — spoken as well as displayed. Narration
 // carries most of a chapter's claims, so an unsourced spoken line is precisely the invented-fact
 // failure the step-3 gate exists to catch.
+//
+// Code is taught, not dumped. A `visual: code build` scene names its block (`code: c036`) and each entry
+// says which lines of it that entry narrates (`lines: [3, 4]` or `lines: [3-4]`). With `--chapter`, every
+// non-blank line of the block must be narrated by some entry; without it, at least one entry must say.
+// A code build that shows the whole block on one line of narration is the "shown, not taught" failure.
 //
 // `--json` dumps the parsed scenes, so the citation each line actually resolved to can be read back
 // — by a test, or by step 6 when it builds the source-citation table.
@@ -40,10 +45,36 @@ const num = (n, d) => {
 const RATE = num("rate", 0.3); // seconds per word
 const MIN = num("min", 0.8); // floor for a short label
 const JSON_OUT = argv.includes("--json");
-const files = argv.filter((a) => !a.startsWith("--") && !/^[\d.]+$/.test(a));
+const chapterIdx = argv.indexOf("--chapter");
+const CHAPTER = chapterIdx >= 0 ? argv[chapterIdx + 1] : null;
+if (chapterIdx >= 0 && !CHAPTER) die("--chapter needs a chapter.json path");
+const files = argv.filter((a, i) => !a.startsWith("--") && !/^[\d.]+$/.test(a) && !(chapterIdx >= 0 && i === chapterIdx + 1));
+let BLOCKS = null;
+if (CHAPTER) {
+  try {
+    BLOCKS = new Map(JSON.parse(readFileSync(CHAPTER, "utf8")).blocks.map((b) => [b.id, b]));
+  } catch (err) {
+    die(`cannot read ${CHAPTER} — ${err.message}`);
+  }
+}
+
+/** "[3, 4-6]" → [3, 4, 5, 6]. */
+const lineList = (v) =>
+  v
+    .replace(/^\[|\]$/g, "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .flatMap((s) => {
+      const r = s.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (!r) return Number.isFinite(Number(s)) ? [Number(s)] : [NaN];
+      const out = [];
+      for (let i = Number(r[1]); i <= Number(r[2]); i++) out.push(i);
+      return out;
+    });
 
 if (!files.length) {
-  console.error("usage: check-readability.mjs <script.md> [...] [--rate 0.3] [--min 0.8] [--json]");
+  console.error("usage: check-readability.mjs <script.md> [...] [--rate 0.3] [--min 0.8] [--chapter chapter.json] [--json]");
   process.exit(2);
 }
 
@@ -71,7 +102,7 @@ function parse(md) {
   let inFence = false;
 
   const openEntry = () => {
-    entry = { spoken: null, display: null, source: null };
+    entry = { spoken: null, display: null, source: null, lines: null };
     cur.entries.push(entry);
   };
 
@@ -95,6 +126,7 @@ function parse(md) {
         duration: null,
         example: null,
         computedBy: null,
+        code: null,
         entries: [],
         malformed: [],
       };
@@ -124,6 +156,17 @@ function parse(md) {
     const by = line.match(/^\s*computed-by:\s*(.*?)\s*$/i);
     if (by) {
       cur.computedBy = by[1];
+      return;
+    }
+    const code = line.match(/^\s*code:\s*(.*?)\s*$/i);
+    if (code) {
+      cur.code = code[1];
+      return;
+    }
+    const lines = line.match(/^\s*lines:\s*(.*?)\s*$/i);
+    if (lines) {
+      if (!entry) cur.malformed.push(`line ${lineNo}: lines: with no spoken or display line above it`);
+      else entry.lines = lineList(lines[1]);
       return;
     }
 
@@ -214,6 +257,24 @@ for (const file of files) {
           fail(file, `scene "${s.title}": a derived example names no computed-by script, so its numbers have no origin`);
         }
       }
+    }
+
+    // Code is built line by line: the block is named, and its lines are narrated.
+    if (/^code build$/i.test((s.visual ?? "").trim())) {
+      const narrated = new Set(s.entries.flatMap((e) => e.lines ?? []));
+      if (!s.code) fail(file, `scene "${s.title}" is a code build but names no code: block`);
+      else if ([...narrated].some((n) => !Number.isInteger(n) || n < 1)) fail(file, `scene "${s.title}": lines: must be line numbers like [3, 4] or [3-4]`);
+      else if (BLOCKS) {
+        const block = BLOCKS.get(s.code);
+        if (!block || block.kind !== "code") fail(file, `scene "${s.title}": code: ${s.code} is not a code block in ${CHAPTER}`);
+        else {
+          const gaps = block.text
+            .split("\n")
+            .map((l, i) => (l.trim() && !narrated.has(i + 1) ? i + 1 : null))
+            .filter(Boolean);
+          if (gaps.length) fail(file, `scene "${s.title}": ${s.code} lines ${gaps.join(", ")} are shown but never narrated (add them to an entry's lines:)`);
+        }
+      } else if (!narrated.size) fail(file, `scene "${s.title}" is a code build but no entry says which lines it narrates (lines: [n])`);
     }
 
     // Grounding covers every entry; reading time covers only what is actually on screen.
