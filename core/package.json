@@ -1,0 +1,25 @@
+{
+  "name": "chalk-core",
+  "version": "0.6.0",
+  "description": "Shared core for chalk skills: ingest a book into grounded blocks, gate the script, align captions, route visual tiers",
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "chalk-core": "bin/chalk-core.mjs"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "references",
+    "templates",
+    "fixtures",
+    "CREDITS.md"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "test:tier2": "node test/tier2.mjs"
+  }
+}
