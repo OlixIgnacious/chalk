@@ -153,18 +153,9 @@ the teaching. Everything after this costs tens of minutes of frame capture.
 [references/core/captions-and-engine.md](references/core/captions-and-engine.md) and, for any Tier 2
 scene, [references/core/manim.md](references/core/manim.md)
 
-Render Tier 2 clips first, then hand each segment to `faceless-explainer` via a `BRIEF.md`. Load the
-Hyperframes domain skills — `hyperframes-core`, `hyperframes-animation`, `hyperframes-creative`,
-`hyperframes-keyframes`, `hyperframes-cli`. Do not enter the `hyperframes` intent interview; a
-`BRIEF.md` on disk is what tells `faceless-explainer` to run without asking.
-
-Three chalk-owned steps sit inside the engine's loop — the reference explains why each exists:
-
-```bash
-npx chalk-core build-tokens <segment>/script.md <out>/lexicon.json work/script-tokens.json
-npx chalk-core fix-index <project>/index.html          # after EVERY assemble-index
-npx chalk-core emit-vtt <project>/caption_groups.json <segment>/segment.vtt
-```
+Render Tier 2 clips first, then build each segment with the frame library: write `frames/sNN.py` (or
+dispatch the `chalk-frames` agent per segment), and `npx chalk pipeline <output-dir>` narrates, aligns,
+draws and renders every segment whose inputs changed. The reference lists the commands it runs.
 
 **A frame's duration equals its narration**, except the last in each segment. Anything longer
 splices silence into a continuous take and bumps audibly at the cut.
@@ -206,6 +197,23 @@ grounding claim, so it will not be written over an ungrounded script.
 
 **Gate:** `lesson.html`, `lesson.mp4` and `lesson-plan.md` exist; every poster is a settled frame,
 not a mid-transition one.
+
+---
+
+## Step 7: Evaluate and review
+
+```bash
+npx chalk eval <output-dir> --format lesson [--deep]
+```
+
+Writes `eval.md` / `eval.json`: the lesson pack (one objective and a fair, sourced checkpoint per segment,
+each checkpoint answerable from its own segment, concepts in prerequisite order, a page that plays) plus
+the criteria every format shares (grounding, plain speech, pace, the voice and captions, the render). Then
+dispatch the **chalk-reviewer** agent on the output dir for what the eval cannot judge; it writes
+`review.md`. The pipeline runs the eval and stops for the review.
+
+**Gate:** no eval criterion fails; `review.md` has no high-severity finding, or each one is shown to the
+user.
 
 ---
 

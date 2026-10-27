@@ -34,7 +34,7 @@ narrate() {
   node "$TOOLS/seg.mjs" setup $NN
   EXTRA=(); [ "$POLISH" = polish ] && EXTRA=(--polish)
   echo "voice: $VOICE at $SPEED ${EXTRA[*]:-}"
-  (cd $P && $CORE narrate --script SCRIPT.md --out . --voice "$VOICE" --speed "$SPEED" "${EXTRA[@]}" --lead 0.6 --lexicon "$OUT/lexicon.json" --python "$PY" | tail -3)
+  (cd $P && $CORE narrate --script SCRIPT.md --out . --voice "$VOICE" --speed "$SPEED" ${EXTRA[@]+"${EXTRA[@]}"} --lead 0.6 --lexicon "$OUT/lexicon.json" --python "$PY" | tail -3)
   node "$TOOLS/seg.mjs" sync $NN
   node "$TOOLS/seg.mjs" words $NN
 }

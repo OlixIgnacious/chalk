@@ -14,6 +14,8 @@
 
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
+import { cpSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
@@ -58,6 +60,36 @@ test("rushed fixture fails exactly what only the reviewer used to catch", () => 
   assert.match(ev("T8"), /part 02 .* teaches 4 things/);
   assert.match(ev("E4"), /segments\/02: 3\.33 words\/s/);
   assert.match(ev("R5"), /"so it is counted once" is 28px/);
+});
+
+const lfx = (n) => join(root, "evals/fixtures/lesson", n);
+
+test("lesson good fixture passes the lesson pack and the shared criteria", () => {
+  const r = evaluate(lfx("good"), { format: "lesson" });
+  assert.deepEqual(failing(r), [], JSON.stringify(r.results.filter((x) => x.status === "fail"), null, 2));
+  assert.ok(!r.results.some((x) => x.id.startsWith("O") || x.id.startsWith("T")), "no YouTube criteria on a lesson");
+});
+
+test("lesson bad fixture: a two-idea objective, a missing option, a checkpoint from elsewhere, a term used early", () => {
+  const r = evaluate(lfx("bad"), { format: "lesson" });
+  assert.deepEqual(failing(r).sort(), ["L1", "L2", "L3"]);
+  const ev = (id) => r.results.find((x) => x.id === id).evidence.join("\n");
+  assert.match(ev("L1"), /segment 01: the objective is more than one idea/);
+  assert.match(ev("L1"), /segment 02: the answer index 3/);
+  assert.match(ev("L2"), /rests on p006/);
+  assert.match(ev("L3"), /"running total" before segment 02/);
+});
+
+test("lesson: the page must reference every segment, and every segment must be on disk", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-lesson-"));
+  cpSync(lfx("good"), dir, { recursive: true });
+  writeFileSync(join(dir, "segments/01/segment.mp4"), "x");
+  writeFileSync(join(dir, "lesson.html"), '<video src="segments/01/segment.mp4"></video>');
+  const l4 = evaluate(dir, { format: "lesson" }).results.find((x) => x.id === "L4");
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(l4.status, "fail");
+  assert.match(l4.evidence.join("\n"), /segments\/02\/segment\.mp4 is not there/);
+  assert.match(l4.evidence.join("\n"), /never references segments\/02\/segment\.mp4/);
 });
 
 let failed = 0;

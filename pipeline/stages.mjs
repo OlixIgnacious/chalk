@@ -16,6 +16,7 @@ export const REPO = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const core = (f) => join(REPO, "core/scripts", f);
 const frames = (f) => join(REPO, "frames", f);
 const chalk = join(REPO, "bin/chalk.mjs");
+const coreBin = join(REPO, "core/bin/chalk-core.mjs");
 
 /** Files every narration depends on besides the segment's own script. */
 const NARRATE_CODE = [core("narrate.mjs"), core("kokoro_narrate.py"), frames("seg.mjs")];
@@ -52,8 +53,8 @@ export const youtube = [
       ...o.segments.map((nn) => `segments/${nn}/examples`)],
     outputs: () => [],
     cmd: (o) => [
-      ["npx", "chalk-core", "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
-      ["npx", "chalk-core", "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
+      ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
+      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
         ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16"],
       ["node", chalk, "eval", ".", "--format", "youtube", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
@@ -140,4 +141,56 @@ export const youtube = [
   },
 ];
 
-export const FORMATS = { youtube };
+/** An interactive lesson: the same voice, alignment and frames; a syllabus, lesson.json and a page around them. */
+const same = (name) => youtube.find((s) => s.name === name);
+const LESSON_SKILL = join(REPO, "formats/lesson/skills/chalk");
+export const lesson = [
+  same("ingest"),
+  {
+    name: "syllabus",
+    kind: "author",
+    inputs: () => ["chapter.json"],
+    outputs: () => ["syllabus.md"],
+    missing: "syllabus.md — step 2 of the lesson skill (references/step-2-syllabus.md)",
+  },
+  { ...same("scripts"), inputs: () => ["syllabus.md"] },
+  {
+    ...same("text-gates"),
+    inputs: (o) => ["chapter.json", "syllabus.md", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), "lexicon.json"],
+    cmd: (o) => [
+      ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
+      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+      ["node", chalk, "eval", ".", "--format", "lesson", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+    ],
+  },
+  { ...same("scripts-approved"), inputs: (o) => ["syllabus.md", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+    missing: "your review of the syllabus, the checkpoints and every script — then: chalk pipeline approve <out> --scripts" },
+  same("narrate"),
+  same("align"),
+  same("frame-spec"),
+  same("frames"),
+  same("render"),
+  {
+    name: "lesson-page",
+    kind: "run",
+    inputs: (o) => ["lesson.json", join(LESSON_SKILL, "assets/player"), join(LESSON_SKILL, "scripts/build-lesson-page.mjs")],
+    outputs: () => ["lesson.html"],
+    cmd: () => ["node", chalk, "lesson-page", "lesson.json"],
+  },
+  {
+    name: "deliver",
+    kind: "run",
+    inputs: (o) => [...o.segments.flatMap((nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/script.md`]), "lesson.json",
+      join(LESSON_SKILL, "scripts/deliver.mjs")],
+    outputs: () => ["lesson.mp4", "lesson-plan.md"],
+    cmd: () => ["node", chalk, "deliver", ".", "--format", "lesson", "--keep-work"],
+  },
+  { ...same("eval"), inputs: (o) => ["lesson.mp4", "lesson.html", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`),
+    join(REPO, "evals"), join(REPO, "formats/lesson/eval")],
+    cmd: (o) => ["node", chalk, "eval", ".", "--format", "lesson", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])] },
+  same("review"),
+  { ...same("watched"), inputs: () => ["lesson.mp4", "lesson.html", "review.md"],
+    missing: "your run through lesson.html against review.md — then: chalk pipeline approve <out> --watched" },
+];
+
+export const FORMATS = { youtube, lesson };

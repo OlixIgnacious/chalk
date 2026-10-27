@@ -15,31 +15,28 @@ npx chalk-core manim-render <output-dir>/segments/NN/scenes/*.py
 See [core/manim.md](core/manim.md). If the toolchain is missing, fall back to Tier 1 and say so — do not fail
 the run halfway through.
 
-## Hand off to faceless-explainer
+## Build each segment with the frame library
+
+The runner does this for you (`npx chalk pipeline <output-dir>`); the commands it runs, from the output
+dir, are:
 
 ```bash
-npx hyperframes init "<output-dir>/segments/NN/video" \
-  --non-interactive --example=blank --skill=faceless-explainer
+npx chalk assets              # once per machine: fonts and GSAP
+npx chalk voice NN            # setup, narrate with channel.json's voice, align captions to the script
+npx chalk frames NN           # <output-dir>/frames/sNN.py → frames, captions, assemble, check
+npx chalk render NN           # render, copy segment.mp4, emit segment.vtt
+npx chalk stills NN           # contact sheet → work/stills/NN.png
 ```
 
-Then write `BRIEF.md` into that project. **Read `../hyperframes/references/brief-format.md` and
-`brief-contract.md` first — do not guess the schema.** Because a `BRIEF.md` exists on disk,
-`faceless-explainer` skips its intent interview and runs autonomously.
+The one thing written by hand (or by the `chalk-frames` agent, one per segment, in parallel) is the frame
+spec `frames/sNN.py`: one function per scene, drawn only with the library's components (`cells`, `setbox`,
+`node`, `arrow`, `table`, `code_build`, `code_trace`, `plan_card`, …), every reveal cued on a spoken word.
+See the repo's `frames/README.md`. The lesson's chrome — its title, a strip of its segments, a card as each
+segment opens — comes from `lesson.json`, so a spec draws only its scene. The voice comes from the
+workspace's `channel.json`; there is no silent default.
 
-Carry into the brief:
-
-- the segment's learning objective
-- the two-layer script, verbatim
-- the registry visual and tier for every scene
-- paths to any pre-rendered Manim clips
-- format and target duration
-- **the series design preset** — the same one in every segment's brief
-
-Put the chapter text in `capture/extracted/visible-text.txt`, which that skill expects as its source
-of information.
-
-`faceless-explainer` then owns audio, storyboard enrichment, frame construction, `hyperframes check`
-and render. Let it. Prefer its conventions over anything in chalk.
+This replaces handing each frame to `faceless-explainer`'s per-frame workers: the same spec rebuilds the
+same frames, a fix to a component reaches every lesson and video, and the eval can read what was drawn.
 
 ## Captions, engine quirks and inspection
 
@@ -51,11 +48,6 @@ are wrong for explanatory video, and `check` / `snapshot` instead of re-renderin
 
 What is specific to a lesson: every segment ends with a hold of about 1.8s on its payoff frame, the
 one place a hold is allowed, and the segment's VTT is embedded in the lesson page as cues.
-
-## TODO
-
-- [ ] A worked `BRIEF.md` for a chalk segment
-- [ ] Resume logic — detect and skip completed segments
 
 ## Gate
 

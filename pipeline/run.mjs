@@ -65,6 +65,8 @@ function segmentsOf(out) {
     const ids = readdirSync(root).filter((d) => /^\d\d$/.test(d) && existsSync(join(root, d, "script.md"))).sort();
     if (ids.length) return ids;
   }
+  const lesson = join(out, "lesson.json");
+  if (existsSync(lesson)) return (JSON.parse(readFileSync(lesson, "utf8")).segments ?? []).map((s) => s.id);
   const outline = join(out, "outline.md");
   if (!existsSync(outline)) return [];
   return [...readFileSync(outline, "utf8").matchAll(/^\|\s*(\d\d)\s*\|/gm)].map((m) => m[1]);
@@ -190,7 +192,7 @@ export async function run(out, opts = {}) {
   const stages = FORMATS[format];
   if (!stages) throw new Error(`unknown format "${format}"`);
   const state = readState(out);
-  state.opts = { ...state.opts, ...(opts.doc ? { doc: resolve(opts.doc) } : {}), ...(opts.notebook ? { notebook: true } : {}),
+  state.opts = { ...state.opts, format, ...(opts.doc ? { doc: resolve(opts.doc) } : {}), ...(opts.notebook ? { notebook: true } : {}),
     ...(opts.channel ? { channel: resolve(opts.channel) } : {}) };
   if (opts.from) {
     const i = stages.findIndex((s) => s.name === opts.from);
@@ -298,18 +300,20 @@ export async function main(argv) {
   const pos = argv.filter((a, i) => !a.startsWith("--") && !VALUED.includes(argv[i - 1]));
   const opts = {
     doc: val("doc"),
-    format: val("format") ?? "youtube",
+    format: val("format"),
     only: val("only")?.split(",").map((s) => s.trim().padStart(2, "0")),
     from: val("from"),
     jobs: val("jobs") ? Number(val("jobs")) : undefined,
     channel: val("channel"),
     notebook: argv.includes("--notebook") || undefined,
   };
+  const [sub, out] = pos[0] === "approve" || pos[0] === "adopt" || pos[0] === "status" ? pos : [null, pos[0]];
+  // the format given, else the one this dir was built as, else a lesson if it has a lesson.json
+  opts.format ??= (out && readState(real(out)).opts.format) ?? (out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube");
   if (!FORMATS[opts.format]) {
     console.error(`chalk pipeline: format "${opts.format}" has no pipeline yet (${Object.keys(FORMATS).join(", ")})`);
     return 2;
   }
-  const [sub, out] = pos[0] === "approve" || pos[0] === "adopt" || pos[0] === "status" ? pos : [null, pos[0]];
   if (!out) {
     console.error("usage: chalk pipeline <out> [--doc <source>] [--only NN,..] [--from <stage>] [--jobs 3] [--notebook]\n" +
       "       chalk pipeline approve <out> --scripts|--watched\n       chalk pipeline adopt <out>\n       chalk status <out>");
