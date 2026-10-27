@@ -4,7 +4,7 @@
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { frameText, isBonus } from "../../../evals/lib/load.mjs";
-import { pass, fail, skip, scenesOf, mainSegments, at } from "../../../evals/lib/kit.mjs";
+import { pass, fail, skip, scenesOf, mainSegments, at, runningExample, frameOf } from "../../../evals/lib/kit.mjs";
 
 const REASON = /\b(because|so|since|only|which means|that means|no need|otherwise|instead|right away|now any|so that|why)\b/i;
 /** Stages whose blocks a problem part must not lean on: the viewer has not been taught them yet. */
@@ -328,14 +328,30 @@ const teaching = [
   {
     id: "T9",
     group: "teaching",
-    title: "The insight is shown on the running example, not told in text cards",
+    title: "The insight is shown on the running example, not told in text cards: its frames draw the example's values",
     weight: 2,
     run(ctx) {
       const insight = scenesOf(ctx).filter(({ seg, sc }) => sc.stage === "insight" && !isBonus(ctx, seg));
       if (!insight.length) return skip("no insight stage (T1 reports it)");
-      const shown = insight.filter(({ sc }) => /^(chapter|derived)/i.test(sc.example ?? ""));
-      return shown.length ? pass([`${at(shown[0].seg, shown[0].sc.line)}: ${shown[0].sc.example}`])
-        : fail(insight.map(({ seg, sc }) => `${at(seg, sc.line)}: insight scene "${sc.title}" names no example`));
+      const example = runningExample(ctx);
+      const ev = [], ok = [];
+      for (const { seg, sc } of insight) {
+        if (!/^(chapter|derived)/i.test(sc.example ?? "")) {
+          ev.push(`${at(seg, sc.line)}: insight scene "${sc.title}" names no example`);
+          continue;
+        }
+        const frame = frameOf(seg, sc);
+        if (!frame || !example) {
+          ok.push(`${at(seg, sc.line)}: ${sc.example}${frame ? "" : " (frames not built yet: the tag is all there is to check)"}`);
+          continue;
+        }
+        // drawn means each value is its own element (a cell, a chip), not the list written inside a sentence
+        const drawn = [...frame.html.matchAll(/>\s*(-?\d+)\s*</g)].map((m) => Number(m[1]));
+        const missing = [...new Set(example)].filter((v) => drawn.filter((d) => d === v).length < example.filter((e) => e === v).length);
+        if (missing.length) ev.push(`${frame.file.split("/segments/")[1]}: the insight frame never draws [${example.join(", ")}] as values (missing ${missing.join(", ")}) — it tells the idea instead of showing it`);
+        else ok.push(`${frame.file.split("/segments/")[1]}: draws [${example.join(", ")}]`);
+      }
+      return ev.length ? fail(ev) : pass(ok);
     },
   },
 ];

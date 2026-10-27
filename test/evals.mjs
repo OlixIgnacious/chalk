@@ -15,7 +15,7 @@
 
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
-import { cpSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -61,7 +61,24 @@ test("rushed fixture fails exactly what only the reviewer used to catch", () => 
   assert.match(ev("T7"), /segments\/01\/script\.md:\d+: cites p008, which is taught only in interview/);
   assert.match(ev("T8"), /part 02 .* teaches 4 things/);
   assert.match(ev("E4"), /segments\/02: 3\.33 words\/s/);
+  assert.match(ev("G4"), /segments\/00\/script\.md:\d+: "You'll write it, then trace it\." cites \[c001\]/, "a hook promise is about the video");
   assert.match(ev("R5"), /"so it is counted once" is 28px/);
+});
+
+test("T9 reads the insight's frames: a text card fails, the example drawn as values passes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-t9-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const frames = join(dir, "segments/02/video/compositions/frames");
+  mkdirSync(frames, { recursive: true });
+  const card = '<div data-role="stage-card">think</div><div style="font-size:60px">keep one total as you go: 2, then 7, then 8</div>';
+  writeFileSync(join(frames, "f02-keep-one-number-instead.html"), card);
+  const t9 = () => evaluate(dir).results.find((x) => x.id === "T9");
+  assert.equal(t9().status, "fail");
+  assert.match(t9().evidence.join("\n"), /never draws \[2, 5, 1\] as values/);
+  const cells = card + "<div>2</div><div>5</div><div>1</div><div>2</div><div>7</div><div>8</div>";
+  writeFileSync(join(frames, "f02-keep-one-number-instead.html"), cells);
+  assert.equal(t9().status, "pass", t9().evidence.join("\n"));
+  rmSync(dir, { recursive: true, force: true });
 });
 
 const lfx = (n) => join(root, "evals/fixtures/lesson", n);

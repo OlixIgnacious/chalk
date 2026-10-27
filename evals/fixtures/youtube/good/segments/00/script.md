@@ -13,4 +13,4 @@ on-screen: cells [2, 5, 1]; total 8
 
 - spoken: "By the end, you'll add up any list in one pass, and say why that's enough."
   display: "By the end, you'll add up any list in one pass, and say why that's enough."
-  source: [p002, p004]
+  source: [p002, p004, pipeline]

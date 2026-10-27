@@ -27,8 +27,9 @@ Allowed, and not a claim:
   example the chapter itself gave — see [spoken-style.md](spoken-style.md). Each such line still cites the
   nearest block it echoes or leads into: a line with no block to point at is probably carrying a claim.
 - Lines about the video or lesson itself, not the subject: the series and part number, what comes next,
-  the notebook. They cite `source: [pipeline]`, never a block that does not say them. The eval (G4)
-  fails a line like that when it cites a block that does not mention it.
+  the notebook, what the video will do ("by the end, you'll…"). They cite `source: [pipeline]`, never a
+  block that does not say them; a line that also restates a claim cites both (`[p004, pipeline]`). The
+  eval (G4) fails a line like that when it cites only blocks that do not mention it.
 
 The line: **scaffolding must never read as a sourced fact.** An unlabelled curve illustrating shape
 is fine. A curve with invented numbers on the axis is a fabrication.

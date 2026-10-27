@@ -93,18 +93,20 @@ const grounding = [
   {
     id: "G4",
     group: "grounding",
-    title: "Lines about the video itself (next part, the series, the notebook) cite [pipeline], not a block that does not say them",
+    title: "Lines about the video itself (next part, the series, the notebook, what the video will do) cite [pipeline], not a block that does not say them",
     weight: 1,
     run(ctx) {
       const META = /\b(next (video|part|time|up|in the series)|in the series|this series|the notebook|part \d+ of|first of \w+ patterns)\b/i;
+      // in the hook and the recap, a promise of what the video does is about the video, not the subject
+      const PROMISE = /\b(you'll|you will|we'll|we will|in this video|by the end)\b/i;
       const ev = [];
       let n = 0;
       for (const { seg, sc } of scenesOf(ctx)) for (const e of sc.entries) {
-        const m = e.display.match(META);
+        const m = e.display.match(META) ?? (["hook", "recap"].includes((sc.stage ?? "").toLowerCase()) ? e.display.match(PROMISE) : null);
         if (!m) continue;
         n++;
         if (e.source.includes("pipeline")) continue;
-        const key = m[0].toLowerCase().match(/notebook|series|next|part|patterns/)?.[0] ?? m[0];
+        const key = m[0].toLowerCase().match(/notebook|series|next|part|patterns/)?.[0] ?? m[0].toLowerCase();
         const says = e.source.some((id) => (ctx.blocks.get(id)?.text ?? "").toLowerCase().includes(key));
         if (!says) ev.push(`${at(seg, e.line)}: "${e.display.slice(0, 60)}" cites [${e.source.join(", ")}], which never mention "${key}" — cite [pipeline]`);
       }
