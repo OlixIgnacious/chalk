@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // check-spoken.mjs — does the narration sound like a person, or like a document read aloud?
 //
-//   node check-spoken.mjs <script.md> [...] [--banned "chapter,book,section"] [--max-avg 12] [--json]
+//   node check-spoken.mjs <script.md> [...] [--banned "chapter,book,section"] [--max-avg 12] [--min-you 0.1] [--json]
 //
 // check-readability enforces grounding and reading time; nothing checked HOW the narration sounds, and
 // a faithful summary read aloud passed every gate while sounding like a robot (13.7 words a sentence, a
@@ -15,7 +15,8 @@
 //
 // Two opt-in gates for a skill that needs them: `--banned` fails any spoken or display line that says one of
 // the terms (whole words, case-insensitive) — a video for people who never saw the book must not say
-// "the chapter"; `--max-avg` turns the average-sentence-length warning into a failure at that limit.
+// "the chapter"; `--max-avg` turns the average-sentence-length warning into a failure at that limit;
+// `--min-you` fails a part that addresses the viewer ("you") in fewer than that share of its sentences.
 //
 // Exit 0 ok (warnings allowed), 1 a hard failure, 2 usage.
 
@@ -39,10 +40,15 @@ if (MAX_AVG !== null && !(MAX_AVG > 0)) {
   console.error("check-spoken: --max-avg needs a positive number");
   process.exit(2);
 }
-const values = new Set(["banned", "max-avg"].map((n) => argv.indexOf(`--${n}`) + 1).filter((i) => i > 0));
+const MIN_YOU = opt("min-you") === null ? null : Number(opt("min-you"));
+if (MIN_YOU !== null && !(MIN_YOU >= 0 && MIN_YOU <= 1)) {
+  console.error("check-spoken: --min-you needs a share between 0 and 1");
+  process.exit(2);
+}
+const values = new Set(["banned", "max-avg", "min-you"].map((n) => argv.indexOf(`--${n}`) + 1).filter((i) => i > 0));
 const files = argv.filter((a, i) => !a.startsWith("--") && !values.has(i));
 if (!files.length) {
-  console.error('usage: check-spoken.mjs <script.md> [...] [--banned "chapter,book"] [--max-avg 12] [--json]');
+  console.error('usage: check-spoken.mjs <script.md> [...] [--banned "chapter,book"] [--max-avg 12] [--min-you 0.1] [--json]');
   process.exit(2);
 }
 const bannedRe = BANNED.length
@@ -159,7 +165,9 @@ for (const file of files) {
     }
   });
   for (const n of m.unsignposted) warnings.push(`scene ${n} opens without a signpost — say what is happening ("let's look at it through an example", "now, the other way round")`);
-  if (m.sentences >= 5 && m.you / m.sentences < 0.2) warnings.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences`);
+  if (MIN_YOU !== null && m.sentences >= 5 && m.you / m.sentences < MIN_YOU) {
+    failures.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences; this channel's floor is ${Math.round(MIN_YOU * 100)}% — talk to the viewer, not about the code`);
+  } else if (m.sentences >= 5 && m.you / m.sentences < 0.2) warnings.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences`);
   failed += failures.length;
   const { sentenceList, ...metrics } = m;
   report.push({ file, metrics, warnings, failures });

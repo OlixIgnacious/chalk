@@ -46,7 +46,8 @@ Read `CLAUDE.md` at the repo root before changing how any of this behaves.
 
 **`channel.json`** holds what stays the same across a channel's videos: the narration `voice` (a Kokoro
 voice or blend), `speed` and `polish`, the `series` (its name and ordered `parts`, each with an `id` and a
-viewer-facing `title`), and `banned_terms` the viewer must never hear. Read it before step 2, and say which
+viewer-facing `title`), and `banned_terms` the viewer must never hear, and optionally `min_you`: the share of sentences that must talk to the
+viewer ("you"), below which a part fails the text gates. Read it before step 2, and say which
 voice you are using. With no `channel.json`, audition voices and ask; never fall back silently.
 
 `--draft` output is for checking the storyboard only. Delivery refuses anything that is not
@@ -171,7 +172,7 @@ Per chapter, write `<output-dir>/segments/NN/script.md` as a two-layer script, w
 
 ```bash
 npx chalk-core check-readability <output-dir>/segments/*/script.md --chapter <output-dir>/chapter.json
-npx chalk-core check-spoken <output-dir>/segments/*/script.md --banned "chapter,chapters,book,section,the author,<channel banned_terms>" --max-avg 16
+npx chalk-core check-spoken <output-dir>/segments/*/script.md --banned "chapter,chapters,book,section,the author,<channel banned_terms>" --max-avg 16 [--min-you <channel min_you>]
 npx chalk eval <output-dir> --channel <channel.json>     # the tutorial eval; text criteria run now
 ```
 

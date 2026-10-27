@@ -1258,6 +1258,17 @@ test("check-spoken: a question answered with a bare label is a warning; an answe
   assert.doesNotMatch(run("check-spoken.mjs", no).stderr, /bare/, "yes and no are answers, not labels");
 });
 
+test("check-spoken: --min-you fails a part that never talks to the viewer", () => {
+  const lines = (s) => Array.from({ length: 6 }, (_, i) => `- spoken: "${s} ${i}."\n  display: "x"\n  source: [p1]\n`).join("\n");
+  const lecture = write("lecture.md", `## Scene 1 — x\n${lines("The loop checks the value")}`);
+  assert.equal(run("check-spoken.mjs", lecture).status, 0, "without the flag it is a warning");
+  const r = run("check-spoken.mjs", lecture, "--min-you", "0.1");
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /addressed \("you"\) in only 0 of 6 sentences; this channel's floor is 10%/);
+  const talk = write("talk.md", `## Scene 1 — x\n${lines("You check the value")}`);
+  assert.equal(run("check-spoken.mjs", talk, "--min-you", "0.1").status, 0);
+});
+
 test("check-spoken: --banned fails a term in either layer, as a whole word only", () => {
   const p = write(
     "banned.md",

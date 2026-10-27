@@ -55,7 +55,8 @@ export const youtube = [
     cmd: (o) => [
       ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
       ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
-        ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16"],
+        ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16",
+        ...(o.channel?.min_you != null ? ["--min-you", String(o.channel.min_you)] : [])],
       ["node", chalk, "eval", ".", "--format", "youtube", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
   },
