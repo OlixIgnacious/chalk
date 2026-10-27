@@ -30,6 +30,19 @@ Allowed, and not a claim:
 The line: **scaffolding must never read as a sourced fact.** An unlabelled curve illustrating shape
 is fine. A curve with invented numbers on the axis is a fabrication.
 
+## Explaining code
+
+The source's code is shown verbatim, and narration may explain it line by line: what the line does, read
+off the code itself, and why — but the *why* only as far as the source's own explanation (its idea,
+walkthrough or comments) says it. Cite the code block and the block that gives the reason. A complexity,
+edge case or invariant the source does not state is a claim, and needs its block like any other.
+
+A trace of the code is an example: it comes from running the source's function unchanged (`computed-by:`),
+and where the source prints a walkthrough table, the trace script asserts it reproduces that table.
+
+A topic the source poses but never solves in code is not taught with a hand-waved explanation and not
+solved from memory: it is left out of the video and named as a gap for the author.
+
 ## Examples
 
 A video with no example feels dry and gives the viewer nothing to compare against, so every segment
