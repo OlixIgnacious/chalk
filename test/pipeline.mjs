@@ -7,7 +7,7 @@
 // scripts, so the logic is tested without Kokoro or a render.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, appendFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, appendFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FORMATS } from "../pipeline/stages.mjs";
@@ -124,6 +124,21 @@ test("--from reruns a stage and everything after it, --only limits it to those s
   ran();
   assert.equal(await go({ from: "frames", only: ["00"] }), 0);
   assert.deepEqual(ran(), ["deliver", "frames 00"]);
+});
+
+test("an agent's report waits again once anything it read is newer than it", async () => {
+  FORMATS.toy.push({ name: "report", kind: "author", inputs: () => [], outputs: () => ["report.md"],
+    newerThan: ["video.mp4", "segments/00/script.md"], missing: "the report" });
+  assert.equal(await go(), 3, "no report yet");
+  writeFileSync(join(out, "report.md"), "fine\n");
+  assert.equal(await go(), 0);
+  const later = new Date(Date.now() + 5000);
+  writeFileSync(join(out, "segments/00/script.md"), "script 00, again\n");
+  utimesSync(join(out, "segments/00/script.md"), later, later);
+  approve(out, "approved", { format: "toy" });
+  assert.equal(await go(), 3, "the report predates the new script");
+  assert.match(status(out, { format: "toy" }), /report\.md is older than/);
+  ran();
 });
 
 let failed = 0;

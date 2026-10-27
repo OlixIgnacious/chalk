@@ -99,7 +99,9 @@ variables as they change. Those steps come from running the code, never from typ
 
 1. contains the source's function **verbatim** (copy the code block; do not tidy it);
 2. runs it on the running example under `sys.settrace`, recording `{"line": <1-based line in the block>,
-   "locals": {...}}` at each `line` and `return` event of that function;
+   "locals": {...}}` at each `line` and `return` event of that function. JSON has no sets, so write a set
+   local as `{"set": sorted(v)}`: the frame library then shows it as Python prints it (`set()` when empty,
+   never `{}`, which is an empty dict);
 3. **asserts** the result against the source's walkthrough table when there is one (e.g. the set before
    each check), so a trace that disagrees with the source fails loudly;
 4. prints `{"result": ..., "steps": [...]}` as JSON. The frame builder reads it; `computed-by:` names it.

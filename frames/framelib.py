@@ -43,6 +43,17 @@ def norm(s):
     return re.sub(r"[^a-z0-9.]", "", s.lower().replace("’", "'"))
 
 
+def show_value(v):
+    """A variable as Python would print it, so a learner copies what they see: an empty set is set(), never {}
+    (which is an empty dict). JSON has no sets, so a trace script writes one as {"set": [...]}; it is shown as
+    a set here, not as the list or dict it travelled as."""
+    if isinstance(v, dict) and set(v) == {"set"}:
+        v = set(v["set"])
+    if isinstance(v, (set, frozenset)):
+        return "{" + ", ".join(map(str, sorted(v))) + "}" if v else "set()"
+    return repr(v) if isinstance(v, str) else str(v)
+
+
 class Frame:
     """One storyboard frame. `cue(phrase)` returns the start of the phrase's first word in frame time.
 
@@ -335,13 +346,14 @@ class Frame:
                    fmt=None, result_cue=None, title=None, lh=1.5):
         """Run the code on screen: the executing line lit, variables updating. Steps come from a trace JSON.
 
-        trace_rel: the segment's examples/<trace>.py (its stdout is {"result", "steps": [{line, locals}]}).
+        trace_rel: the segment's examples/<trace>.py (its stdout is {"result", "steps": [{line, locals}]}; a set
+        local is written {"set": sorted(v)} so it is shown as a set — see show_value).
         steps: [(trace step index, cue)] — the moments that teach; show_vars: variable names, in order.
         The variables sit beside the code, or in a row under it when the panel was widened for readability.
         Returns (trace, bottom y of what it drew).
         """
         trace = json.loads(self.example_output(trace_rel))
-        fmt = fmt or (lambda v: "{" + ", ".join(map(str, sorted(v))) + "}" if isinstance(v, set) else repr(v) if isinstance(v, str) else str(v))
+        fmt = fmt or show_value
         p, hl, ln, _ = self.code(self.block(block_id), x, y, w, size=size, block_id=block_id, title=title, lh=lh)
         self.fade(p, steps[0][1], dur=0.3)
         w = self._last_code_w

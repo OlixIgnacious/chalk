@@ -39,6 +39,8 @@ to change, and you make that decision easy.
    `npx chalk eval <output-dir> --channel <workspace>/channel.json` from the chalk repo (add `--deep` if the
    person asked for a full check; it is slow). Then run `npm test` in the chalk repo. Record failures
    verbatim; do not re-run hoping for a different answer.
+   Read `grounding.md` and `learner.md` in the output dir if they exist: the grounding and learner agents'
+   reports. Use them as evidence; where you disagree with one, say so and why, so the resolver can settle it.
 2. **Judge what evals cannot.** Read the outline and every `script.md`. Look at the frames: if
    `snapshots/` or `.hyperframes/artifacts/snapshots/*/contact-sheet.jpg` exist in a segment project,
    read them; otherwise run `npx chalk stills NN` from the output dir (it writes `work/stills/NN.png`). Score each part against the rubric below, with

@@ -28,3 +28,7 @@ stage: interview
   display: "In an interview, keep it short. One pass, one total."
   source: [p008]
 
+
+- spoken: "A common follow-up: say it in thirty seconds."
+  display: "A common follow-up: say it in thirty seconds."
+  source: [p008]

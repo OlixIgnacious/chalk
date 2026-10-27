@@ -31,6 +31,8 @@ draw what the scene needs, say so in your reply rather than working around it.
   `bar`, `code_build`, `code_show`, `code_trace`, `plan_card`, `roadmap`, `example_output`, and the tweens
   `rise`, `fade`, `pop`, `wipe`, `mark`, `dim`, `to`. No hand-written HTML.
 - **Code is verbatim:** pass the block id (`F.code_build("c036", …)`); never type code into a spec.
+- **Values look the way Python prints them:** `code_trace` shows a traced set as `set()` / `{1, 2}` when the
+  trace script wrote it as `{"set": [...]}`. Never pass a hand-rolled `fmt=` that turns an empty set into `{}`.
 - **Numbers come from their script:** read them with `F.example_output("examples/<script>.py")`, never
   type them in.
 - **Readable:** text the viewer must read is 36px or more, and a reason the narration gives (`plan_card`'s

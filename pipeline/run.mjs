@@ -102,9 +102,12 @@ export function check(o, stage, nn) {
   const missing = outs.filter((p) => !existsSync(abs(o, p)));
   if (stage.kind === "author") {
     if (missing.length) return { status: "waiting", why: stage.missing.replace("NN", nn ?? "NN") };
-    if (stage.newerThan && existsSync(abs(o, stage.newerThan))) {
-      const stale = outs.some((p) => statSync(abs(o, p)).mtimeMs < statSync(abs(o, stage.newerThan)).mtimeMs);
-      if (stale) return { status: "waiting", why: `${outs.join(", ")} is older than ${stage.newerThan}: ${stage.missing}` };
+    // an agent's report is stale once anything it read has changed since it was written
+    const refs = (typeof stage.newerThan === "function" ? stage.newerThan(o, nn) : [stage.newerThan ?? []].flat())
+      .filter((p) => existsSync(abs(o, p)));
+    const newest = refs.reduce((a, p) => (statSync(abs(o, p)).mtimeMs > (a ? statSync(abs(o, a)).mtimeMs : -1) ? p : a), null);
+    if (newest && outs.some((p) => statSync(abs(o, p)).mtimeMs < statSync(abs(o, newest)).mtimeMs)) {
+      return { status: "waiting", why: `${outs.join(", ")} is older than ${newest}: ${stage.missing}` };
     }
     return { status: "done" };
   }

@@ -60,9 +60,17 @@ export const youtube = [
     ],
   },
   {
+    name: "grounding",
+    kind: "author",
+    inputs: () => [],
+    outputs: () => ["grounding.md"],
+    newerThan: (o) => ["chapter.json", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+    missing: "dispatch the chalk-grounding agent on the output dir (it writes grounding.md), and show it to the user with the scripts",
+  },
+  {
     name: "scripts-approved",
     kind: "approve",
-    inputs: (o) => ["outline.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+    inputs: (o) => ["outline.md", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
     missing: "your review of the outline and every script — then: chalk pipeline approve <out> --scripts",
   },
   {
@@ -126,18 +134,34 @@ export const youtube = [
     allowFail: true,
   },
   {
+    name: "learner",
+    kind: "author",
+    inputs: () => [],
+    outputs: () => ["learner.md"],
+    newerThan: ["video.mp4", "captions.srt"],
+    missing: "dispatch the chalk-learner agent on the output dir with the audience (it writes learner.md)",
+  },
+  {
     name: "review",
     kind: "author",
     inputs: () => ["eval.json"],
     outputs: () => ["review.md"],
-    newerThan: "eval.json",
+    newerThan: ["eval.json", "learner.md", "grounding.md"],
     missing: "dispatch the chalk-reviewer agent on the output dir (it writes review.md)",
+  },
+  {
+    name: "resolve",
+    kind: "author",
+    inputs: () => [],
+    outputs: () => ["resolution.md"],
+    newerThan: ["eval.json", "grounding.md", "learner.md", "review.md"],
+    missing: "dispatch the chalk-resolver agent on the output dir (it settles where the reports disagree and writes resolution.md)",
   },
   {
     name: "watched",
     kind: "approve",
-    inputs: () => ["video.mp4", "review.md"],
-    missing: "your watch of video.mp4 against review.md — then: chalk pipeline approve <out> --watched",
+    inputs: () => ["video.mp4", "resolution.md"],
+    missing: "your watch of video.mp4 against resolution.md — then: chalk pipeline approve <out> --watched",
   },
 ];
 
@@ -163,7 +187,8 @@ export const lesson = [
       ["node", chalk, "eval", ".", "--format", "lesson", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
   },
-  { ...same("scripts-approved"), inputs: (o) => ["syllabus.md", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+  same("grounding"),
+  { ...same("scripts-approved"), inputs: (o) => ["syllabus.md", "lesson.json", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
     missing: "your review of the syllabus, the checkpoints and every script — then: chalk pipeline approve <out> --scripts" },
   same("narrate"),
   same("align"),
@@ -188,9 +213,11 @@ export const lesson = [
   { ...same("eval"), inputs: (o) => ["lesson.mp4", "lesson.html", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`),
     join(REPO, "evals"), join(REPO, "formats/lesson/eval")],
     cmd: (o) => ["node", chalk, "eval", ".", "--format", "lesson", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])] },
+  { ...same("learner"), newerThan: ["lesson.mp4", "lesson.html"] },
   same("review"),
-  { ...same("watched"), inputs: () => ["lesson.mp4", "lesson.html", "review.md"],
-    missing: "your run through lesson.html against review.md — then: chalk pipeline approve <out> --watched" },
+  same("resolve"),
+  { ...same("watched"), inputs: () => ["lesson.mp4", "lesson.html", "resolution.md"],
+    missing: "your run through lesson.html against resolution.md — then: chalk pipeline approve <out> --watched" },
 ];
 
 export const FORMATS = { youtube, lesson };

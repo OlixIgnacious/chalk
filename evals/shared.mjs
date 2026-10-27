@@ -112,6 +112,30 @@ const grounding = [
       return ev.length ? fail(ev) : pass([`${n} meta line(s)`]);
     },
   },
+  {
+    id: "G5",
+    group: "grounding",
+    title: "No unsourced durations or frequencies: \"in thirty seconds\", \"a common follow-up\" need a cited block that says so",
+    weight: 1,
+    run(ctx) {
+      const NUM = "\\d+|one|two|three|four|five|ten|fifteen|twenty|thirty|forty|forty-five|sixty|ninety";
+      const DURATION = new RegExp(`\\b(${NUM})[- ](second|minute|hour)s?\\b`, "i");
+      const FREQ = /\b(common(ly)?|usually|often|typically|rarely|most (people|candidates|interviewers))\b/i;
+      const ev = [];
+      for (const { seg, sc } of scenesOf(ctx)) for (const e of sc.entries) {
+        if (e.source.includes("pipeline")) continue;
+        const said = [e.display.match(DURATION)?.[0], e.display.match(FREQ)?.[0]].filter(Boolean);
+        const text = e.source.map((id) => ctx.blocks.get(id)?.text ?? "").join(" ").toLowerCase();
+        for (const s of said) {
+          const key = s.toLowerCase().split(/[- ]/)[0];
+          if (!text.includes(s.toLowerCase()) && !text.includes(key)) {
+            ev.push(`${at(seg, e.line)}: "${s}" — no cited block [${e.source.join(", ")}] says it: "${e.display.slice(0, 60)}"`);
+          }
+        }
+      }
+      return ev.length ? fail(ev) : pass();
+    },
+  },
 ];
 
 // ── ease ──────────────────────────────────────────────────────────────────────────────────────────

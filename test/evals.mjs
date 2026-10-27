@@ -9,7 +9,8 @@
 // `rushed/` repeats what the reviewer found in the learning-first remake, which the eval then scored 100%:
 // the insight told inside "think", a problem part leaning on the interview answer, a four-idea outline
 // row, another way's code paraphrased, a meta line cited to the wrong block, a part narrated too fast and
-// a reason drawn at 28px. It must fail exactly those criteria and nothing else.
+// a reason drawn at 28px, an unsourced "common" and "thirty seconds". It must fail exactly those criteria and
+// nothing else.
 // Fixtures are original text, never a book.
 
 import assert from "node:assert/strict";
@@ -52,7 +53,8 @@ test("bad fixture: a stretch part with no code is an explanation without a solut
 
 test("rushed fixture fails exactly what only the reviewer used to catch", () => {
   const r = evaluate(fx("rushed"));
-  assert.deepEqual(failing(r).sort(), ["E4", "G4", "R5", "T1", "T6", "T7", "T8"]);
+  assert.deepEqual(failing(r).sort(), ["E4", "G4", "G5", "R5", "T1", "T6", "T7", "T8"]);
+  assert.match(r.results.find((x) => x.id === "G5").evidence.join("\n"), /"thirty seconds" — no cited block \[p008\]/);
   const ev = (id) => r.results.find((x) => x.id === id).evidence.join("\n");
   assert.match(ev("T1"), /missing stages: insight/);
   assert.match(ev("T6"), /c003 shows 4 lines but 1 narrated line/);

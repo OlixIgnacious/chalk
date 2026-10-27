@@ -44,6 +44,14 @@ test("plan_card still takes plain (text, cue) steps", () => {
   assert.doesNotMatch(html, /-pw0/);
 });
 
+test("a traced set is shown as Python prints it: set() when empty, never {} (an empty dict)", () => {
+  const out = frame("Go", `from framelib import show_value
+for v in [{"set": []}, {"set": [2, 1]}, set(), [1, 2], "a", 3]:
+    F.html.append("V:" + show_value(v))`);
+  const vals = out.split("\n").filter((l) => l.startsWith("V:")).map((l) => l.slice(2));
+  assert.deepEqual(vals, ["set()", "{1, 2}", "set()", "[1, 2]", "'a'", "3"]);
+});
+
 let failed = 0;
 for (const [name, fn] of tests) {
   try {

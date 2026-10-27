@@ -71,8 +71,10 @@ npx chalk pipeline <output-dir> --only 03 [--from frames]     # redo one part
 The runner does the mechanical steps below itself and reruns only what changed: an edited script redoes
 that part's voice and everything after it, an edited frame spec only its frames and render, an aligner fix
 only alignment. It stops where a person or an agent has to write or approve something: `outline.md` (step 2),
-the scripts (step 3), the user's review, `frames/sNN.py` (step 4), `review.md` (step 6) and the user's
-watch. At each stop, do that step as described below, then run it again.
+the scripts (step 3), `grounding.md` (the chalk-grounding agent, shown with the scripts), the user's review,
+`frames/sNN.py` (step 4, the chalk-frames agent per part), then after delivery `learner.md` (chalk-learner),
+`review.md` (chalk-reviewer), `resolution.md` (chalk-resolver, which settles where those disagree) and the
+user's watch. At each stop, do that step as described below, then run it again.
 
 ## Laws
 
@@ -224,9 +226,16 @@ npx chalk eval <output-dir> --channel <channel.json> [--deep]
 ```
 
 Writes `eval.md` / `eval.json`: every mechanical criterion of a good tutorial (orientation, teaching arc,
-bonus, grounding, ease, voice, render, notebook) with evidence. Then dispatch the **chalk-reviewer** agent
-on the output dir: it judges what the eval cannot, traces each gap to the file in chalk, chalk-core or
-chalk-youtube that let it through, and writes `review.md`. Tell the user the score and the top findings.
+bonus, grounding, ease, voice, render, notebook) with evidence. Then dispatch, in order:
+
+1. **chalk-learner** with the audience: watches only the captions and stills, writes `learner.md`;
+2. **chalk-reviewer**: judges what the eval cannot, traces each gap to the file in the chalk repo that let it
+   through, writes `review.md`;
+3. **chalk-resolver**: reads the eval, `grounding.md`, `learner.md` and `review.md`, settles every place they
+   disagree (or the source contradicts itself) by fixed rules, and writes `resolution.md`, one decided list
+   with an owner per item.
+
+Tell the user the score and `resolution.md`'s "Do next" list, including what only they can decide.
 
 **Gate:** no eval criterion fails; `review.md` has no high-severity finding, or each one is shown to the
 user.
