@@ -12,7 +12,7 @@
 // test against a copyrighted book.
 
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, existsSync, lstatSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -381,10 +381,11 @@ test("deliver: a missing manifest or segment is reported", () => {
 
 // ── chalk-core ────────────────────────────────────────────────────────────────────────────────────
 
-// chalk reads core's references from a vendored copy, so the copy has to match the core it declares.
-test("core: the vendored references match the installed chalk-core", () => {
-  const r = spawnSync("npx", ["chalk-core", "sync", join(root, "skills/chalk"), "--check"], { encoding: "utf8" });
-  assert.equal(r.status, 0, r.stderr + r.stdout);
+// One copy of core's references: the skill reads them through a symlink, so there is nothing to drift.
+test("core: the skill reads core's references in place, not a copy", () => {
+  const link = join(root, "skills/chalk/references/core");
+  assert.ok(lstatSync(link).isSymbolicLink(), "references/core must be a symlink into core/references");
+  assert.equal(realpathSync(link), realpathSync(join(root, "../../core/references")));
 });
 
 test("core: no script is left behind that core now owns", () => {

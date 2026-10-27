@@ -19,7 +19,7 @@ This skill owns the **shape of a video people will choose to watch**: a hook, ch
 worth comparing against, an outro, and the upload kit.
 
 chalk-core owns **grounding and the pipeline mechanics** (`npx chalk-core <command>`, with its
-reference docs vendored under `references/core/`). [Hyperframes](https://hyperframes.heygen.com) and
+reference docs under `references/core/`). [Hyperframes](https://hyperframes.heygen.com) and
 its `faceless-explainer` skill own the **video**: animation, exact timing, frames, render. Hand them
 a `BRIEF.md`; do not rebuild them.
 
@@ -223,5 +223,5 @@ user.
 `<skill-dir>` is the directory containing this `SKILL.md`; Claude Code prints it as "Base directory
 for this skill" when the skill loads. Scripts are under `<skill-dir>/scripts/`. Don't guess the path.
 
-Shared steps run as `npx chalk-core <command>`. Its reference docs live in `<skill-dir>/references/core/`
-(`npx chalk-core sync <skill-dir>` refreshes them). Never edit those files here; change chalk-core.
+Shared steps run as `npx chalk-core <command>`. Its reference docs are read in place through `<skill-dir>/references/core/`,
+a symlink to the repo's `core/references/`; edit them there.

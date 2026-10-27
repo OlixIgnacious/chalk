@@ -1448,36 +1448,6 @@ test("cli: an unknown command is an error, and path prints the install dir", () 
                 join(root, "templates/manim/scene_template.py"));
 });
 
-test("sync: copies references, --check passes, then catches drift, a missing file and a stale stamp", () => {
-  const skill = join(tmp, "skill-a");
-  mkdirSync(skill, { recursive: true });
-  assert.equal(cli("sync", skill).status, 0);
-  const dest = join(skill, "references/core");
-  assert.ok(existsSync(join(dest, "fidelity.md")));
-  assert.equal(cli("sync", skill, "--check").status, 0);
-
-  writeFileSync(join(dest, "fidelity.md"), "edited");
-  const drift = cli("sync", skill, "--check");
-  assert.equal(drift.status, 1);
-  assert.match(drift.stderr, /fidelity\.md differs from core/);
-
-  cli("sync", skill);
-  rmSync(join(dest, "manim.md"));
-  assert.match(cli("sync", skill, "--check").stderr, /missing manim\.md/);
-
-  cli("sync", skill);
-  writeFileSync(join(dest, ".synced-from"), "chalk-core@0.0.1\n");
-  assert.match(cli("sync", skill, "--check").stderr, /\.synced-from/);
-});
-
-test("sync: a reference removed from core does not linger in a skill", () => {
-  const skill = join(tmp, "skill-b");
-  mkdirSync(join(skill, "references/core"), { recursive: true });
-  writeFileSync(join(skill, "references/core/ghost.md"), "gone from core");
-  assert.equal(cli("sync", skill).status, 0);
-  assert.ok(!existsSync(join(skill, "references/core/ghost.md")));
-});
-
 test("the shared references carry no path into a skill that does not exist here", () => {
   for (const f of ["fidelity", "step-1-ingest", "step-3-script", "visual-registry", "manim",
                    "captions-and-engine", "edge-cases"]) {

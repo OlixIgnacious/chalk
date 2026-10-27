@@ -57,9 +57,8 @@ for this skill" when the skill loads. Assets are under `<skill-dir>/assets/`, sc
 repo all put it somewhere different.
 
 The shared half of the pipeline — ingest, the grounding gate, caption alignment, Manim — is
-[chalk-core](https://github.com/OlixIgnacious/chalk-core), run as `npx chalk-core <command>`. Its
-reference docs are vendored under `<skill-dir>/references/core/` (`npx chalk-core sync <skill-dir>`
-refreshes them). Never edit those files here; change them in chalk-core.
+`core/` in this repo, run as `npx chalk-core <command>`. Its reference docs are read in place
+through `<skill-dir>/references/core/`, a symlink to `core/references/`; edit them there.
 
 ---
 
