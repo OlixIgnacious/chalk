@@ -1,0 +1,10 @@
+{
+  "voices": [
+    {
+      "frame": 1,
+      "duration_s": 5.0,
+      "words": []
+    }
+  ],
+  "voice_id": "af_heart"
+}

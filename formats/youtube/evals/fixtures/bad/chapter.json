@@ -1,0 +1,76 @@
+{
+  "title": "Running Totals",
+  "source": "fixture",
+  "lang": "en",
+  "quality": "clean",
+  "has_code": true,
+  "blocks": [
+    {
+      "id": "h001",
+      "kind": "heading",
+      "text": "Running Totals"
+    },
+    {
+      "id": "p001",
+      "kind": "para",
+      "text": "Add up a list of numbers and return the total. The list may be empty, and then the total is 0."
+    },
+    {
+      "id": "p002",
+      "kind": "para",
+      "text": "When a question asks for an amount built up from every value, keep a running total."
+    },
+    {
+      "id": "p003",
+      "kind": "para",
+      "text": "Adding the values again for every new item repeats work. One pass with a running total does each addition once, so the work is O(n) and the memory is O(1)."
+    },
+    {
+      "id": "p004",
+      "kind": "para",
+      "text": "The idea: start a total at zero, walk the list once, add each value as you pass it, and return the total at the end."
+    },
+    {
+      "id": "c001",
+      "kind": "code",
+      "text": "def total(nums):\n    s = 0\n    for x in nums:\n        s += x\n    return s",
+      "lang": "python"
+    },
+    {
+      "id": "p005",
+      "kind": "para",
+      "text": "| Step | x | s after |\n|---|---|---|\n| 1 | 2 | 2 |\n| 2 | 5 | 7 |\n| 3 | 1 | 8 |"
+    },
+    {
+      "id": "p006",
+      "kind": "para",
+      "text": "A common bug: start s at the first value and also add it in the loop, and the first value is counted twice."
+    },
+    {
+      "id": "p007",
+      "kind": "para",
+      "text": "Python's sum(nums) does the same job in one call; write the loop when you need to explain it or change it."
+    },
+    {
+      "id": "p008",
+      "kind": "para",
+      "text": "In an interview, say: one pass, one running total, O(n) time and O(1) extra memory."
+    },
+    {
+      "id": "p009",
+      "kind": "para",
+      "text": "Return the running total at every position, as a list the same length as the input."
+    },
+    {
+      "id": "c002",
+      "kind": "code",
+      "text": "def prefix_totals(nums):\n    out = []\n    s = 0\n    for x in nums:\n        s += x\n        out.append(s)\n    return out",
+      "lang": "python"
+    },
+    {
+      "id": "p010",
+      "kind": "para",
+      "text": "| Step | x | out after |\n|---|---|---|\n| 1 | 2 | [2] |\n| 2 | 5 | [2, 7] |\n| 3 | 1 | [2, 7, 8] |"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+# Step 4: Build the segments
+
+One Hyperframes project per segment, so a failure loses one segment rather than the video. Re-runs
+skip segments that already have an MP4 and a VTT.
+
+The mechanics are shared and live in [core/captions-and-engine.md](core/captions-and-engine.md): word
+timings from the VO, mapping them onto the display layer, building the VTT, the four
+`faceless-explainer` defaults that are wrong here, and `check` / `snapshot` before re-rendering. **Read
+it first.** What follows is only what differs for a YouTube video.
+
+## The series tooling
+
+`tools/series/` in the chalk-youtube repo runs the steps below for one segment, from the output dir:
+
+```bash
+T=<chalk-youtube>/tools/series
+$T/build.sh assets            # once per machine: Barlow, IBM Plex Mono, GSAP into ~/.cache/chalk-youtube/assets
+$T/build.sh NN voice          # setup, narrate with channel.json's voice, sync, align, apply-display
+$T/build.sh NN frames         # <output-dir>/frames/sNN.py → frames, captions, assemble, fix-index, transitions, check
+$T/build.sh NN render         # render, copy segment.mp4, emit segment.vtt
+```
+
+The voice comes from `channel.json` (`voice`, `speed`, `polish`); there is no silent default. A frame spec
+`frames/sNN.py` (kept beside the video, not in `work/`, which delivery deletes) draws only its scenes with
+`framelib.py`'s components — `code_build`, `code_trace`, `plan_card`, `roadmap`, `code_show`, `cells`,
+`table`, … — and every reveal is cued on a spoken word. The orientation is added for you: series chrome,
+the progress strip of this video's stages, and the stage card on each part's first frame (not the hook's: it opens on its example). Code panels are
+auto-fitted to their longest line and marked for the eval's verbatim check. `setup` refuses a take that
+ends on a pause marker, because `narrate` drops it.
+
+## Order of operations
+
+One segment at a time; the whole sequence below takes about a minute of machine time per segment. The
+reasons for each fix are in [core/captions-and-engine.md](core/captions-and-engine.md).
+
+1. **Tier 2 first**, if any scene earns one: `npx chalk-core manim-render segments/NN/scenes/*.py
+   --fps 30 --resolution 1920x1080`. See [core/manim.md](core/manim.md). Fall back to Tier 1 if the
+   toolchain is missing, and say so.
+2. `npx hyperframes init "<output-dir>/segments/NN/video" --non-interactive --example=blank --skill=faceless-explainer`
+3. Write `BRIEF.md`, put the chapter text in `capture/extracted/visible-text.txt`, write a `tokens.json`
+   with empty colours and fonts, then `node <faceless-explainer>/scripts/build-frame.mjs --preset <name> --hyperframes .`
+4. **Stage what `init` and `build-frame` do not:** the preset's fonts into `assets/fonts/` and the pinned
+   `gsap.min.js` into `assets/`.
+5. **A script scene is a frame.** Generate `SCRIPT.md` and `STORYBOARD.md` from `script.md`, copying the
+   spoken layer verbatim rather than retyping it. Name frames `f01-…`. Write one `## Line N (Frame N)` per
+   scene, with all of that scene's spoken entries joined.
+6. **Audio:** `npx chalk-core narrate --script SCRIPT.md --out . --voice <chosen> --speed <channel.json speed> --lead 0.6`, **not**
+   `audio.mjs` (its offline voice ignores speed, has no pause control, and falls back to a fixed voice).
+   Audition the voice first (`narrate --text … --wav …`) and pick by ear. Then `audio.mjs sync-durations`,
+   then **restore the last frame's ~1.8s hold**, which `sync-durations` deletes.
+7. **Captions from the display layer:** build one absolute word stream from `audio_meta.json`, then
+   `build-tokens` → `align-captions` → `apply-display`. Resolve every `MISMATCH` — they are almost always a
+   display line that is not the same words as its spoken line, or a transcript mishearing for the lexicon.
+8. **Write the frames**, each reveal on a word's start time from `audio_meta.json`, nothing below 83% of
+   the height. A derived example carries no label on screen.
+9. `captions.mjs build` → `assemble-index` → `npx chalk-core fix-index index.html --color <the preset's
+   canvas>` → `transitions inject` and `verify` → `npx hyperframes lint` and `check` → `snapshot`.
+10. `npx hyperframes render --skill=faceless-explainer --quality high --output renders/video.mp4`, then
+    `npx chalk-core emit-vtt caption_groups.json segment.vtt`, and copy the render to `segments/NN/segment.mp4`.
+
+**Look at the stills before rendering, and read the code frame's pixels.** A transcription slip in shown
+code is the same failure as a mis-read equation. Compare the rendered code to the chapter's block, not to
+your memory of it.
+
+## The brief
+
+Read the upstream `brief-format.md` and `brief-contract.md` first; do not guess the schema. Carry in:
+
+- the segment's idea and its source block ids
+- the two-layer script, verbatim, including each scene's `example:` and `computed-by:`
+- the registry visual and tier for every scene
+- paths to any pre-rendered Manim clips
+- **`format: landscape`, 1920x1080, 30fps** — pinned, because delivery refuses anything else
+- the series design preset — the same one in every segment's brief
+
+## What differs from a lesson
+
+- **Segments are chapters.** A viewer scrubs by them, so each should make sense entered cold: the first
+  line says what this chapter is about, in a few words.
+- **Hold the payoff only at the end of a segment**, about 1.8s, where the take has genuinely ended. A hold
+  inside a segment cuts the continuous VO. Frame duration equals narration everywhere else.
+- **Short on-screen copy, not the script.** The caption track already shows the spoken words; a frame
+  carries a hero word or a label, never a narrated sentence.
+- **Text lands readable at 1080p on a phone.** Check stills at that size.
+
+## Light presets
+
+A cream preset keeps its own ground: pass its canvas to `fix-index --color`. The house look elsewhere in
+this repo is dark, so choosing a light preset is a deliberate departure — say so in the outline.
+
+## Layout the deliver step expects
+
+```
+<output-dir>/
+  chapter.json
+  video.json                      the manifest (see step-5-deliver.md)
+  segments/NN/script.md
+  segments/NN/segment.mp4
+  segments/NN/segment.vtt
+  segments/NN/examples/*.py       derived-example scripts
+```
+
+## Gate
+
+- Every segment has an MP4 and a VTT
+- `npx hyperframes check` returns zero errors for each
+- Sampled stills show no overflow, collision or low contrast
+- No composition reaches the network
+- Every segment is 1920x1080
+- Every frame's duration equals its narration, except the last in the segment
+- **Long silences are only where you put them.** With `{pause}`, `{think}` and `--lead` a segment has several
+  silences of a second or more, so "one gap per segment" no longer holds. What must hold: every silence of 0.9s or
+  more (`ffmpeg -af silencedetect=n=-45dB:d=0.9`) is a marker inside a take, the `--lead` breath at a join between
+  scenes, or the end hold. Compare each silence's time to the cumulative frame durations

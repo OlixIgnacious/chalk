@@ -1,0 +1,225 @@
+{
+  "terms": [
+    {
+      "display": "1M",
+      "spoken": "one million",
+      "heard": "1 million",
+      "source": [
+        "p002",
+        "p006",
+        "p044"
+      ]
+    },
+    {
+      "display": "RAG",
+      "spoken": "R A G",
+      "heard": "RAG",
+      "source": [
+        "p010",
+        "p039"
+      ]
+    },
+    {
+      "display": "XML",
+      "spoken": "X M L",
+      "heard": "XML",
+      "source": [
+        "p008"
+      ]
+    },
+    {
+      "display": "MCP",
+      "spoken": "M C P",
+      "heard": "MCP",
+      "source": [
+        "p039"
+      ]
+    },
+    {
+      "display": "TTL",
+      "spoken": "T T L",
+      "heard": "TTL",
+      "source": [
+        "p026",
+        "p029",
+        "p045"
+      ]
+    },
+    {
+      "display": "YAML",
+      "spoken": "yamel",
+      "heard": "YAML",
+      "source": [
+        "p035"
+      ]
+    },
+    {
+      "display": "CLAUDE.md",
+      "spoken": "Claude dot M D",
+      "heard": "CLAUDE.md",
+      "source": [
+        "p010",
+        "p012"
+      ]
+    },
+    {
+      "display": "NOTES.md",
+      "spoken": "Notes dot M D",
+      "heard": "NOTES.md",
+      "source": [
+        "p016"
+      ]
+    },
+    {
+      "display": "SKILL.md",
+      "spoken": "Skill dot M D",
+      "heard": "SKILL.md",
+      "source": [
+        "p035",
+        "p036",
+        "p045"
+      ]
+    },
+    {
+      "display": "cache_control",
+      "spoken": "cache control",
+      "heard": "cache_control",
+      "source": [
+        "p023",
+        "p042",
+        "p044"
+      ]
+    },
+    {
+      "display": "cache_creation_input_tokens",
+      "spoken": "cache creation input tokens",
+      "heard": "cache_creation_input_tokens",
+      "source": [
+        "p025"
+      ]
+    },
+    {
+      "display": "cache_read_input_tokens",
+      "spoken": "cache read input tokens",
+      "heard": "cache_read_input_tokens",
+      "source": [
+        "p025"
+      ]
+    },
+    {
+      "display": "max_tokens",
+      "spoken": "max tokens",
+      "heard": "max_tokens",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "Opus 5.5",
+      "spoken": "Opus five point five",
+      "heard": "Opus 5.5",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "$4",
+      "spoken": "four dollars",
+      "heard": "$4",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "8,000",
+      "spoken": "eight thousand",
+      "heard": "8,000",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "100,000",
+      "spoken": "one hundred thousand",
+      "heard": "100,000",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "200",
+      "spoken": "two hundred",
+      "heard": "200",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "800M",
+      "spoken": "eight hundred million",
+      "heard": "800 million",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "$3,200",
+      "spoken": "three thousand two hundred dollars",
+      "heard": "$3,200",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "$320",
+      "spoken": "three hundred twenty dollars",
+      "heard": "$320",
+      "source": [
+        "p027"
+      ]
+    },
+    {
+      "display": "0.1\u00d7",
+      "spoken": "zero point one times",
+      "heard": "0.1 times",
+      "source": [
+        "p024",
+        "p027"
+      ]
+    },
+    {
+      "display": "1.25\u00d7",
+      "spoken": "one point two five times",
+      "heard": "1.25 times",
+      "source": [
+        "p024"
+      ]
+    },
+    {
+      "display": "2\u00d7",
+      "spoken": "two times",
+      "heard": "2 times",
+      "source": [
+        "p024"
+      ]
+    },
+    {
+      "display": "20 of 340",
+      "spoken": "twenty of three hundred forty",
+      "heard": "20 of 340",
+      "source": [
+        "p020"
+      ]
+    },
+    {
+      "display": "rot",
+      "spoken": "rot",
+      "heard": "wrought",
+      "source": [
+        "p006",
+        "p042",
+        "p045"
+      ]
+    }
+  ]
+}

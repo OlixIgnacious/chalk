@@ -1,0 +1,154 @@
+{
+  "terms": [
+    {
+      "display": "Fable 5.1",
+      "spoken": "Fable five point one",
+      "heard": "Fable 5.1",
+      "source": [
+        "p006",
+        "p013"
+      ]
+    },
+    {
+      "display": "Opus 5.5",
+      "spoken": "Opus five point five",
+      "heard": "Opus 5.5",
+      "source": [
+        "p006",
+        "p013"
+      ]
+    },
+    {
+      "display": "Sonnet 5",
+      "spoken": "Sonnet five",
+      "heard": "Sonnet 5",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "Haiku 4.5",
+      "spoken": "Haiku four point five",
+      "heard": "Haiku 4.5",
+      "source": [
+        "p006",
+        "p016",
+        "p018"
+      ]
+    },
+    {
+      "display": "$10",
+      "spoken": "ten dollars",
+      "heard": "$10",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$50",
+      "spoken": "fifty dollars",
+      "heard": "$50",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$4",
+      "spoken": "four dollars",
+      "heard": "$4",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$20",
+      "spoken": "twenty dollars",
+      "heard": "$20",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$2",
+      "spoken": "two dollars",
+      "heard": "$2",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$1",
+      "spoken": "one dollar",
+      "heard": "$1",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "$5",
+      "spoken": "five dollars",
+      "heard": "$5",
+      "source": [
+        "p006"
+      ]
+    },
+    {
+      "display": "200K",
+      "spoken": "two hundred thousand",
+      "heard": "200K",
+      "source": [
+        "p006",
+        "p016"
+      ]
+    },
+    {
+      "display": "1M",
+      "spoken": "one million",
+      "heard": "1M",
+      "source": [
+        "p016"
+      ]
+    },
+    {
+      "display": "90%",
+      "spoken": "ninety percent",
+      "heard": "90%",
+      "source": [
+        "p014"
+      ]
+    },
+    {
+      "display": "10%",
+      "spoken": "ten percent",
+      "heard": "10%",
+      "source": [
+        "p014"
+      ]
+    },
+    {
+      "display": "2.5×",
+      "spoken": "two and a half times",
+      "heard": "2.5 times",
+      "source": [
+        "p014"
+      ]
+    },
+    {
+      "display": "XML",
+      "spoken": "X M L",
+      "heard": "XML",
+      "source": [
+        "p024"
+      ]
+    },
+    {
+      "display": "Q&A",
+      "spoken": "Q and A",
+      "heard": "Q and A",
+      "source": [
+        "p041",
+        "p045"
+      ]
+    }
+  ]
+}
