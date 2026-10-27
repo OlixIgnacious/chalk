@@ -55,6 +55,14 @@ Put `{beat}` (about half a second) after a question and before its answer. Put `
 between ideas, where a speaker would breathe and the viewer needs a moment. Put `{think}` (about two and a
 half seconds) after a question the viewer is meant to answer for themselves, such as a self-check. Do not
 put one inside a clause.
+
+**Answer with the reason, not a label.** After the beat, the answer is a sentence a teacher would say, not
+the word on the slide. "And the price? {beat} Memory." sounds like someone reading a card aloud; "And the
+price? {beat} It's memory. The set has to store every value it has seen." sounds like someone explaining.
+`check-spoken` warns on a bare one- or two-word answer (yes and no are fine when the reason follows).
+
+**Pace is per scene.** A scene over about 2.8 words a second feels rushed even when the part averages less;
+the eval's E4 checks every take. The fix is a `{pause}` between ideas, not fewer reasons.
 Sentence ends already get a natural, slightly varied gap; markers replace that gap, they do not add to it.
 
 The markers live only in `SCRIPT.md` and the `spoken:` lines of `script.md`. They are stripped before

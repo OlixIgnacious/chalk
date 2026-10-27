@@ -144,6 +144,14 @@ for (const file of files) {
   if (MAX_AVG !== null && m.sentences && m.avgWords > MAX_AVG) failures.push(`sentences average ${m.avgWords} words; this video's limit is ${MAX_AVG}`);
   else if (m.sentences && m.avgWords > SOFT_AVG) warnings.push(`sentences average ${m.avgWords} words; aim for 12–14 or fewer, mixing in longer ones where an idea needs room`);
   if (m.seconds > 60 && m.questions === 0) warnings.push(`about ${Math.round(m.seconds)}s of narration with no question to the viewer`);
+  // "And the price? {beat} Memory." — a one-word answer read aloud sounds like a slide label; a teacher answers
+  // with the reason ("It's memory: the set has to store every value it has seen")
+  for (const e of scenes.flat()) {
+    const m = e.match(/\?\s*(?:\{(?:beat|pause|think)\}\s*)?([A-Z][\w'’-]*(?:\s[\w'’-]+)?)[.!]\s*(?:\{(?:beat|pause|think)\}\s*)?$/);
+    if (m && !/^(yes|no|right|exactly|true|false)$/i.test(m[1])) {
+      warnings.push(`"${e.slice(0, 50)}" answers its question with a bare "${m[1]}" — answer with the reason, the way a teacher would`);
+    }
+  }
   // a build or a plan read straight through is a list read aloud: give the viewer a breath between steps
   scenes.forEach((s, i) => {
     if (/^(code build|plan card)$/.test(s.visual ?? "") && s.length > 3 && !s.some((e) => /\{(pause|beat|think)\}/.test(e))) {

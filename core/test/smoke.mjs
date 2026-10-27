@@ -1249,6 +1249,15 @@ test("check-spoken: a long code build or plan with no pause is a warning, not a 
   assert.doesNotMatch(run("check-spoken.mjs", short).stderr, /no \{pause\}/, "three steps can run straight");
 });
 
+test("check-spoken: a question answered with a bare label is a warning; an answer with its reason is not", () => {
+  const bare = write("bare.md", '## Scene 1 — x\n- spoken: "And the price? {beat} Memory."\n  display: "And the price? Memory."\n  source: [p1]\n');
+  assert.match(run("check-spoken.mjs", bare).stderr, /answers its question with a bare "Memory"/);
+  const full = write("full.md", '## Scene 1 — x\n- spoken: "And the price? {beat} It\'s memory. The set has to store every value it has seen."\n  display: "x"\n  source: [p1]\n');
+  assert.doesNotMatch(run("check-spoken.mjs", full).stderr, /bare/);
+  const no = write("no.md", '## Scene 1 — x\n- spoken: "Is it always one step? {beat} No."\n  display: "x"\n  source: [p1]\n');
+  assert.doesNotMatch(run("check-spoken.mjs", no).stderr, /bare/, "yes and no are answers, not labels");
+});
+
 test("check-spoken: --banned fails a term in either layer, as a whole word only", () => {
   const p = write(
     "banned.md",

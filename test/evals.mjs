@@ -60,7 +60,7 @@ test("rushed fixture fails exactly what only the reviewer used to catch", () => 
   assert.match(ev("T6"), /c003 shows 4 lines but 1 narrated line/);
   assert.match(ev("T7"), /segments\/01\/script\.md:\d+: cites p008, which is taught only in interview/);
   assert.match(ev("T8"), /part 02 .* teaches 4 things/);
-  assert.match(ev("E4"), /segments\/02: 3\.33 words\/s/);
+  assert.match(ev("E4"), /segments\/02 scene 1: 3\.33 words\/s/);
   assert.match(ev("G4"), /segments\/00\/script\.md:\d+: "You'll write it, then trace it\." cites \[c001\]/, "a hook promise is about the video");
   assert.match(ev("R5"), /"so it is counted once" is 28px/);
 });

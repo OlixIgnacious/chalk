@@ -205,23 +205,23 @@ const ease = [
   {
     id: "E4",
     group: "ease",
-    title: "No part is rushed: at most 2.8 spoken words a second over its takes, pauses included (a lesson 3.0; channel.json max_words_per_second overrides)",
+    title: "No scene is rushed: at most 2.8 spoken words a second over each take, pauses included (a lesson 3.0; channel.json max_words_per_second overrides)",
     weight: 2,
     run(ctx) {
       // a lesson is planned at Kokoro's measured 2.85 words/s (formats/lesson step-2); a tutorial video slower
       const MAX = ctx.channel?.max_words_per_second ?? { lesson: 3.0 }[ctx.format] ?? 2.8;
+      // per take (one scene): a slow scene must not hide a rushed one inside the same part
       const rates = [];
       for (const s of mainSegments(ctx)) {
-        const v = s.audioMeta?.voices;
-        if (!v?.length) continue;
-        const words = v.reduce((a, x) => a + (x.words?.length ?? 0), 0);
-        const secs = v.reduce((a, x) => a + (x.duration_s ?? 0), 0);
-        if (secs) rates.push({ s, rate: words / secs, words, secs });
+        for (const x of s.audioMeta?.voices ?? []) {
+          const words = x.words?.length ?? 0;
+          if (x.duration_s && words >= 12) rates.push({ s, scene: x.frame, rate: words / x.duration_s, words, secs: x.duration_s });
+        }
       }
       if (!rates.length) return skip("no narration timings yet");
       const fast = rates.filter((r) => r.rate > MAX);
-      const fmt = (r) => `segments/${r.s.id}: ${r.rate.toFixed(2)} words/s (${r.words} words in ${r.secs.toFixed(1)}s)`;
-      return fast.length ? fail([...fast.map(fmt), `limit ${MAX}; split the part or give it {pause}s`])
+      const fmt = (r) => `segments/${r.s.id} scene ${r.scene}: ${r.rate.toFixed(2)} words/s (${r.words} words in ${r.secs.toFixed(1)}s)`;
+      return fast.length ? fail([...fast.map(fmt), `limit ${MAX}; give it {pause}s between ideas, or split the part`])
         : pass([`fastest ${fmt(rates.reduce((a, b) => (b.rate > a.rate ? b : a)))}`]);
     },
   },
