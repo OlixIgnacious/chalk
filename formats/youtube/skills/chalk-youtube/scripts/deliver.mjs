@@ -16,6 +16,11 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { stamp, buildChapters, chaptersText, mergeCaptions, buildDescription } from "./kit.mjs";
 import { buildNotebook, checkSyntax, loadScenes, findFragments } from "./build-notebook.mjs";
 
+import { fileURLToPath } from "node:url";
+
+/** This repo's core, called directly so it resolves wherever the output dir sits. */
+const CORE = fileURLToPath(new URL("../../../../../core/bin/chalk-core.mjs", import.meta.url));
+
 const argv = process.argv.slice(2);
 const die = (m) => {
   console.error("deliver:", m);
@@ -65,7 +70,7 @@ for (const s of segments) {
 const scriptFiles = segments.map((s) => join(outDir, "segments", s.id, "script.md")).filter(existsSync);
 if (!scriptFiles.length) die("no segments/NN/script.md found, so nothing can be shown to be grounded.");
 const chapterJsonPath = join(outDir, "chapter.json");
-const gate = spawnSync("npx", ["chalk-core", "check-readability", ...scriptFiles, ...(existsSync(chapterJsonPath) ? ["--chapter", chapterJsonPath] : [])], { encoding: "utf8" });
+const gate = spawnSync(process.execPath, [CORE, "check-readability", ...scriptFiles, ...(existsSync(chapterJsonPath) ? ["--chapter", chapterJsonPath] : [])], { encoding: "utf8" });
 if (gate.error) die(`cannot run chalk-core (${gate.error.message}).`);
 if (gate.status !== 0) {
   console.error("deliver: the scripts do not pass the step-3 gate:\n" + gate.stderr.trim());
@@ -95,7 +100,7 @@ if (channelPath) {
   }
   const banned = ["chapter", "chapters", "book", "section", "the author", ...(channel.banned_terms ?? [])];
   const channelProblems = [];
-  const spoken = spawnSync("npx", ["chalk-core", "check-spoken", ...scriptFiles, "--banned", banned.join(",")], { encoding: "utf8" });
+  const spoken = spawnSync(process.execPath, [CORE, "check-spoken", ...scriptFiles, "--banned", banned.join(",")], { encoding: "utf8" });
   for (const l of spoken.stderr.split("\n")) if (/says ".*", which this video must not/.test(l)) channelProblems.push(l.trim().replace(/^FAIL /, ""));
   const re = new RegExp(`(^|[^\\w])(${banned.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?=$|[^\\w])`, "i");
   for (const [what, text] of [["title", manifest.title], ["thesis", manifest.thesis], ...segments.map((s) => [`part ${s.id} title`, s.title])]) {
@@ -273,7 +278,7 @@ writeFileSync(
 
 // plan.md — the audit trail: what each chapter claims, which example it uses, and where it came from.
 const parsed = JSON.parse(
-  spawnSync("npx", ["chalk-core", "check-readability", ...scriptFiles, "--json"], { encoding: "utf8" }).stdout,
+  spawnSync(process.execPath, [CORE, "check-readability", ...scriptFiles, "--json"], { encoding: "utf8" }).stdout,
 );
 const esc = (s) => String(s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
 const plan = [`# ${manifest.title ?? basename(outDir)}`, ""];

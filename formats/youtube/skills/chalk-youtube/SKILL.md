@@ -59,6 +59,21 @@ Freeform direction overrides the defaults and must be carried into the outline a
 `youtube-output/<chapter-slug>/`. If it already exists, use `youtube-output/<chapter-slug>-YYYY-MM-DD-HHmmss/`
 and keep that timestamp consistent across every path in the run. Intermediates go in `work/`.
 
+## Running it
+
+```bash
+npx chalk pipeline <output-dir> --doc <source> [--notebook]   # runs every stage it can, then stops and says why
+npx chalk status <output-dir>                                 # done / stale / waiting, per stage and segment
+npx chalk pipeline approve <output-dir> --scripts             # only after the user has reviewed the outline and scripts
+npx chalk pipeline <output-dir> --only 03 [--from frames]     # redo one part
+```
+
+The runner does the mechanical steps below itself and reruns only what changed: an edited script redoes
+that part's voice and everything after it, an edited frame spec only its frames and render, an aligner fix
+only alignment. It stops where a person or an agent has to write or approve something: `outline.md` (step 2),
+the scripts (step 3), the user's review, `frames/sNN.py` (step 4), `review.md` (step 6) and the user's
+watch. At each stop, do that step as described below, then run it again.
+
 ## Laws
 
 **Grounded.** Every narration line and every piece of on-screen text traces to block ids in

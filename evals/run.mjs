@@ -39,7 +39,7 @@ export function makeEnv({ deep = false } = {}) {
   return {
     deep,
     python: (script, cwd) => memo(`py:${script}`, () => run(py, ["-I", script], { cwd })),
-    chalkCore: (args) => run("npx", ["chalk-core", ...args], { cwd: root }),
+    chalkCore: (args) => run(process.execPath, [join(root, "core/bin/chalk-core.mjs"), ...args], { cwd: root }),
     hyperframesCheck: (project) => run("npx", ["hyperframes", "check"], { cwd: project, timeout: 600000 }),
     duration: (file) =>
       memo(`dur:${file}`, () => {
@@ -80,7 +80,7 @@ print(json.dumps(bad))
 export function evaluate(outDir, { format = "youtube", channelPath, deep = false, env = makeEnv({ deep }) } = {}) {
   const pack = PACKS[format];
   if (!pack) throw new Error(`unknown format "${format}" (${Object.keys(PACKS).join(" or ")})`);
-  const ctx = load(outDir, { channelPath });
+  const ctx = { ...load(outDir, { channelPath }), format };
   const results = pack.criteria.map((c) => {
     let r;
     try {

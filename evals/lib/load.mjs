@@ -144,6 +144,8 @@ export function load(outDir, { channelPath } = {}) {
     channel: chPath ? readJson(chPath) : null,
     channelPath: chPath ?? null,
     lexicon: readJson(join(dir, "lexicon.json")),
+    lesson: readJson(join(dir, "lesson.json")),
+    lessonPage: existsSync(join(dir, "lesson.html")) ? join(dir, "lesson.html") : null,
     outline: existsSync(join(dir, "outline.md")) ? parseOutline(readFileSync(join(dir, "outline.md"), "utf8")) : null,
     files: {
       captions: readText(join(dir, "captions.srt")),

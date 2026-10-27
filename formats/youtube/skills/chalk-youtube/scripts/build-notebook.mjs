@@ -21,8 +21,11 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join, resolve, basename, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { pathToFileURL, fileURLToPath } from "node:url";
 import { stamp } from "./kit.mjs";
+
+/** This repo's core, called directly so it resolves wherever the output dir sits. */
+const CORE = fileURLToPath(new URL("../../../../../core/bin/chalk-core.mjs", import.meta.url));
 
 const PYTHON = new Set(["python", "py", "python3", "ipython"]);
 
@@ -163,7 +166,7 @@ export function loadScenes(outDir, segments) {
   const files = segments.map((s) => join(outDir, "segments", s.id, "script.md")).filter(existsSync);
   const by = {};
   if (!files.length) return by;
-  const r = spawnSync("npx", ["chalk-core", "check-readability", ...files, "--json"], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, [CORE, "check-readability", ...files, "--json"], { encoding: "utf8" });
   if (r.error || (r.status !== 0 && r.status !== 1)) throw new Error(`chalk-core check-readability failed: ${r.error?.message ?? r.stderr}`);
   for (const f of JSON.parse(r.stdout).files) by[basename(dirname(f.file))] = f.scenes;
   return by;

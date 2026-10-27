@@ -4,6 +4,8 @@ The frame spec for a segment is <output-dir>/frames/sNN.py: a module with FRAMES
 lives beside the video, not in work/ (deliver deletes work/). The orientation every frame carries — series
 and part, the progress strip of this video's stages, the stage card on a part's first frame — is built here
 from channel.json, video.json and each segment's script.md `stage:` fields, so a spec only draws its scene.
+A lesson (lesson.json, no video.json) gets the same chrome from the lesson: its title, and a strip of its
+segments' titles.
 """
 
 import importlib.util
@@ -66,6 +68,27 @@ def video_context(out, nn):
     }
 
 
+def lesson_context(out, nn):
+    """The orientation for an interactive lesson: the lesson's title, and one strip step per segment."""
+    lesson = json.loads((out / "lesson.json").read_text())
+    segs = lesson["segments"]
+    ids = [s["id"] for s in segs]
+    pos = ids.index(nn)
+    short = lambda s: s["title"] if len(s["title"]) <= 18 else s["title"][:17].rstrip() + "…"
+    return {
+        "out_dir": out,
+        "series_label": lesson["title"],
+        "part_title": segs[pos]["title"],
+        "segment_title": segs[pos]["title"],
+        "strip": [short(s) for s in segs],
+        "stage_index": pos,
+        "stage": "lesson",
+        "stage_name": f"Part {pos + 1}",
+        "part_no": pos + 1,
+        "part_count": len(segs),
+    }
+
+
 def main():
     nn = sys.argv[1]
     out = Path.cwd()
@@ -74,7 +97,7 @@ def main():
     mod = importlib.util.module_from_spec(spec)
     sys.modules[f"s{nn}"] = mod
     spec.loader.exec_module(mod)
-    ctx = video_context(out, nn)
+    ctx = video_context(out, nn) if (out / "video.json").exists() or not (out / "lesson.json").exists() else lesson_context(out, nn)
     project = out / "segments" / nn / "video"
     for no, fid in frames_of(project):
         F = Frame(project, no, fid, ctx)

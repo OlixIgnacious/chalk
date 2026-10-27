@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 // chalk — one entry point for every step, whichever format is being made.
 //
+//   chalk pipeline <out> [--doc <source>] […]  run every stage whose inputs changed; stop where a person or an agent is needed
+//   chalk pipeline approve <out> --scripts|--watched, chalk pipeline adopt <out>
+//   chalk status <out>                    what is done, stale or waiting, and why
 //   chalk <core command> [args...]        ingest, check-readability, narrate, align-captions, … (core/)
 //   chalk assets                          stage fonts and GSAP once per machine (frames/build.sh)
-//   chalk voice|frames|render NN          step 4 for one segment, run from the output dir
+//   chalk voice|narrate|align|frames|render NN   step 4 for one segment, run from the output dir
 //   chalk stills NN [--every 5]           contact sheet of segments/NN/segment.mp4 → work/stills/NN.png
 //   chalk eval <out> [--format f] […]     score an output dir (evals/)
 //   chalk deliver <out> [--format f] […]  the format's deliver script
@@ -35,7 +38,7 @@ const FORMATS = {
 };
 const CORE = ["ingest", "check-readability", "build-tokens", "align-captions", "apply-display", "narrate",
   "check-spoken", "emit-vtt", "fix-index", "manim-render", "path"];
-const STAGES = ["voice", "frames", "render"];
+const STAGES = ["voice", "narrate", "align", "frames", "render"];
 
 const [cmd, ...args] = process.argv.slice(2);
 const die = (m, code = 2) => {
@@ -109,7 +112,7 @@ function doctor() {
 }
 
 if (!cmd || cmd === "--help" || cmd === "-h") {
-  const head = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 18);
+  const head = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 21);
   console.log(`chalk ${pkg.version}\n` + head.map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(cmd ? 0 : 2);
 }
@@ -119,7 +122,10 @@ if (cmd === "--version" || cmd === "-v") {
 }
 
 let status;
-if (CORE.includes(cmd)) status = node(coreBin, [cmd, ...args]);
+if (cmd === "pipeline" || cmd === "status") {
+  const { main } = await import(join(root, "pipeline/run.mjs"));
+  status = await main(cmd === "status" ? ["status", ...args] : args);
+} else if (CORE.includes(cmd)) status = node(coreBin, [cmd, ...args]);
 else if (cmd === "assets") status = run("bash", [join(root, "frames/build.sh"), "assets"]);
 else if (STAGES.includes(cmd)) {
   if (!/^\d+$/.test(args[0] ?? "")) die(`usage: chalk ${cmd} NN (from the output dir)`);

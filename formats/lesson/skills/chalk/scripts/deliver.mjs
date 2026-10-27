@@ -17,6 +17,11 @@ import { readFileSync, writeFileSync, existsSync, rmSync, readdirSync, mkdirSync
 import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
+import { fileURLToPath } from "node:url";
+
+/** This repo's core, called directly so it resolves wherever the output dir sits. */
+const CORE = fileURLToPath(new URL("../../../../../core/bin/chalk-core.mjs", import.meta.url));
+
 const argv = process.argv.slice(2);
 const die = (m) => {
   console.error("deliver:", m);
@@ -133,7 +138,7 @@ function readScripts(segments) {
     .map((s) => join(outDir, "segments", s.id, "script.md"))
     .filter((f) => existsSync(f));
   if (!files.length) return null;
-  const r = spawnSync("npx", ["chalk-core", "check-readability", ...files, "--json"], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, [CORE, "check-readability", ...files, "--json"], { encoding: "utf8" });
   if (r.error) die(`cannot run chalk-core (${r.error.message}) — see references/core/ and the README.`);
   // Exit 1 means the gate failed, and its complaints matter more than this step does.
   if (r.status !== 0 && r.status !== 1) die(`check-readability could not read the scripts:\n${r.stderr}`);

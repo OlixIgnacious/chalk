@@ -14,7 +14,7 @@
     "formats/lesson"
   ],
   "scripts": {
-    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs && node test/frames.mjs",
+    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs && node test/frames.mjs && node test/pipeline.mjs",
     "eval": "node evals/run.mjs",
     "doctor": "node bin/chalk.mjs doctor"
   },

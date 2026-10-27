@@ -179,10 +179,11 @@ const ease = [
   {
     id: "E4",
     group: "ease",
-    title: "No part is rushed: at most 2.8 spoken words a second over its takes, pauses included",
+    title: "No part is rushed: at most 2.8 spoken words a second over its takes, pauses included (a lesson 3.0; channel.json max_words_per_second overrides)",
     weight: 2,
     run(ctx) {
-      const MAX = 2.8;
+      // a lesson is planned at Kokoro's measured 2.85 words/s (formats/lesson step-2); a tutorial video slower
+      const MAX = ctx.channel?.max_words_per_second ?? { lesson: 3.0 }[ctx.format] ?? 2.8;
       const rates = [];
       for (const s of mainSegments(ctx)) {
         const v = s.audioMeta?.voices;
