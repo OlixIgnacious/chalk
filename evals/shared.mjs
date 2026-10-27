@@ -42,8 +42,8 @@ const grounding = [
           for (const m of f.html.matchAll(/data-code="([^"]+)"[^>]*>([\s\S]*?)<!--\/code-->/g)) panels.push({ seg: s, f, id: m[1], inner: m[2] });
         }
       }
-      const framed = ctx.segments.some((s) => s.frames.length);
-      if (!framed) return skip("no frames");
+      const framed = ctx.segments.some((s) => s.frames.length && s.script?.scenes.some((sc) => sc.code));
+      if (!framed) return skip("no frames of a part that shows code");
       if (!panels.length) return fail(['no code panel is marked data-code="<block id>", so on-screen code cannot be checked against the source']);
       const ev = [];
       for (const p of panels) {
@@ -88,6 +88,28 @@ const grounding = [
       }
       if (!ran && !ev.length) return skip("no computed-by scenes");
       return ev.length ? fail(ev) : pass([`${ran} script(s) ran`]);
+    },
+  },
+  {
+    id: "G4",
+    group: "grounding",
+    title: "Lines about the video itself (next part, the series, the notebook) cite [pipeline], not a block that does not say them",
+    weight: 1,
+    run(ctx) {
+      const META = /\b(next (video|part|time|up|in the series)|in the series|this series|the notebook|part \d+ of|first of \w+ patterns)\b/i;
+      const ev = [];
+      let n = 0;
+      for (const { seg, sc } of scenesOf(ctx)) for (const e of sc.entries) {
+        const m = e.display.match(META);
+        if (!m) continue;
+        n++;
+        if (e.source.includes("pipeline")) continue;
+        const key = m[0].toLowerCase().match(/notebook|series|next|part|patterns/)?.[0] ?? m[0];
+        const says = e.source.some((id) => (ctx.blocks.get(id)?.text ?? "").toLowerCase().includes(key));
+        if (!says) ev.push(`${at(seg, e.line)}: "${e.display.slice(0, 60)}" cites [${e.source.join(", ")}], which never mention "${key}" — cite [pipeline]`);
+      }
+      if (!n) return skip("no lines about the video itself");
+      return ev.length ? fail(ev) : pass([`${n} meta line(s)`]);
     },
   },
 ];
@@ -152,6 +174,28 @@ const ease = [
       }
       if (!measured) return skip("no durations");
       return ev.length ? fail(ev) : pass([`${measured} part(s) measured`]);
+    },
+  },
+  {
+    id: "E4",
+    group: "ease",
+    title: "No part is rushed: at most 2.8 spoken words a second over its takes, pauses included",
+    weight: 2,
+    run(ctx) {
+      const MAX = 2.8;
+      const rates = [];
+      for (const s of mainSegments(ctx)) {
+        const v = s.audioMeta?.voices;
+        if (!v?.length) continue;
+        const words = v.reduce((a, x) => a + (x.words?.length ?? 0), 0);
+        const secs = v.reduce((a, x) => a + (x.duration_s ?? 0), 0);
+        if (secs) rates.push({ s, rate: words / secs, words, secs });
+      }
+      if (!rates.length) return skip("no narration timings yet");
+      const fast = rates.filter((r) => r.rate > MAX);
+      const fmt = (r) => `segments/${r.s.id}: ${r.rate.toFixed(2)} words/s (${r.words} words in ${r.secs.toFixed(1)}s)`;
+      return fast.length ? fail([...fast.map(fmt), `limit ${MAX}; split the part or give it {pause}s`])
+        : pass([`fastest ${fmt(rates.reduce((a, b) => (b.rate > a.rate ? b : a)))}`]);
     },
   },
 ];
@@ -280,6 +324,39 @@ const render = [
         if (r && r.status !== 0) ev.push(`segments/${s.id}: hyperframes check failed`);
       }
       return ev.length ? fail(ev) : pass();
+    },
+  },
+  {
+    id: "R5",
+    group: "render",
+    title: "A reason the narration gives is readable when it is on screen: 36px or more",
+    weight: 1,
+    run(ctx) {
+      const MIN = 36;
+      const norm = (s) => s.toLowerCase().replace(/&#x27;|&#39;/g, "'").replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim();
+      const ev = [];
+      let checked = 0;
+      for (const s of ctx.segments) {
+        if (!s.frames.length || !s.script) continue;
+        // the part of each narrated sentence that is its reason: from "because", "so", … to the end
+        const tails = s.script.scenes.flatMap((sc) => sc.entries).map((e) => norm(e.display)).flatMap((d) => {
+          const m = d.match(/\b(because|so that|so|since|which means|otherwise)\b(.*)$/);
+          return m && m[2].trim().split(" ").length >= 2 ? [m[0]] : [];
+        });
+        if (!tails.length) continue;
+        for (const f of s.frames) {
+          for (const m of f.html.matchAll(/font-size:(\d+)px[^>]*>([^<]{8,120})</g)) {
+            const text = norm(m[2]);
+            if (text.split(" ").length < 4) continue; // a label ("should be false") is not a reason
+            const bare = text.replace(/^(because|so that|so|since|which means|otherwise) /, "");
+            if (!tails.some((tl) => tl.includes(bare))) continue;
+            checked++;
+            if (Number(m[1]) < MIN) ev.push(`${f.file.split("/segments/")[1] ?? f.file}: reason "${m[2].trim().slice(0, 50)}" is ${m[1]}px`);
+          }
+        }
+      }
+      if (!checked) return skip("no narrated reason found on screen");
+      return ev.length ? fail([...ev.slice(0, 8), `${ev.length}/${checked} on-screen reasons under ${MIN}px`]) : pass([`${checked} on-screen reason(s) at ${MIN}px or more`]);
     },
   },
 ];

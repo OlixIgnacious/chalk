@@ -89,7 +89,7 @@ chapter's example". The outline plans the orientation instead:
 
 A viewer should leave able to write the solution from a blank file. So every **main problem** walks these
 stages, each a short part (40–75s) with one idea. `stage:` on a scene names one. The order that matters:
-`problem` before `think`, `think` before `plan`, `plan` before `write`, `write` before `trace`, and `bug`,
+`problem` before `think`, `think` before `insight`, `insight` before `plan`, `plan` before `write`, `write` before `trace`, and `bug`,
 `why-fast`, `other-ways`, `interview` after `trace`. `spot` (naming the pattern) may come right after `think`,
 once the viewer has seen the idea work — usually the better place, since a rule with nothing to apply it to
 teaches nothing:
@@ -97,15 +97,16 @@ teaches nothing:
 | `stage:` | The part gives the viewer | Usually grounded in |
 |---|---|---|
 | `spot` | the pattern's name and the question that tells you it applies, after the idea has been shown on the running example | the mental-model / "when to use" block |
-| `problem` | statement, examples, limits, what to ask before coding | the problem blocks |
-| `think` | brute force on the running example, *why* it is slow (where its count comes from), then the insight and why this container and not another | brute force + idea blocks |
+| `problem` | statement, examples, limits. Nothing whose answer comes later: "ask two questions before you code" belongs where those questions are answered (`other-ways` or `interview`) | the problem blocks |
+| `think` | brute force on the running example, and *why* it is slow (where its count comes from) | the brute-force block |
+| `insight` | the fix, **shown on the running example** (the memory filling up as the values pass, `example: chapter`), then why this container and not another. Its own part: it is the moment the video exists for, so it gets the slowest narration in the video, not the fastest. Explain a mechanism here only as far as the idea needs ("a set answers 'is x in here?' in about one step"); *how* it is that fast is `why-fast` | the idea block |
 | `plan` | the idea as 3–4 plain-word steps, before any code (`visual: plan card`) | the idea block |
 | `write` | the code built line by line (`visual: code build`, `code:`, `lines:` per entry). Each line gets **what it does and why it is there** (an early return, why a line sits outside the loop), not a paraphrase of its syntax | the code block + idea block |
 | `trace` | the code run on the same example, line lit, variables updating (`visual: code + trace`, `computed-by:` a trace script) | the walkthrough table |
 | `why-fast` | the complexity worked out from the code, and why the key operation is cheap | complexity blocks |
 | `bug` | the mistake people make, run on an input where it fails, step by step to the moment it goes wrong | traps / pitfalls blocks |
-| `other-ways` | alternatives and when each wins | alternatives / comparison table |
-| `interview` | the short spoken answer and the follow-ups | interview / follow-up blocks |
+| `other-ways` | alternatives and when each wins. Code shown here is taught like `write` (about one narrated line per two lines of code, each with its reason), or not shown | alternatives / comparison table |
+| `interview` | the short spoken answer, and follow-ups no other part has already answered (the best one leads into the next video) | interview / follow-up blocks |
 
 Use **one running example** through the main parts (the source's walkthrough input). A new input per part
 makes the viewer re-orient every minute.
@@ -128,6 +129,8 @@ file that ships as a notebook cell. Exercise blocks become the notebook's try-it
 - No line or part title names the source (book, chapter, section, author, file); the title follows the series
 - A coding topic's main problem has every arc stage, in the order above; each bonus part has source code, or is cut
 - One main problem; about one new concept per 40s of target length or fewer; no bonus parts unless asked for
+- Each part's `Teaches` cell is one idea: no `;` and no list of three or more things (the eval's T8 reads it)
+- The problem part cites no block that is taught only in `why-fast`, `other-ways` or `interview` (T7)
 - The hook shows the running example within 5s, and the pattern is named only after it has been shown
 - Exactly one hook and one outro
 - At least three chapters (YouTube's minimum), each with source block ids and an example slot

@@ -31,7 +31,7 @@ FONTS = [("Barlow", w, f"barlow-latin-{w}-normal.woff2") for w in (400, 600, 700
 
 # viewer-facing names of the arc stages (step-2-outline.md § The teaching arc)
 STAGE_NAMES = {
-    "hook": "Intro", "spot": "Spot it", "problem": "Problem", "think": "Think", "plan": "Plan",
+    "hook": "Intro", "spot": "Spot it", "problem": "Problem", "think": "Think", "insight": "The idea", "plan": "Plan",
     "write": "Code", "trace": "Trace", "why-fast": "Why fast", "bug": "The bug", "other-ways": "Other ways",
     "interview": "Interview", "bonus": "Bonus", "recap": "Recap",
 }
@@ -392,13 +392,22 @@ class Frame:
             self.video.setdefault("warnings", []).append(f"{self.id}: trace for {block_id} reaches y={bottom}, into the caption band")
         return trace, bottom
 
-    def plan_card(self, steps, x=104, y=170, size=58):
-        """steps: [(text, cue)]. Numbered plain-word steps, one per clause."""
-        for i, (s, cue) in enumerate(steps):
-            ny = y + i * 150
+    def plan_card(self, steps, x=104, y=170, size=58, why_size=40):
+        """steps: [(text, cue)] or [(text, cue, why, why_cue)]. Numbered plain-word steps, one per clause.
+        A step's `why` is the reason the narration gives for it, drawn under the step in cream at 40px —
+        the reason is what the viewer came for, so it is never chrome-sized (the eval's R5 checks it)."""
+        gap = 150 + (why_size + 24 if any(len(s) > 2 for s in steps) else 0)
+        for i, step in enumerate(steps):
+            s, cue = step[0], step[1]
+            ny = y + i * gap
             self.label(f"{i + 1:02d}", x, ny + 8, color=ORANGE, eid=f"{self.id}-pn{i}")
             self.text(s, x + 110, ny, size=size, weight=800, w=W - 208 - 110, lh=1.05, eid=f"{self.id}-ps{i}")
             self.rise(f"#{self.id}-pn{i}, #{self.id}-ps{i}", cue, dy=24)
+            if len(step) > 2:
+                why, why_cue = step[2], step[3] if len(step) > 3 else cue
+                self.text(why, x + 110, ny + size + 18, size=why_size, weight=500, color=CREAM, w=W - 208 - 110, lh=1.1,
+                          eid=f"{self.id}-pw{i}")
+                self.fade(f"#{self.id}-pw{i}", why_cue)
 
     def cells(self, values, x, y, size=120, gap=18, font_size=60, label_idx=False, color=CREAM, eid=None):
         base = eid or self.uid("arr")

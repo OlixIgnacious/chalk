@@ -93,7 +93,7 @@ Citations live in `plan.md`, which is the private audit trail.
 
 **Teach the code, don't just show it.** For a coding topic every main problem walks the arc in
 [references/step-2-outline.md](references/step-2-outline.md): spot the pattern, the problem, think it
-through from brute force to the insight, a plan in plain words, the code built line by line, a trace on
+through from brute force, the insight shown on the example, a plan in plain words, the code built line by line, a trace on
 the same example, why it is fast, the bug to avoid, other ways, the interview answer. A bonus problem walks
 the same arc with real solution code from the source, or it is cut and named as a gap — never a vague
 explanation. No quizzes or exercise segments: engagement comes from the explanation itself.

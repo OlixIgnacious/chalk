@@ -1,4 +1,4 @@
-// load.mjs — read a chalk-youtube output dir into one context object the criteria share.
+// load.mjs — read a chalk output dir into one context object the criteria share.
 //
 // Everything is optional: a criterion whose inputs are missing reports `skip`, so the same evals score
 // a text-only fixture and a fully rendered video. Nothing here runs a process.
@@ -12,7 +12,7 @@ const unquote = (s) => s.trim().replace(/^"|"$/g, "");
 
 /**
  * A segment's script.md → { title, scenes }. Scene fields: visual, tier, duration, example, computedBy,
- * onScreen, stage, code, trace. Entry fields: spoken, display, source[], lines[].
+ * onScreen, stage, code, codeDepth, trace. Entry fields: spoken, display, source[], lines[].
  */
 export function parseScript(md) {
   const title = md.match(/^#\s+\d+\s+[—-]\s+(.+)$/m)?.[1]?.trim() ?? "";
@@ -30,7 +30,7 @@ export function parseScript(md) {
       continue;
     }
     if (!cur) continue;
-    const kv = line.match(/^(visual|example|computed-by|on-screen|duration|stage|code|trace):\s*(.*)$/i);
+    const kv = line.match(/^(visual|example|computed-by|on-screen|duration|stage|code-depth|code|trace):\s*(.*)$/i);
     if (kv) {
       const key = kv[1].toLowerCase().replace(/-(\w)/g, (_, c) => c.toUpperCase());
       cur[key] = kv[2].trim();
@@ -53,6 +53,26 @@ export function parseScript(md) {
   }
   for (const s of scenes) s.visualName = (s.visual ?? "").replace(/\(tier.*$/i, "").trim().toLowerCase();
   return { title, scenes };
+}
+
+/**
+ * outline.md's parts table → [{ n, title, stage, teaches, line }]. Columns are found by their header
+ * (`#`, `Title…`, `Stage`, `Teaches…`), so a table with extra columns still reads.
+ */
+export function parseOutline(md) {
+  const lines = md.split(/\r?\n/);
+  const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+  const h = lines.findIndex((l) => /^\s*\|/.test(l) && /\|\s*teaches/i.test(l));
+  if (h < 0) return [];
+  const head = cells(lines[h]).map((c) => c.toLowerCase());
+  const col = (re) => head.findIndex((c) => re.test(c));
+  const [cn, ct, cs, cw] = [col(/^#$/), col(/^title/), col(/^stage/), col(/^teaches/)];
+  const rows = [];
+  for (let i = h + 2; i < lines.length && /^\s*\|/.test(lines[i]); i++) {
+    const c = cells(lines[i]);
+    rows.push({ n: c[cn] ?? "", title: c[ct] ?? "", stage: (c[cs] ?? "").toLowerCase(), teaches: c[cw] ?? "", line: i + 1 });
+  }
+  return rows;
 }
 
 /** "3-5" → [3,4,5]; "7" → [7]. */
@@ -124,6 +144,7 @@ export function load(outDir, { channelPath } = {}) {
     channel: chPath ? readJson(chPath) : null,
     channelPath: chPath ?? null,
     lexicon: readJson(join(dir, "lexicon.json")),
+    outline: existsSync(join(dir, "outline.md")) ? parseOutline(readFileSync(join(dir, "outline.md"), "utf8")) : null,
     files: {
       captions: readText(join(dir, "captions.srt")),
       description: readText(join(dir, "description.txt")),

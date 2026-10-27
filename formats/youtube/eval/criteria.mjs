@@ -6,11 +6,17 @@ import { existsSync } from "node:fs";
 import { frameText, isBonus } from "../../../evals/lib/load.mjs";
 import { pass, fail, skip, scenesOf, mainSegments, at } from "../../../evals/lib/kit.mjs";
 
+const REASON = /\b(because|so|since|only|which means|that means|no need|otherwise|instead|right away|now any|so that|why)\b/i;
+/** Stages whose blocks a problem part must not lean on: the viewer has not been taught them yet. */
+const LATER = ["why-fast", "other-ways", "interview"];
+/** Stages that teach a block before the payoff stages do. */
+const TEACHES = ["think", "insight", "plan", "write", "trace", "spot", "bug"];
+
 /** The teaching arc every main problem walks, in order. `stage:` on a scene names one of these. */
-export const ARC = ["spot", "problem", "think", "plan", "write", "trace", "why-fast", "bug", "other-ways", "interview"];
+export const ARC = ["spot", "problem", "think", "insight", "plan", "write", "trace", "why-fast", "bug", "other-ways", "interview"];
 /** What must be taught before what. `spot` (the name) may follow the problem and the brute force. */
 const BEFORE = [
-  ["problem", "think"], ["problem", "spot"], ["think", "plan"], ["plan", "write"], ["write", "trace"],
+  ["problem", "think"], ["problem", "spot"], ["think", "insight"], ["insight", "plan"], ["plan", "write"], ["write", "trace"],
   ["trace", "bug"], ["trace", "why-fast"], ["write", "other-ways"], ["trace", "interview"],
 ];
 export const DEFAULT_BANNED = ["chapter", "chapters", "book", "section", "the author"];
@@ -226,7 +232,6 @@ const teaching = [
     title: "Code is taught, not paraphrased: most built lines are explained with a reason (because, so, only, no need, …)",
     weight: 2,
     run(ctx) {
-      const REASON = /\b(because|so|since|only|which means|that means|no need|otherwise|instead|right away|now any|so that|why)\b/i;
       const builds = scenesOf(ctx).filter(({ sc }) => sc.visualName === "code build");
       if (!builds.length) return skip("no code build");
       const ev = [];
@@ -243,6 +248,94 @@ const teaching = [
       const share = lines ? reasoned / lines : 1;
       return share >= 0.6 ? pass([`${reasoned}/${lines} built lines give a reason`])
         : fail([`only ${reasoned}/${lines} built lines give a reason`, ...ev.slice(0, 8)]);
+    },
+  },
+  {
+    id: "T6",
+    group: "teaching",
+    title: "Code shown anywhere is taught, not paraphrased: about one narrated line per two lines of code, with a reason (a block already built, or code-depth: glance on 2 lines or fewer, is exempt)",
+    weight: 2,
+    run(ctx) {
+      const built = new Set(scenesOf(ctx).filter(({ sc }) => sc.visualName === "code build").map(({ sc }) => sc.code));
+      const shown = scenesOf(ctx).filter(({ sc }) => sc.code && !["code build", "code + trace"].includes(sc.visualName));
+      if (!shown.length) return skip("no code shown outside a build or a trace");
+      const ev = [];
+      for (const { seg, sc } of shown) {
+        const block = ctx.blocks.get(sc.code);
+        if (!block) continue;
+        const n = codeLines(block.text).length;
+        if (built.has(sc.code)) continue; // shown again after it was built: a bug swap, a recap
+        if (/glance/i.test(sc.codeDepth ?? "")) {
+          if (n > 2) ev.push(`${at(seg, sc.line)}: ${sc.code} (${n} lines) is a glance but was never built — teach it, or show at most 2 lines`);
+          continue;
+        }
+        const about = sc.entries.filter((e) => e.source.includes(sc.code) || e.lines.length);
+        const need = Math.ceil(n / 2);
+        if (about.length < need) ev.push(`${at(seg, sc.line)}: ${sc.code} shows ${n} lines but ${about.length} narrated line(s) are about it (need ${need}) — teach it like a build, or mark code-depth: glance`);
+        else if (!about.some((e) => REASON.test(e.display))) ev.push(`${at(seg, sc.line)}: ${sc.code} is narrated without a single reason`);
+      }
+      return ev.length ? fail(ev) : pass([`${shown.length} code scene(s) outside builds are taught`]);
+    },
+  },
+  {
+    id: "T7",
+    group: "teaching",
+    title: "The problem part does not lean on answers the viewer has not met: no block cited there is taught only in why-fast, other-ways or interview",
+    weight: 2,
+    run(ctx) {
+      const all = scenesOf(ctx).filter(({ seg }) => !isBonus(ctx, seg));
+      const problem = all.filter(({ sc }) => sc.stage === "problem");
+      if (!problem.length) return skip("no problem stage");
+      const stagesOf = new Map();
+      for (const { sc } of all) for (const e of sc.entries) for (const id of e.source) {
+        if (!stagesOf.has(id)) stagesOf.set(id, new Set());
+        stagesOf.get(id).add(sc.stage);
+      }
+      const ev = [];
+      for (const { seg, sc } of problem) for (const e of sc.entries) for (const id of e.source) {
+        const st = [...(stagesOf.get(id) ?? [])];
+        const later = st.filter((s) => LATER.includes(s));
+        if (later.length && !st.some((s) => TEACHES.includes(s))) {
+          ev.push(`${at(seg, e.line)}: cites ${id}, which is taught only in ${later.join(", ")} — "${e.display.slice(0, 60)}"`);
+        }
+      }
+      return ev.length ? fail(ev) : pass([`${problem.length} problem scene(s)`]);
+    },
+  },
+  {
+    id: "T8",
+    group: "teaching",
+    title: "The outline gives each part one idea: no Teaches cell lists three or more things",
+    weight: 2,
+    run(ctx) {
+      if (!ctx.outline) return skip("no outline.md");
+      if (!ctx.outline.length) return fail(["outline.md has no parts table with a Teaches column"]);
+      const ev = [];
+      for (const r of ctx.outline) {
+        if (["hook", "recap"].includes(r.stage)) continue;
+        const plain = r.teaches.replace(/\[[^\]]*\]|\([^)]*\)|`[^`]*`/g, "x").replace(/\*/g, "");
+        // ";" and "and" join ideas ("x and not y" is one contrast); commas only count when they make a
+        // list ("a, b, c"), not a qualifier
+        const clauses = plain.split(/;|\band\b(?! not\b)/).filter((c) => c.trim().replace(/,$/, "")).reduce((n, piece) => {
+          const items = piece.split(",").filter((c) => c.trim());
+          return n + (items.length >= 3 ? items.length : 1);
+        }, 0);
+        if (clauses >= 3) ev.push(`outline.md:${r.line} part ${r.n} "${r.title}" teaches ${clauses} things: "${r.teaches}"`);
+      }
+      return ev.length ? fail(ev) : pass([`${ctx.outline.length} part(s), one idea each`]);
+    },
+  },
+  {
+    id: "T9",
+    group: "teaching",
+    title: "The insight is shown on the running example, not told in text cards",
+    weight: 2,
+    run(ctx) {
+      const insight = scenesOf(ctx).filter(({ seg, sc }) => sc.stage === "insight" && !isBonus(ctx, seg));
+      if (!insight.length) return skip("no insight stage (T1 reports it)");
+      const shown = insight.filter(({ sc }) => /^(chapter|derived)/i.test(sc.example ?? ""));
+      return shown.length ? pass([`${at(shown[0].seg, shown[0].sc.line)}: ${shown[0].sc.example}`])
+        : fail(insight.map(({ seg, sc }) => `${at(seg, sc.line)}: insight scene "${sc.title}" names no example`));
     },
   },
 ];

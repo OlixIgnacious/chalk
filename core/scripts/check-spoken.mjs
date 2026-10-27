@@ -57,7 +57,7 @@ const WORDS_PER_SECOND = 2.4;
 
 const strip = (s) => s.replace(/\{(beat|pause|think)\}/g, " ").replace(/\s+/g, " ").trim();
 
-/** The spoken entries of a script.md, grouped by scene, outside any fenced example. */
+/** The spoken entries of a script.md, grouped by scene (each group carries its scene's `visual`), outside any fenced example. */
 function scenesOf(md) {
   const scenes = [];
   let fenced = false;
@@ -71,6 +71,8 @@ function scenesOf(md) {
       scenes.push([]);
       continue;
     }
+    const v = line.match(/^visual:\s*(.+?)\s*(\(tier.*)?$/i);
+    if (v && scenes.length) scenes.at(-1).visual = v[1].toLowerCase();
     const m = line.match(/^\s*(?:-\s*)?spoken:\s*"(.*)"\s*$/i);
     if (m) (scenes.at(-1) ?? scenes[scenes.push([]) - 1]).push(m[1]);
   }
@@ -142,6 +144,12 @@ for (const file of files) {
   if (MAX_AVG !== null && m.sentences && m.avgWords > MAX_AVG) failures.push(`sentences average ${m.avgWords} words; this video's limit is ${MAX_AVG}`);
   else if (m.sentences && m.avgWords > SOFT_AVG) warnings.push(`sentences average ${m.avgWords} words; aim for 12–14 or fewer, mixing in longer ones where an idea needs room`);
   if (m.seconds > 60 && m.questions === 0) warnings.push(`about ${Math.round(m.seconds)}s of narration with no question to the viewer`);
+  // a build or a plan read straight through is a list read aloud: give the viewer a breath between steps
+  scenes.forEach((s, i) => {
+    if (/^(code build|plan card)$/.test(s.visual ?? "") && s.length > 3 && !s.some((e) => /\{(pause|beat|think)\}/.test(e))) {
+      warnings.push(`scene ${i + 1} (${s.visual}) runs ${s.length} steps with no {pause} — add one after each step's reason`);
+    }
+  });
   for (const n of m.unsignposted) warnings.push(`scene ${n} opens without a signpost — say what is happening ("let's look at it through an example", "now, the other way round")`);
   if (m.sentences >= 5 && m.you / m.sentences < 0.2) warnings.push(`the viewer is addressed ("you") in only ${m.you} of ${m.sentences} sentences`);
   failed += failures.length;

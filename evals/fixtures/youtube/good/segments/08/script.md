@@ -11,5 +11,5 @@ stage: recap
 
 - spoken: "Next up: Prefix Sums."
   display: "Next up: Prefix Sums."
-  source: [p009]
+  source: [pipeline]
 

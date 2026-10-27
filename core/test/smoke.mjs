@@ -1178,6 +1178,10 @@ test("narrate: missing flags, a missing script and an unknown voice are reported
   need(narr);
   assert.equal(run("narrate.mjs").status, 2);
   assert.equal(run("narrate.mjs", "--script", join(tmp, "nope.md"), "--out", tmp, "--no-transcribe").status, 2);
+  const tail = write("SCRIPT-tail.md", "## Line 1 (Frame 1)\n\n    Here it is. {pause}\n\n## Line 2 (Frame 2)\n\n    Then {beat} the next.\n");
+  const refused = run("narrate.mjs", "--script", tail, "--out", tmp, "--no-transcribe");
+  assert.equal(refused.status, 2, "a take that ends on a marker is refused before any audio is made");
+  assert.match(refused.stderr, /frame\(s\) 1 end on a pause marker/);
   if (!haveKokoro) return "kokoro is not installed here, so the voice check cannot run";
   const { r } = narrateRun("nar4", "Hello there.", "--voice", "not_a_voice");
   assert.equal(r.status, 2);
@@ -1230,6 +1234,19 @@ test("check-spoken: a spoken array is one value, not a list", () => {
   const r = run("check-spoken.mjs", md);
   assert.equal((r.stdout + r.stderr).match(/reads out a list/g)?.length, 1, `only the real list fails:\n${r.stdout}${r.stderr}`);
   assert.match(r.stdout + r.stderr, /apples, pears/);
+});
+
+test("check-spoken: a long code build or plan with no pause is a warning, not a failure", () => {
+  const steps = (n, pause = "") => Array.from({ length: n }, (_, i) =>
+    `- spoken: "Step ${i + 1} is here, so you know why.${i === 1 ? pause : ""}"\n  display: "Step ${i + 1} is here, so you know why."\n  source: [p1]\n`).join("\n");
+  const straight = write("plan-straight.md", `## Scene 1 — plan\nvisual: plan card (tier 1)\n\n${steps(4)}`);
+  const r = run("check-spoken.mjs", straight);
+  assert.equal(r.status, 0);
+  assert.match(r.stderr, /scene 1 \(plan card\) runs 4 steps with no \{pause\}/);
+  const paused = write("plan-paused.md", `## Scene 1 — plan\nvisual: plan card (tier 1)\n\n${steps(4, " {pause}")}`);
+  assert.doesNotMatch(run("check-spoken.mjs", paused).stderr, /no \{pause\}/);
+  const short = write("plan-short.md", `## Scene 1 — plan\nvisual: plan card (tier 1)\n\n${steps(3)}`);
+  assert.doesNotMatch(run("check-spoken.mjs", short).stderr, /no \{pause\}/, "three steps can run straight");
 });
 
 test("check-spoken: --banned fails a term in either layer, as a whole word only", () => {

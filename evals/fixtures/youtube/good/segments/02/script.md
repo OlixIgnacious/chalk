@@ -9,7 +9,17 @@ stage: think
   display: "Why not add everything again each time? That repeats work."
   source: [p003]
 
-## Scene 2 — plan
+## Scene 2 — keep one number instead
+visual: worked example (tier 1)
+duration: ~12s
+stage: insight
+example: chapter
+
+- spoken: "Instead, keep one total as you go. On 2, 5, 1, it reads 2, then 7, then 8."
+  display: "Instead, keep one total as you go. On 2, 5, 1, it reads 2, then 7, then 8."
+  source: [p003, p005]
+
+## Scene 3 — plan
 visual: plan card (tier 1)
 duration: ~16s
 stage: plan
