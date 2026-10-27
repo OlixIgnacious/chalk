@@ -1269,6 +1269,11 @@ test("check-spoken: --min-you fails a part that never talks to the viewer", () =
   assert.equal(run("check-spoken.mjs", talk, "--min-you", "0.1").status, 0);
 });
 
+test("check-spoken: two pause markers in a row are a warning, because only the second is heard", () => {
+  const p = write("double.md", '## Scene 1 — x\n- spoken: "It keeps re-reading the past. {pause}"\n  display: "x"\n  source: [p1]\n\n- spoken: "{beat} What if we remembered?"\n  display: "x"\n  source: [p1]\n');
+  assert.match(run("check-spoken.mjs", p).stderr, /two pause markers together; only the second is heard/);
+});
+
 test("check-spoken: --banned fails a term in either layer, as a whole word only", () => {
   const p = write(
     "banned.md",

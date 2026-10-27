@@ -158,6 +158,13 @@ for (const file of files) {
       warnings.push(`"${e.slice(0, 50)}" answers its question with a bare "${m[1]}" — answer with the reason, the way a teacher would`);
     }
   }
+  // two markers in a row ("…the past. {pause}" then "{beat} What if…") keep only the last: the pause is lost
+  scenes.forEach((s) => s.forEach((e, i) => {
+    const next = s[i + 1];
+    if (next && /\{(beat|pause|think)\}\s*$/.test(e) && /^\s*\{(beat|pause|think)\}/.test(next)) {
+      warnings.push(`"${e.slice(-40)}" and "${next.slice(0, 30)}…" put two pause markers together; only the second is heard — keep one`);
+    }
+  }));
   // a build or a plan read straight through is a list read aloud: give the viewer a breath between steps
   scenes.forEach((s, i) => {
     if (/^(code build|plan card)$/.test(s.visual ?? "") && s.length > 3 && !s.some((e) => /\{(pause|beat|think)\}/.test(e))) {
