@@ -1174,14 +1174,31 @@ test("narrate: the engine meta carries the voice id, and markers never reach the
   assert.ok(!/\{beat\}|\{pause\}/.test(readFileSync(join(dir, "audio_meta.json"), "utf8")));
 });
 
+test("narrate: a marker that ends a frame becomes the silence before the next take", () => {
+  if (!haveKokoro) return "kokoro is not installed here";
+  need(narr);
+  const two = (name, end) => {
+    const dir = join(tmp, name);
+    mkdirSync(dir, { recursive: true });
+    const script = join(dir, "SCRIPT.md");
+    writeFileSync(script, `# S\n\n## Line 1 — a (Frame 1)\n\n    Here it is.${end}\n\n## Line 2 — b (Frame 2)\n\n    Then the next.\n`);
+    const r = spawnSync(process.execPath, [join(scripts, "narrate.mjs"), "--script", script, "--out", dir, "--no-transcribe",
+      "--python", pyKokoro, "--voice", "af_heart"], { encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr);
+    return wavSeconds(join(dir, "assets/voice/02.wav"));
+  };
+  const plain = two("nar5", ""), paused = two("nar6", " {pause}");
+  assert.ok(paused - plain > 0.7, `frame 2 should open with about a second of silence (${plain.toFixed(2)}s vs ${paused.toFixed(2)}s)`);
+});
+
 test("narrate: missing flags, a missing script and an unknown voice are reported", () => {
   need(narr);
   assert.equal(run("narrate.mjs").status, 2);
   assert.equal(run("narrate.mjs", "--script", join(tmp, "nope.md"), "--out", tmp, "--no-transcribe").status, 2);
-  const tail = write("SCRIPT-tail.md", "## Line 1 (Frame 1)\n\n    Here it is. {pause}\n\n## Line 2 (Frame 2)\n\n    Then {beat} the next.\n");
+  const tail = write("SCRIPT-tail.md", "## Line 1 (Frame 1)\n\n    Here it is.\n\n## Line 2 (Frame 2)\n\n    Then {beat} the next. {pause}\n");
   const refused = run("narrate.mjs", "--script", tail, "--out", tmp, "--no-transcribe");
-  assert.equal(refused.status, 2, "a take that ends on a marker is refused before any audio is made");
-  assert.match(refused.stderr, /frame\(s\) 1 end on a pause marker/);
+  assert.equal(refused.status, 2, "a last take that ends on a marker is refused before any audio is made");
+  assert.match(refused.stderr, /frame 2 ends on a pause marker, but it is the last frame/);
   if (!haveKokoro) return "kokoro is not installed here, so the voice check cannot run";
   const { r } = narrateRun("nar4", "Hello there.", "--voice", "not_a_voice");
   assert.equal(r.status, 2);

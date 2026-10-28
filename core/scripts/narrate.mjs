@@ -39,7 +39,7 @@ export function stripMarkers(text) {
  * Narration into pieces, each carrying the kind of silence that follows it:
  * "question" after a "?", "sentence" after a "." or "!", "beat" / "pause" / "think" where the writer put a marker
  * (which REPLACES the natural gap), and null after the last piece. A trailing marker is ignored here;
- * the --script path refuses one rather than lose it.
+ * the --script path turns one into the next take's lead, and refuses one on the last frame.
  */
 export function splitSpoken(text) {
   const out = [];
@@ -192,14 +192,16 @@ function main() {
   if (!existsSync(scriptPath)) die(`cannot read ${scriptPath} — no such file`);
   const frames = parseScript(readFileSync(scriptPath, "utf8"));
   if (!frames.length) die(`${scriptPath} has no "## … (Frame N)" blocks with narration`);
-  // a marker with nothing after it in its take would be dropped (splitSpoken), losing a pause the writer asked for
-  const trailing = frames.filter((f) => /\{(beat|pause|think)\}\s*$/.test(f.text)).map((f) => f.frame);
-  if (trailing.length) die(`frame(s) ${trailing.join(", ")} end on a pause marker, which a take cannot hold — move it before more words in the same frame, or remove it`);
+  // A marker that ends a frame is the silence at the scene change: it becomes the next take's lead, so the new
+  // scene's picture lands first and the voice follows. Only the last frame has no next take to carry it.
+  const tail = (f) => f.text.match(/\{(beat|pause|think)\}\s*$/)?.[1] ?? null;
+  if (frames.length && tail(frames.at(-1))) die(`frame ${frames.at(-1).frame} ends on a pause marker, but it is the last frame and no take follows to hold it — remove it`);
+  const leadFor = (i) => (i === 0 ? 0 : tail(frames[i - 1]) ? Math.max(lead, gapSeconds(tail(frames[i - 1]), `f${frames[i].frame}-lead`, gaps)) : lead);
 
   const voiceDir = join(outDir, "assets/voice");
   mkdirSync(voiceDir, { recursive: true });
   const pad = (n) => String(n).padStart(2, "0");
-  const takes = synth(frames.map((f, i) => ({ out: join(voiceDir, `${pad(f.frame)}.wav`), lead: i === 0 ? 0 : lead, pieces: piecesFor(f.text, `f${f.frame}`) })));
+  const takes = synth(frames.map((f, i) => ({ out: join(voiceDir, `${pad(f.frame)}.wav`), lead: leadFor(i), pieces: piecesFor(f.text, `f${f.frame}`) })));
 
   const noTranscribe = argv.includes("--no-transcribe");
   const engine = flag("engine", "auto");

@@ -39,7 +39,7 @@ A phrase that is not in the narration stops the build and prints the words it ha
 ## What it fixed from the first build
 
 Voice from `channel.json`, never a default · fonts and GSAP staged automatically · code auto-fit to its
-longest line · labels at the 28px phone floor · a take that ends on a pause marker is refused · specs kept
+longest line · labels at the 28px phone floor · a pause marker ending a scene becomes the next take's lead (refused on the last scene) · specs kept
 outside `work/` · render copied before the VTT, so a caption error never loses the MP4.
 
 From the second build (DSA Patterns #1): `gen.py` runs on the pipeline Python, so trace scripts see the

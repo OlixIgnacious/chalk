@@ -25,8 +25,9 @@ The voice comes from `channel.json` (`voice`, `speed`, `polish`); there is no si
 `framelib.py`'s components — `code_build`, `code_trace`, `plan_card`, `roadmap`, `code_show`, `cells`,
 `table`, … — and every reveal is cued on a spoken word. The orientation is added for you: series chrome,
 the progress strip of this video's stages, and the stage card on each part's first frame (not the hook's: it opens on its example). Code panels are
-auto-fitted to their longest line and marked for the eval's verbatim check. `setup` refuses a take that
-ends on a pause marker, because `narrate` drops it.
+auto-fitted to their longest line and marked for the eval's verbatim check. A pause marker that ends a scene
+becomes the silence before the next scene's take, so the picture changes first and the voice follows; `setup`
+refuses one only on a part's last scene, where no take follows to hold it.
 
 ## Order of operations
 

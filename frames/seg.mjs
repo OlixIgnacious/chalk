@@ -96,9 +96,9 @@ function setup() {
   const cited = [...new Set(scenes.flatMap((s) => s.entries.flatMap((e) => e.source)))];
   const video = existsSync(join(OUT, "video.json")) ? JSON.parse(readFileSync(join(OUT, "video.json"), "utf8")) : {};
   const ch = channel();
-  // narrate ignores a marker that ends a take: the pause would silently vanish
-  const dropped = scenes.filter((s) => /\{(beat|pause|think)\}\s*$/.test(s.entries.at(-1)?.spoken ?? ""));
-  if (dropped.length) die(`a pause marker ends scene(s) ${dropped.map((s) => s.n).join(", ")}; narrate drops it — move the marker before more words in the same scene, or remove it`);
+  // a marker ending a scene becomes the silence before the next scene's take (narrate); the last scene has no next take
+  const last = scenes.at(-1);
+  if (last && /\{(beat|pause|think)\}\s*$/.test(last.entries.at(-1)?.spoken ?? "")) die(`a pause marker ends scene ${last.n}, the last in the part; no take follows to hold it — remove it`);
 
   writeFileSync(
     join(proj, "BRIEF.md"),
