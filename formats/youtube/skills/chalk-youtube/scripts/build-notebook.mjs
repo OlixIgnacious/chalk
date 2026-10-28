@@ -79,10 +79,14 @@ export function buildNotebook({ chapter, manifest, scenesBySegment, starts, read
       }
     }
 
-    // Derived examples: the script is the only source of the numbers the video showed.
+    // Derived examples and traces: the script is the only source of the numbers the video showed. A script two
+    // scenes share (a trace drawn twice) becomes one cell.
+    const scripts = new Set();
     for (const sc of scenes) {
-      if (sc.example !== "derived") continue;
+      if (sc.example !== "derived" && !sc.computedBy) continue;
       const file = sc.computedBy ?? "";
+      if (file && scripts.has(file)) continue;
+      scripts.add(file);
       const body = file ? readSegmentFile(seg.id, file) : null;
       if (body === null) {
         problems.push(`segment ${seg.id}: scene "${sc.title}" computes its example in ${file || "(nothing)"}, which is missing`);
@@ -97,21 +101,17 @@ export function buildNotebook({ chapter, manifest, scenesBySegment, starts, read
       code(`# computed-by: ${file}\n${body.replace(/\s+$/, "")}`);
     }
 
-    // Exercises this segment cites become try-it stubs.
-    for (const b of chapter.blocks) {
-      if (b.kind !== "exercise" || !cited.has(b.id)) continue;
-      used.add(b.id);
-      md(`**Try it** (\`${b.id}\`). ${b.text}`);
-      code("# your code here\n");
-    }
-  }
-
-  const rest = chapter.blocks.filter((b) => b.kind === "exercise" && !used.has(b.id));
-  if (rest.length) {
-    md("## More to try\n");
-    for (const b of rest) {
-      md(`**Try it** (\`${b.id}\`). ${b.text}`);
-      code("# your code here\n");
+    // The practice part's problems, as the list it shows: problems to try alone, no stubs and no solutions.
+    // No "try it" cells either: this channel has no exercises, and ingest also tags lines such as
+    // "Question it answers: …" as exercises, which made stubs out of the pattern's own question.
+    for (const sc of scenes.filter((x) => (x.stage ?? "").toLowerCase() === "practice")) {
+      for (const id of [...new Set(sc.entries.flatMap((e) => e.source ?? []))]) {
+        const b = byId.get(id);
+        if (b && b.kind !== "code" && !used.has(id)) {
+          used.add(id);
+          md(b.text);
+        }
+      }
     }
   }
 

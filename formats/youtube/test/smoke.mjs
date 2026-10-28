@@ -249,7 +249,7 @@ test("notebook: the code cells run top to bottom without an error", () => {
   assert.match(r.stdout, /5\.0 5\.0/, "the derived example computes the numbers the video shows");
 });
 
-test("notebook: non-Python code is reported, not turned into a cell, and exercises become try-it stubs", () => {
+test("notebook: non-Python code is reported, not turned into a cell, and an exercise block gets no try-it stub", () => {
   const dir = join(tmp, "nb4");
   const { notebook, skipped } = nb.buildNotebook({
     chapter: chapterJson("nb4c"), manifest: manifestFor(), scenesBySegment: scenesFor(dir), starts: null, readSegmentFile: readSeg(dir),
@@ -258,7 +258,23 @@ test("notebook: non-Python code is reported, not turned into a cell, and exercis
   assert.ok(!notebook.cells.some((c) => c.cell_type === "code" && c.source.join("").includes("const mean")));
   const md = notebook.cells.filter((c) => c.cell_type === "markdown").map((c) => c.source.join("")).join("\n");
   assert.match(md, /`c007` is not included as a cell \(language: javascript\)/);
-  assert.match(md, /\*\*Try it\*\* \(`x008`\)/);
+  assert.doesNotMatch(md, /Try it|More to try/, "the channel has no exercises: no stubs, cited or not");
+  assert.ok(!notebook.cells.some((c) => c.source.join("").includes("# your code here")));
+});
+
+test("notebook: the practice part lists its problems as text, and a trace script becomes a cell", () => {
+  const chapter = { title: "t", blocks: [{ id: "p001", kind: "para", text: "| Problem | What it asks |\n|---|---|\n| Happy Number (LeetCode 202) | Does it reach 1? |" }] };
+  const { notebook } = nb.buildNotebook({
+    chapter, manifest: { segments: [{ id: "01", title: "trace" }, { id: "02", title: "Practice" }] },
+    scenesBySegment: {
+      "01": [{ title: "trace it", example: "chapter", computedBy: "examples/t.py", entries: [{ source: [] }] }],
+      "02": [{ title: "four to try", stage: "practice", entries: [{ source: ["p001"] }] }],
+    },
+    starts: null, readSegmentFile: (sid, f) => (sid === "01" && f === "examples/t.py" ? "print(1)" : null),
+  });
+  const all = notebook.cells.map((c) => c.source.join("")).join("\n");
+  assert.match(all, /Happy Number \(LeetCode 202\)/);
+  assert.match(all, /# computed-by: examples\/t\.py\nprint\(1\)/);
 });
 
 test("notebook: an untagged code block is skipped rather than assumed to be Python", () => {

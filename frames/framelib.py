@@ -33,7 +33,7 @@ FONTS = [("Barlow", w, f"barlow-latin-{w}-normal.woff2") for w in (400, 600, 700
 STAGE_NAMES = {
     "hook": "Intro", "spot": "Spot it", "problem": "Problem", "think": "Think", "insight": "The idea", "plan": "Plan",
     "write": "Code", "trace": "Trace", "why-fast": "Why fast", "bug": "The bug", "other-ways": "Other ways",
-    "interview": "Interview", "bonus": "Bonus", "recap": "Recap",
+    "interview": "Interview", "bonus": "Bonus", "practice": "Practice", "recap": "Recap",
 }
 
 esc = html.escape

@@ -22,6 +22,10 @@ Write `<output-dir>/outline.md`. This is where the video is decided; the rest ju
 5. **Per chapter** — the concepts covered, the source block ids, and the **example slot** below.
 6. **The outro** — a 30–60s close that says the chapter's point in plain words and what to try next, not a
    restatement in the chapter's wording. It never claims more than the chapter does.
+   Just before it, a **practice** part (`stage: practice`, its own YouTube chapter): three or four similar
+   problems for the viewer to try alone — name, number and what each asks, from the source's own list. No
+   solutions or hints: it is a list to try, not a lesson or a quiz. If the source has no such list, it is a gap
+   for the author, not a list from memory.
 7. **Design preset** — chosen once, for the whole video. House look: dark, high-contrast, low-chroma,
    one accent, generous negative space, line-drawn diagrams.
 8. **Gaps** — anything the chapter asserts without explaining. Name it; do not invent the explanation.
@@ -80,7 +84,7 @@ chapter's example". The outline plans the orientation instead:
   This comes **after** the example and the question, and takes at most two sentences (~6 s).
 - **Roadmap (optional).** If the hook has a `visual: roadmap` scene, it uses the same stage list as the
   progress strip and is never narrated stage by stage. The progress strip already orients the viewer.
-- **Stages.** Every scene declares `stage:` (the arc names below, plus `hook`, `recap`). The stage card
+- **Stages.** Every scene declares `stage:` (the arc names below, plus `hook`, `practice`, `recap`). The stage card
   that opens each part and the progress strip are built from them.
 - **Next.** The last part names the next part of the series by its title, and leaves ~20s for YouTube's
   end screen.
