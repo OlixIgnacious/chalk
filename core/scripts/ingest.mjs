@@ -615,7 +615,10 @@ const chapter = {
 
 try {
   mkdirSync(dirname(outFile), { recursive: true });
-  writeFileSync(outFile, JSON.stringify(chapter, null, 2) + "\n");
+  // LOCAL FIX: an unchanged chapter keeps its file, so its mtime too: grounding.md is judged by being newer than
+  // chapter.json, and a rewrite of the same bytes made every fact check look stale.
+  const text = JSON.stringify(chapter, null, 2) + "\n";
+  if (!existsSync(outFile) || readFileSync(outFile, "utf8") !== text) writeFileSync(outFile, text);
 } catch (err) {
   die(`cannot write ${outFile} — ${err.message}`);
 }

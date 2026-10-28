@@ -30,7 +30,9 @@ FORMATS.toy = [
   { name: "gates", kind: "run", inputs: (o) => o.segments.map((nn) => `segments/${nn}/script.md`), outputs: () => [],
     cmd: () => ["node", "-e", `require("fs").appendFileSync(${JSON.stringify(LOG)}, "gates\\n")`] },
   { name: "approved", kind: "approve", inputs: (o) => o.segments.map((nn) => `segments/${nn}/script.md`), missing: "your approval" },
-  { name: "narrate", kind: "run", per: "segment", jobs: true, inputs: (o, nn) => [`segments/${nn}/script.md`],
+  // narration depends on the script's first line only (in the real stages: its spoken lines), so a note added
+  // below it, like a citation, does not re-narrate
+  { name: "narrate", kind: "run", per: "segment", jobs: true, inputs: (o, nn) => [{ path: `segments/${nn}/script.md`, as: "said", only: (t) => t.split("\n")[0] }],
     outputs: (o, nn) => [`work/${nn}/words.json`], cmd: (o, nn) => step(`narrate ${nn}`, `work/${nn}/words.json`, `segments/${nn}/script.md`) },
   { name: "align", kind: "run", per: "segment", inputs: (o, nn) => [`work/${nn}/words.json`, ALIGNER],
     outputs: (o, nn) => [`work/${nn}/captions.json`], cmd: (o, nn) => step(`align ${nn}`, `work/${nn}/captions.json`, [`work/${nn}/words.json`, ALIGNER]) },
@@ -106,6 +108,14 @@ test("a changed script stops for approval again, then redoes only that segment",
   approve(out, "approved", { format: "toy" });
   assert.equal(await go(), 0);
   assert.deepEqual(ran(), ["align 00", "deliver", "frames 00", "narrate 00"]);
+});
+
+test("narration hashes only what it reads: a line the voice never says leaves it done", async () => {
+  appendFileSync(join(out, "segments/01/script.md"), "source: [p001]\n");
+  assert.equal(await go(), 3, "the script changed, so it waits for approval");
+  approve(out, "approved", { format: "toy" });
+  assert.equal(await go(), 0);
+  assert.deepEqual(ran(), ["gates"], "no narration, alignment or frames for a line that is not spoken");
 });
 
 test("status shows a stage that looks done as waiting while an upstream stage will rewrite its input", () => {

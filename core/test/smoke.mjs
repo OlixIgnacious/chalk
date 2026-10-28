@@ -802,6 +802,57 @@ test("align-captions: a number word and its digit are the same word", () => {
   assert.equal(w[4][1], 1.1, '"3" matches the heard "three"');
 });
 
+test("align-captions: a short function word the transcript dropped or swapped is timed, not a mismatch", () => {
+  const tokens = write(
+    "drop-tokens.json",
+    JSON.stringify({ lines: [{ id: "l1", tokens: ["the", "letters", "of", "s", "in", "this", "series"] }] }),
+  );
+  const words = write(
+    "drop-words.json",
+    JSON.stringify([
+      { text: "the", start: 0.0, end: 0.2 },
+      { text: "letters", start: 0.2, end: 0.6 },
+      { text: "S", start: 0.6, end: 0.8 },
+      { text: "in", start: 0.8, end: 0.9 },
+      { text: "the", start: 0.9, end: 1.0 },
+      { text: "series.", start: 1.0, end: 1.5 },
+    ]),
+  );
+  const dest = out("drop.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, `dropped function words must not fail:\n${r.stderr}`);
+  assert.match(r.stderr, /dropped line=l1 "of"/);
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.deepEqual(w.map((x) => x[1]), [0.0, 0.2, 0.4, 0.6, 0.8, 0.85, 1.0], '"of" sits inside the end of "letters"; "this" (heard "the") inside the end of "in"');
+
+  // a dropped "a" must not borrow the first letter of a later "and" ("turns a into zero and z" heard "turns into 0, and Z")
+  const t3 = write("drop3-tokens.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["turns", "a", "into", "zero", "and", "z"] }] }));
+  const w3 = write("drop3-words.json", JSON.stringify([
+    { text: "turns", start: 0.0, end: 0.3 }, { text: "into", start: 0.3, end: 0.5 }, { text: "0,", start: 0.5, end: 0.8 },
+    { text: "and", start: 0.8, end: 1.0 }, { text: "Z", start: 1.0, end: 1.2 },
+  ]));
+  const d3 = out("drop3.json");
+  const r3 = run("align-captions.mjs", "--tokens", t3, "--words", w3, "--out", d3);
+  assert.equal(r3.status, 0, r3.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(d3, "utf8")).lines[0].w.map((x) => x[1]), [0.0, 0.15, 0.3, 0.5, 0.8, 1.0]);
+
+  // a dropped "it" must not fuzzy-match the "is" two words on ("changes it. Second, is" heard "changes. Second, is")
+  const t4 = write("drop4-tokens.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["changes", "it.", "Second,", "is", "memory"] }] }));
+  const w4 = write("drop4-words.json", JSON.stringify([
+    { text: "changes.", start: 0.0, end: 0.4 }, { text: "Second,", start: 0.5, end: 0.9 }, { text: "is", start: 0.9, end: 1.0 }, { text: "memory", start: 1.0, end: 1.4 },
+  ]));
+  const d4 = out("drop4.json");
+  const r4 = run("align-captions.mjs", "--tokens", t4, "--words", w4, "--out", d4);
+  assert.equal(r4.status, 0, r4.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(d4, "utf8")).lines[0].w.map((x) => x[1]), [0.0, 0.2, 0.5, 0.9, 1.0], '"it" sits inside the end of "changes", before the next sentence');
+
+  // a dropped content word still fails
+  const t2 = write("drop2-tokens.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["the", "letters", "vanished", "here"] }] }));
+  const r2 = run("align-captions.mjs", "--tokens", t2, "--words", words, "--out", out("drop2.json"));
+  assert.equal(r2.status, 1);
+  assert.match(r2.stderr, /MISMATCH line=l1 display="vanished"/);
+});
+
 // The same VO returns "100,000" in one sentence and "a hundred thousand" in the next, and reads 217 as
 // "two seventeen". A numeral token must take the run of number words that says it.
 test("align-captions: a numeral matches the number words that say it", () => {

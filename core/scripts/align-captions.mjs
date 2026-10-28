@@ -60,7 +60,9 @@ const NUMBER_WORDS = {
   nineteen: "19", twenty: "20", thirty: "30", forty: "40", fifty: "50", sixty: "60", seventy: "70",
   eighty: "80", ninety: "90",
 };
-const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues" };
+const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues", i: "eye" };
+// Short function words a transcript may leave out or swap for another; see the dropped-word fix below.
+const DROPPABLE = new Set(["a", "an", "the", "this", "that", "of", "up", "to", "in", "on", "and", "so", "it", "is"]);
 const norm = (s) => {
   const t = s.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (NUMBER_WORDS[t]) return NUMBER_WORDS[t];
@@ -134,6 +136,8 @@ const lev = (a, b) => {
 const close = (a, b) => {
   if (!a || !b) return false;
   if (a === b || a.startsWith(b) || b.startsWith(a)) return true;
+  // one edit turns any short word into another ("a" into "0", "it" into "is"): words under 4 letters match exactly
+  if (Math.min(a.length, b.length) < 4) return false;
   return lev(a, b) <= Math.max(1, Math.floor(Math.min(a.length, b.length) / 3));
 };
 
@@ -199,14 +203,31 @@ for (const line of script.lines) {
     }
     // try at the cursor, then resync up to 4 words ahead
     let hit = null;
+    // LOCAL FIX: past the cursor, only a match that ends on a word boundary: a dropped "a" otherwise
+    // matched the first letter of an "and" two words on, and every token after it was out of step.
     for (let skip = 0; skip <= 4 && !hit; skip++) {
       hit = consume(si + skip, skip === 0 ? soff : 0, spokenNorm);
+      if (hit && skip > 0 && hit.off) hit = null;
     }
     if (!hit && /^\d+$/.test(spokenNorm)) {
       for (let skip = 0; skip <= 4 && !hit; skip++) {
         const n = numberWords(si + skip, spokenNorm);
         if (n) hit = { start: stream[si + skip].start, next: si + skip + n, off: 0 };
       }
+    }
+    // LOCAL FIX: a transcript drops or swaps short function words that were said ("letters of s" heard
+    // "letters S", "turns a into" heard "turns into", "this series" heard "the series"). Such a word
+    // is timed where the word heard before it ends (not where the next starts: a dropped last word of a
+    // sentence then began the same instant as the next caption, a cue of no length), and the cursor
+    // stays put, so the word after it still matches. A real gap still fails there, on the next content word.
+    if (!hit && DROPPABLE.has(spokenNorm)) {
+      console.error(`dropped line=${line.id} "${display}": not in the transcript (a short function word), timed with the next word heard`);
+      // just inside the end of the word heard before it (up to 0.2s, never before its middle): at its very end
+      // the dropped word still started with the next caption when the two words touch
+      const prev = si > 0 ? stream[si - 1] : null;
+      const before = prev ? (prev.end ?? prev.start) - Math.min(0.2, ((prev.end ?? prev.start) - prev.start) / 2) : null;
+      w.push([display, before != null ? +before.toFixed(2) : si < stream.length ? +stream[si].start.toFixed(2) : lastEnd]);
+      continue;
     }
     if (!hit) {
       console.error(

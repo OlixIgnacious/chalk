@@ -37,6 +37,10 @@ narrate() {
   (cd $P && $CORE narrate --script SCRIPT.md --out . --voice "$VOICE" --speed "$SPEED" ${EXTRA[@]+"${EXTRA[@]}"} --lead 0.6 --lexicon "$OUT/lexicon.json" --python "$PY" | tail -3)
   node "$TOOLS/seg.mjs" sync $NN
   node "$TOOLS/seg.mjs" words $NN
+  # sync rewrites audio_meta.json with the transcript's words, undoing apply-display. A new take often
+  # transcribes word for word the same, so align's input hash does not change: drop its output instead,
+  # so the runner always aligns again after a narration.
+  rm -f work/$NN/captions.json
 }
 align() {
   $CORE build-tokens segments/$NN/script.md lexicon.json work/$NN/script-tokens.json

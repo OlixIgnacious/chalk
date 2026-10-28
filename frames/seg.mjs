@@ -30,8 +30,17 @@ const channel = () => {
   return p ? JSON.parse(readFileSync(p, "utf8")) : null;
 };
 const FE = join(homedir(), ".claude/skills/faceless-explainer");
-const HOLD = Number(process.env.END_HOLD ?? 1.8); // the outro's hold; ~20s leaves room for YouTube's end screen
 const [cmd, nn] = process.argv.slice(2);
+// each part ends on a short hold; the video's last part (the outro) on ~20s, room for YouTube's end screen.
+// END_HOLD overrides both. The outro used to get 1.8s unless END_HOLD=20 was passed by hand.
+const lastPart = () => {
+  try {
+    return readdirSync(join(OUT, "segments")).filter((d) => /^\d\d$/.test(d)).sort().at(-1);
+  } catch {
+    return null;
+  }
+};
+const HOLD = Number(process.env.END_HOLD ?? (nn && nn === lastPart() ? 20 : 1.8));
 if (cmd === "voice") {
   const c = channel();
   if (!c?.voice) {

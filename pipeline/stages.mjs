@@ -19,6 +19,14 @@ const chalk = join(REPO, "bin/chalk.mjs");
 const coreBin = join(REPO, "core/bin/chalk-core.mjs");
 
 /** Files every narration depends on besides the segment's own script. */
+const spokenOnly = (md) => md.split("\n").filter((l) => /^##\s/.test(l) || /^\s*-\s*spoken:/.test(l)).join("\n");
+const lexiconSpoken = (t) => {
+  try {
+    return JSON.stringify((JSON.parse(t).terms ?? []).map(({ display, spoken }) => [display, spoken]));
+  } catch {
+    return t;
+  }
+};
 const NARRATE_CODE = [core("narrate.mjs"), core("kokoro_narrate.py"), frames("seg.mjs")];
 const ALIGN_CODE = [core("build-tokens.mjs"), core("align-captions.mjs"), core("apply-display.mjs")];
 const FRAME_CODE = [frames("framelib.py"), frames("gen.py"), frames("build.sh"), core("fix-index.mjs")];
@@ -57,7 +65,7 @@ export const youtube = [
       ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
         ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16",
         ...(o.channel?.min_you != null ? ["--min-you", String(o.channel.min_you)] : [])],
-      ["node", chalk, "eval", ".", "--format", "youtube", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+      ["node", chalk, "eval", ".", "--format", "youtube", "--text", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
   },
   {
@@ -79,7 +87,10 @@ export const youtube = [
     kind: "run",
     per: "segment",
     jobs: true,
-    inputs: (o, nn) => [`segments/${nn}/script.md`, "lexicon.json", o.channelPath, ...NARRATE_CODE].filter(Boolean),
+    // what the voice says and how it is cut into takes: the spoken lines, the scene breaks and each lexicon
+    // term's spoken form. A citation, a display word or an on-screen line does not re-narrate a part.
+    inputs: (o, nn) => [{ path: `segments/${nn}/script.md`, as: "spoken", only: spokenOnly }, { path: "lexicon.json", as: "spoken", only: lexiconSpoken },
+      o.channelPath, ...NARRATE_CODE].filter(Boolean),
     outputs: (o, nn) => [`segments/${nn}/video/audio_meta.json`, `work/${nn}/words.json`],
     cmd: (o, nn) => ["bash", frames("build.sh"), nn, "narrate"],
   },

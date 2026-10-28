@@ -92,7 +92,14 @@ const abs = (o, p) => (isAbsolute(p) ? real(p) : join(o.out, p));
 const key = (stage, nn) => (nn ? `${stage.name}:${nn}` : stage.name);
 const inputHash = (o, stage, nn) => {
   const h = createHash("sha1");
-  for (const p of stage.inputs(o, nn)) h.update(`${isAbsolute(p) ? real(p) : p}=${hashPath(abs(o, p))};`);
+  for (const p of stage.inputs(o, nn)) {
+    // { path, only }: the stage depends on part of a file (narration on a script's spoken lines, not its citations)
+    if (typeof p === "object") {
+      const f = abs(o, p.path);
+      const part = existsSync(f) ? createHash("sha1").update(p.only(readFileSync(f, "utf8"))).digest("hex").slice(0, 16) : "missing";
+      h.update(`${p.path}[${p.as}]=${part};`);
+    } else h.update(`${isAbsolute(p) ? real(p) : p}=${hashPath(abs(o, p))};`);
+  }
   return h.digest("hex").slice(0, 16);
 };
 
