@@ -1,0 +1,18 @@
+{
+  "voice": "af_heart:0.7,af_bella:0.3",
+  "speed": 0.92,
+  "series": {
+    "name": "Test Patterns",
+    "parts": [
+      {
+        "id": "running-total",
+        "title": "Running Totals"
+      },
+      {
+        "id": "prefix",
+        "title": "Prefix Sums"
+      }
+    ]
+  },
+  "banned_terms": []
+}

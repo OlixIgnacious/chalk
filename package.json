@@ -1,20 +1,24 @@
 {
-  "name": "chalk-lessons",
-  "version": "0.1.0",
-  "description": "Turn a book chapter into minimal animated lessons",
+  "name": "chalk",
+  "version": "0.7.0",
+  "description": "Turn a source document into grounded teaching outputs: a YouTube video with its upload kit, an interactive lesson, and a notebook",
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    "core",
+    "formats/youtube",
+    "formats/lesson"
+  ],
   "scripts": {
-    "test": "node test/smoke.mjs",
-    "test:player": "node test/player-browser.mjs",
-    "doctor": "npx hyperframes doctor",
-    "skills": "npx hyperframes skills"
+    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs && node test/frames.mjs && node test/pipeline.mjs",
+    "eval": "node evals/run.mjs",
+    "doctor": "node bin/chalk.mjs doctor"
   },
-  "dependencies": {
-    "chalk-core": "file:../chalk-core"
+  "bin": {
+    "chalk": "bin/chalk.mjs"
   }
 }

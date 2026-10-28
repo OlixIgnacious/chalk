@@ -1,0 +1,43 @@
+{
+  "title": "Test Patterns #1: Running Totals",
+  "part_id": "running-total",
+  "thesis": "Keep one running total.",
+  "segments": [
+    {
+      "id": "00",
+      "title": "Running totals, start to finish"
+    },
+    {
+      "id": "01",
+      "title": "The problem, then spot it"
+    },
+    {
+      "id": "02",
+      "title": "Think it through, then plan"
+    },
+    {
+      "id": "03",
+      "title": "Write it line by line"
+    },
+    {
+      "id": "04",
+      "title": "Trace it on [2, 5, 1]"
+    },
+    {
+      "id": "05",
+      "title": "Why it's fast, and the bug"
+    },
+    {
+      "id": "06",
+      "title": "Other ways, and the interview"
+    },
+    {
+      "id": "07",
+      "title": "Bonus: the total at every position"
+    },
+    {
+      "id": "08",
+      "title": "Recap, and what's next"
+    }
+  ]
+}
