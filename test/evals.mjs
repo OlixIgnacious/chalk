@@ -15,7 +15,8 @@
 
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
-import { cpSync, mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { cpSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -78,6 +79,28 @@ test("T9 reads the insight's frames: a text card fails, the example drawn as val
   const cells = card + "<div>2</div><div>5</div><div>1</div><div>2</div><div>7</div><div>8</div>";
   writeFileSync(join(frames, "f02-keep-one-number-instead.html"), cells);
   assert.equal(t9().status, "pass", t9().evidence.join("\n"));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("video.json accepted: a kept failure stops failing the run but still scores nothing; a passing one is stale", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-acc-"));
+  cpSync(fx("rushed"), dir, { recursive: true });
+  const vj = join(dir, "video.json");
+  const video = JSON.parse(readFileSync(vj, "utf8"));
+  const before = evaluate(dir);
+  writeFileSync(vj, JSON.stringify({ ...video, accepted: { T6: "the sort is shown at a glance", T7: "kept", T8: "kept", O1: "never failed" } }));
+  const r = evaluate(dir);
+  assert.deepEqual(failing(r).sort(), ["E4", "G4", "G5", "R5", "T1"]);
+  assert.deepEqual(r.results.filter((x) => x.status === "accepted").map((x) => x.id).sort(), ["T6", "T7", "T8"]);
+  assert.equal(r.results.find((x) => x.id === "T6").reason, "the sort is shown at a glance");
+  assert.equal(r.score, before.score, "an accepted failure earns no points");
+  assert.deepEqual(r.stale, ["O1"]);
+  const cli = (args) => spawnSync(process.execPath, [join(root, "evals/run.mjs"), dir, "--no-write", ...args], { encoding: "utf8" });
+  assert.equal(cli([]).status, 1, "the other failures still fail the run");
+  writeFileSync(vj, JSON.stringify({ ...video, accepted: Object.fromEntries(failing(before).map((id) => [id, "kept"])) }));
+  const ok = cli([]);
+  assert.equal(ok.status, 0, ok.stdout.slice(-600));
+  assert.match(ok.stdout, /accepted: kept/);
   rmSync(dir, { recursive: true, force: true });
 });
 

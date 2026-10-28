@@ -90,21 +90,31 @@ export function evaluate(outDir, { format = "youtube", channelPath, deep = false
     }
     return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...r };
   });
+  // video.json "accepted": { "T6": "why" } — a failure the user chose to keep. It still scores nothing, but it
+  // no longer fails the run, so one part can be rebuilt without fixing it. One that now passes is reported stale.
+  const accepted = ctx.video?.accepted ?? {};
+  const stale = [];
+  for (const r of results) {
+    if (!(r.id in accepted)) continue;
+    if (r.status === "fail") Object.assign(r, { status: "accepted", reason: accepted[r.id] });
+    else stale.push(r.id);
+  }
   const ran = results.filter((r) => r.status !== "skip");
   const max = ran.reduce((a, r) => a + r.weight, 0);
   const got = ran.filter((r) => r.status === "pass").reduce((a, r) => a + r.weight, 0);
   const groups = Object.fromEntries(
     pack.groups.map((g) => {
       const rs = results.filter((r) => r.group === g);
-      const st = rs.some((r) => r.status === "fail") ? "fail" : rs.every((r) => r.status === "skip") ? "skip" : "pass";
+      const st = rs.some((r) => r.status === "fail") ? "fail" : rs.every((r) => r.status === "skip") ? "skip"
+        : rs.some((r) => r.status === "accepted") ? "accepted" : "pass";
       return [g, st];
     }),
   );
-  return { dir: ctx.dir, format, channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results };
+  return { dir: ctx.dir, format, channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results, stale };
 }
 
 export function toMarkdown(report) {
-  const icon = { pass: "✅", fail: "❌", skip: "⏭️" };
+  const icon = { pass: "✅", fail: "❌", skip: "⏭️", accepted: "☑️" };
   const lines = [
     `# Tutorial eval — ${report.dir.split("/").slice(-1)[0]}`,
     "",
@@ -117,9 +127,10 @@ export function toMarkdown(report) {
     "| | Criterion | Weight | Evidence |",
     "|---|---|---|---|",
     ...report.results.map(
-      (r) => `| ${icon[r.status]} ${r.id} | ${r.title} | ${r.weight} | ${(r.evidence ?? []).slice(0, 6).map((e) => String(e).replace(/\|/g, "\\|")).join("<br>")}${(r.evidence ?? []).length > 6 ? `<br>…and ${r.evidence.length - 6} more` : ""} |`,
+      (r) => `| ${icon[r.status]} ${r.id} | ${r.title} | ${r.weight} | ${r.reason ? `accepted: ${String(r.reason).replace(/\|/g, "\\|")}<br>` : ""}${(r.evidence ?? []).slice(0, 6).map((e) => String(e).replace(/\|/g, "\\|")).join("<br>")}${(r.evidence ?? []).length > 6 ? `<br>…and ${r.evidence.length - 6} more` : ""} |`,
     ),
     "",
+    ...(report.stale?.length ? [`Accepted in video.json but passing now — remove: ${report.stale.join(", ")}`, ""] : []),
   ];
   return lines.join("\n");
 }
@@ -140,8 +151,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   if (flag("json")) console.log(JSON.stringify(report, null, 2));
   else {
-    for (const r of report.results) console.log(`${r.status.padEnd(4)} ${r.id} ${r.title}${r.status === "fail" ? `\n       ${r.evidence.slice(0, 3).join("\n       ")}` : ""}`);
-    console.log(`\neval: ${report.score}/${report.max} (${report.percent}%) — ${Object.entries(report.groups).map(([g, s]) => `${g} ${s}`).join(", ")}`);
+    for (const r of report.results) console.log(`${r.status.padEnd(4)} ${r.id} ${r.title}${r.status === "fail" ? `\n       ${r.evidence.slice(0, 3).join("\n       ")}` : r.reason ? `\n       accepted: ${r.reason}` : ""}`);
+    if (report.stale.length) console.log(`\nstale: ${report.stale.join(", ")} accepted in video.json but passing now — remove them`);
+    console.log(`\neval:${report.score}/${report.max} (${report.percent}%) — ${Object.entries(report.groups).map(([g, s]) => `${g} ${s}`).join(", ")}`);
   }
   process.exit(report.results.some((r) => r.status === "fail") ? 1 : 0);
 }

@@ -241,6 +241,10 @@ Tell the user the score and `resolution.md`'s "Do next" list, including what onl
 **Gate:** no eval criterion fails; `review.md` has no high-severity finding, or each one is shown to the
 user.
 
+A failure the user has seen and chosen to keep goes in `video.json` as `"accepted": { "T6": "<their reason>" }`,
+only on the user's say-so. It still scores nothing, but it no longer fails the run, so the text gates pass and one
+part can be rebuilt with `--only NN`. The eval names any accepted criterion that now passes; remove it then.
+
 ---
 
 ## Skill directory

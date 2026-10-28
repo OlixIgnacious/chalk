@@ -49,7 +49,7 @@ export const youtube = [
   {
     name: "text-gates",
     kind: "run",
-    inputs: (o) => ["chapter.json", "outline.md", ...o.segments.map((nn) => `segments/${nn}/script.md`), "lexicon.json",
+    inputs: (o) => ["chapter.json", "outline.md", "video.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), "lexicon.json",
       ...o.segments.map((nn) => `segments/${nn}/examples`)],
     outputs: () => [],
     cmd: (o) => [
@@ -127,7 +127,7 @@ export const youtube = [
   {
     name: "eval",
     kind: "run",
-    inputs: (o) => ["video.mp4", "captions.srt", ...o.segments.map((nn) => `segments/${nn}/script.md`), join(REPO, "evals"),
+    inputs: (o) => ["video.mp4", "captions.srt", "video.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), join(REPO, "evals"),
       join(REPO, "formats/youtube/eval")],
     outputs: () => ["eval.json", "eval.md"],
     cmd: (o) => ["node", chalk, "eval", ".", "--format", "youtube", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
