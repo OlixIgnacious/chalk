@@ -14,6 +14,7 @@ import { writeFileSync, existsSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "./lib/load.mjs";
+import { skip } from "./lib/kit.mjs";
 import * as shared from "./shared.mjs";
 import * as youtube from "../formats/youtube/eval/criteria.mjs";
 import * as lesson from "../formats/lesson/eval/criteria.mjs";
@@ -77,11 +78,17 @@ print(json.dumps(bad))
   };
 }
 
-export function evaluate(outDir, { format = "youtube", channelPath, deep = false, env = makeEnv({ deep }) } = {}) {
+// Criteria that judge what is built (frames, captions, the render, the kit, the notebook). The text gates run before
+// an edited part is built again, so --text skips them there: judged on the old build, they fail a script for the
+// state of a render that is about to be replaced. E3/E4 stay: they skip a part whose narration is stale by themselves.
+const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "T9"]);
+
+export function evaluate(outDir, { format = "youtube", channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
   const pack = PACKS[format];
   if (!pack) throw new Error(`unknown format "${format}" (${Object.keys(PACKS).join(" or ")})`);
   const ctx = { ...load(outDir, { channelPath }), format };
   const results = pack.criteria.map((c) => {
+    if (text && BUILT.has(c.id)) return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...skip("judges the build: not run in the text gates (--text)") };
     let r;
     try {
       r = c.run(ctx, env);
@@ -141,10 +148,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const val = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
   const outDir = argv.find((a, i) => !a.startsWith("--") && !["--channel", "--format"].includes(argv[i - 1]));
   if (!outDir) {
-    console.error("usage: node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--json] [--no-write]");
+    console.error("usage: node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--text] [--json] [--no-write]");
     process.exit(2);
   }
-  const report = evaluate(outDir, { format: val("format") ?? "youtube", channelPath: val("channel"), deep: flag("deep") });
+  const report = evaluate(outDir, { format: val("format") ?? "youtube", channelPath: val("channel"), deep: flag("deep"), text: flag("text") });
   if (!flag("no-write")) {
     writeFileSync(join(report.dir, "eval.json"), JSON.stringify(report, null, 2) + "\n");
     writeFileSync(join(report.dir, "eval.md"), toMarkdown(report));

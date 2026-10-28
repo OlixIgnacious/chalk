@@ -2,7 +2,7 @@
 // orientation without the source, the teaching arc, real bonus solutions and YouTube's chapter rules.
 
 import { join } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { frameText, isBonus } from "../../../evals/lib/load.mjs";
 import { pass, fail, skip, scenesOf, mainSegments, at, runningExample, frameOf } from "../../../evals/lib/kit.mjs";
 
@@ -132,7 +132,8 @@ const orientation = [
       const hook = ctx.segments[0]?.script?.scenes?.[0];
       if (!hook) return skip("no hook script");
       const text = [hook.onScreen ?? "", ...hook.entries.slice(0, 2).map((e) => e.display)].join(" ");
-      const example = /\[(?:\s*-?\d+\s*,)+\s*-?\d+\s*\]|(?<![\d,]\s?)-?\d+(?:, -?\d+){2,}/.test(text);
+      // a list of numbers, or a quoted string literal for a problem on strings ("anagram")
+      const example = /\[(?:\s*-?\d+\s*,)+\s*-?\d+\s*\]|(?<![\d,]\s?)-?\d+(?:, -?\d+){2,}|"[^"\s]{2,}"/.test(text);
       return example ? pass([`segments/${ctx.segments[0].id} scene 1 shows the example`])
         : fail([`segments/${ctx.segments[0].id}/script.md scene 1 has no example values in its on-screen line or first two lines`]);
     },
@@ -209,6 +210,28 @@ const teaching = [
         const r = env.python(by, t.seg.dir);
         if (r === null) ev.push(`${at(t.seg, t.sc.line)}: python unavailable, trace not run`);
         else if (r.status !== 0) ev.push(`${at(t.seg, t.sc.line)}: ${t.sc.computedBy} failed: ${r.stderr.trim().split("\n").at(-1)}`);
+      }
+      // A function read line by line in a "code show" (another way, the brute force) is taught like a build, so
+      // that scene must be driven by a run of it: its own computed-by script, defining the function, whose output
+      // the frame draws. An example somewhere else that defines it is not enough: the 26-slot version had one
+      // while its slots sat at zero the whole time. Short blocks (under 5 lines) and code-depth: glance are exempt.
+      // Whether the frame really changes the values is for the reviewer: a built page does not say.
+      for (const { seg, sc } of scenesOf(ctx).filter(({ sc }) => sc.visualName === "code show" && sc.code && !/glance/i.test(sc.codeDepth ?? ""))) {
+        const code = ctx.blocks.get(sc.code)?.text ?? "";
+        if (code.split("\n").filter((l) => l.trim()).length < 5 || sc.entries.filter((e) => e.lines.length).length < 4) continue;
+        if (builds.some((b) => b.sc.code === sc.code)) continue;
+        const def = code.split("\n").find((l) => /^\s*def\s/.test(l))?.trim().split("(")[0];
+        if (traces.some((x) => x.sc.code === sc.code)) continue;
+        const own = sc.computedBy ? join(seg.dir, sc.computedBy) : null;
+        if (!own || !existsSync(own)) {
+          ev.push(`${at(seg, sc.line)}: ${sc.code} is read line by line but the scene runs nothing: give it a computed-by script that runs ${def ?? "it"}`);
+          continue;
+        }
+        if (def && !readFileSync(own, "utf8").includes(def + "(")) ev.push(`${at(seg, sc.line)}: ${sc.computedBy} does not define ${def}`);
+        else {
+          const r = env.python(own, seg.dir);
+          if (r && r.status !== 0) ev.push(`${at(seg, sc.line)}: ${sc.computedBy} failed: ${r.stderr.trim().split("\n").at(-1)}`);
+        }
       }
       return ev.length ? fail(ev) : pass([`${traces.length} trace scene(s) ran`]);
     },
@@ -346,7 +369,7 @@ const teaching = [
           continue;
         }
         // drawn means each value is its own element (a cell, a chip), not the list written inside a sentence
-        const drawn = [...frame.html.matchAll(/>\s*(-?\d+)\s*</g)].map((m) => Number(m[1]));
+        const drawn = [...frame.html.matchAll(/>\s*(-?\d+|[^<>\s]{1,2})\s*</g)].map((m) => m[1]);
         const missing = [...new Set(example)].filter((v) => drawn.filter((d) => d === v).length < example.filter((e) => e === v).length);
         if (missing.length) ev.push(`${frame.file.split("/segments/")[1]}: the insight frame never draws [${example.join(", ")}] as values (missing ${missing.join(", ")}) — it tells the idea instead of showing it`);
         else ok.push(`${frame.file.split("/segments/")[1]}: draws [${example.join(", ")}]`);

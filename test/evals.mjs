@@ -15,7 +15,7 @@
 
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
-import { cpSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { cpSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, utimesSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -66,6 +66,65 @@ test("rushed fixture fails exactly what only the reviewer used to catch", () => 
   assert.match(ev("R5"), /"so it is counted once" is 28px/);
 });
 
+test("E4: narration of other words than the script's is not measured; a citation-only edit still is", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-e4w-"));
+  cpSync(fx("rushed"), dir, { recursive: true });
+  const md = join(dir, "segments/02/script.md");
+  const said = [...readFileSync(md, "utf8").matchAll(/^\s*-\s*spoken:\s*"(.*)"\s*$/gm)].map((m) => m[1]);
+  writeFileSync(join(dir, "segments/02/video/SCRIPT.md"), "# SCRIPT\n\n## Line 1\n\n    " + said.join(" ") + "\n");
+  const later = new Date(Date.now() + 60000);
+  writeFileSync(md, readFileSync(md, "utf8").replace(/source: \[/, "source: [p001, "));
+  utimesSync(md, later, later);
+  const e4 = () => evaluate(dir).results.find((x) => x.id === "E4").evidence.join("\n");
+  assert.match(e4(), /segments\/02 scene/, "only a citation changed: still measured");
+  writeFileSync(md, readFileSync(md, "utf8").replace(/spoken: "/, 'spoken: "Now, '));
+  assert.doesNotMatch(e4(), /segments\/02 scene/, "a spoken word changed: not measured");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("E4: narration older than its script is not measured (the edited part is voiced again after the text gates)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-e4-"));
+  cpSync(fx("rushed"), dir, { recursive: true });
+  const script = join(dir, "segments/02/script.md");
+  const later = new Date(Date.now() + 60000);
+  utimesSync(script, later, later);
+  const e4 = evaluate(dir).results.find((x) => x.id === "E4");
+  assert.doesNotMatch(e4.evidence.join("\n"), /segments\/02 scene/, "stale narration is not judged");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("T3: a function read line by line in a code show must be run by that scene's own computed-by script", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-t3-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const md = join(dir, "segments/07/script.md");
+  writeFileSync(md, readFileSync(md, "utf8").replace("visual: code build (tier 1)", "visual: code show (tier 1)").replace("visual: code + trace (tier 1)", "visual: worked example (tier 1)"));
+  const t3 = () => evaluate(dir).results.find((x) => x.id === "T3");
+  assert.equal(t3().status, "fail", "an example elsewhere defining it is not enough");
+  assert.match(t3().evidence.join("\n"), /c002 is read line by line but the scene runs nothing/);
+  writeFileSync(md, readFileSync(md, "utf8").replace("visual: code show (tier 1)", "visual: code show (tier 1)\ncomputed-by: examples/trace_prefix.py"));
+  assert.equal(t3().status, "pass", t3().evidence.join("\n"));
+  writeFileSync(join(dir, "segments/07/examples/trace_prefix.py"), "print('no function here')\n");
+  assert.match(t3().evidence.join("\n"), /does not define def prefix_totals/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("--text: the text gates skip criteria that judge the build, so a stale render cannot fail a script", () => {
+  const r = evaluate(fx("good"), { text: true });
+  for (const id of ["G2", "V2", "R1", "N1", "T9"]) assert.equal(r.results.find((x) => x.id === id).status, "skip", id);
+  assert.notEqual(r.results.find((x) => x.id === "T1").status, "skip");
+});
+
+test("runningExample: a problem on strings runs on a quoted word, read as its letters", async () => {
+  const { runningExample } = await import(pathToFileURL(join(root, "evals/lib/kit.mjs")).href);
+  const scene = (onScreen, display) => ({ onScreen, entries: [{ display }] });
+  const seg = (id, ...scenes) => ({ id, script: { scenes } });
+  const ctx = { video: {}, segments: [seg("00", scene('cells: "anagram" / "nagaram"', "Here are two words.")),
+    seg("01", scene("", 'Take "anagram" and count it.')), seg("02", scene('"rat" / "car"', "Rat and car."))] };
+  assert.deepEqual(runningExample(ctx), [..."anagram"]);
+  const nums = { video: {}, segments: [seg("00", scene("cells [2, 5, 1]", "x")), seg("01", scene("[2, 5, 1]", "y"))] };
+  assert.deepEqual(runningExample(nums), ["2", "5", "1"]);
+});
+
 test("T9 reads the insight's frames: a text card fails, the example drawn as values passes", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-t9-"));
   cpSync(fx("good"), dir, { recursive: true });
@@ -101,6 +160,20 @@ test("video.json accepted: a kept failure stops failing the run but still scores
   const ok = cli([]);
   assert.equal(ok.status, 0, ok.stdout.slice(-600));
   assert.match(ok.stdout, /accepted: kept/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("O6: a hook on strings opens on a quoted word; one with no values still fails", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-o6-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const hook = join(dir, "segments/00/script.md");
+  const src = readFileSync(hook, "utf8");
+  const o6 = () => evaluate(dir).results.find((x) => x.id === "O6").status;
+  writeFileSync(hook, src.replace("on-screen: cells [2, 5, 1]; total 8", 'on-screen: cells "anagram" / "nagaram"')
+    .replace(/2, 5, 1\. What's/, "two words. What's"));
+  assert.equal(o6(), "pass");
+  writeFileSync(hook, src.replace("on-screen: cells [2, 5, 1]; total 8", "on-screen: two words").replace(/2, 5, 1\. What's/, "two words. What's"));
+  assert.equal(o6(), "fail");
   rmSync(dir, { recursive: true, force: true });
 });
 

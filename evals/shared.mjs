@@ -193,6 +193,7 @@ const ease = [
       const ev = [];
       let measured = 0;
       for (const s of mainSegments(ctx).slice(1)) {
+        if (s.audioStale) continue;
         const d = s.mp4 ? env.duration(s.mp4) : sbDuration(s.storyboard);
         if (d == null) continue;
         measured++;
@@ -212,17 +213,20 @@ const ease = [
       const MAX = ctx.channel?.max_words_per_second ?? { lesson: 3.0 }[ctx.format] ?? 2.8;
       // per take (one scene): a slow scene must not hide a rushed one inside the same part
       const rates = [];
+      const stale = mainSegments(ctx).filter((s) => s.audioStale).map((s) => s.id);
+      const unmeasured = stale.length ? [`not measured, narration older than the script: ${stale.join(", ")}`] : [];
       for (const s of mainSegments(ctx)) {
+        if (s.audioStale) continue;
         for (const x of s.audioMeta?.voices ?? []) {
           const words = x.words?.length ?? 0;
           if (x.duration_s && words >= 12) rates.push({ s, scene: x.frame, rate: words / x.duration_s, words, secs: x.duration_s });
         }
       }
-      if (!rates.length) return skip("no narration timings yet");
+      if (!rates.length) return skip(stale.length ? unmeasured[0] : "no narration timings yet");
       const fast = rates.filter((r) => r.rate > MAX);
       const fmt = (r) => `segments/${r.s.id} scene ${r.scene}: ${r.rate.toFixed(2)} words/s (${r.words} words in ${r.secs.toFixed(1)}s)`;
-      return fast.length ? fail([...fast.map(fmt), `limit ${MAX}; give it {pause}s between ideas, or split the part`])
-        : pass([`fastest ${fmt(rates.reduce((a, b) => (b.rate > a.rate ? b : a)))}`]);
+      return fast.length ? fail([...fast.map(fmt), `limit ${MAX}; give it {pause}s between ideas, or split the part`, ...unmeasured])
+        : pass([`fastest ${fmt(rates.reduce((a, b) => (b.rate > a.rate ? b : a)))}`, ...unmeasured]);
     },
   },
 ];

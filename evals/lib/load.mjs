@@ -103,6 +103,19 @@ export function frameText(html) {
 /** Strip pause markers, as narrate does, so sentences read the way they are spoken. */
 export const stripMarkers = (s) => s.replace(/\{(beat|pause|think)\}/g, " ").replace(/\s+/g, " ").trim();
 
+
+// pause markers count: a {pause} added for pace changes the timing as much as a word does
+const words = (t) => t.replace(/\s+/g, " ").trim();
+function audioStale(md, project, sdir) {
+  const meta = join(project, "audio_meta.json");
+  if (!md || !existsSync(meta)) return false;
+  const voiced = readText(join(project, "SCRIPT.md"));
+  if (voiced == null) return statSync(meta).mtimeMs + 2000 < statSync(join(sdir, "script.md")).mtimeMs; // 2 s: a copied fixture
+  const said = words(voiced.split("\n").filter((l) => /^ {4}\S/.test(l)).join(" "));
+  const wanted = words([...md.matchAll(/^\s*-\s*spoken:\s*"(.*)"\s*$/gm)].map((m) => m[1]).join(" "));
+  return said !== wanted;
+}
+
 export function load(outDir, { channelPath } = {}) {
   const dir = resolve(outDir);
   const segRoot = join(dir, "segments");
@@ -128,6 +141,11 @@ export function load(outDir, { channelPath } = {}) {
       script: md ? parseScript(md) : null,
       frames,
       audioMeta: readJson(join(project, "audio_meta.json")),
+      // narration of words the script no longer has measures a script that is not there (the pipeline's text gates
+      // run before an edited part is voiced again): timing criteria skip such a part. Judged by the words voiced
+      // (video/SCRIPT.md, written at narration) against the script's spoken lines, so a citation-only edit to
+      // script.md does not count; with no SCRIPT.md, by file time.
+      audioStale: audioStale(md, project, sdir),
       engineMeta: readJson(join(project, "audio_engine_meta.json")),
       storyboard: readText(join(project, "STORYBOARD.md")),
       mp4: existsSync(join(sdir, "segment.mp4")) ? join(sdir, "segment.mp4") : null,
