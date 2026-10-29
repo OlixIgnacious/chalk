@@ -13,8 +13,8 @@
 import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
-import { stamp, buildChapters, chaptersText, mergeCaptions, buildDescription } from "./kit.mjs";
-import { buildNotebook, checkSyntax, loadScenes, findFragments } from "./build-notebook.mjs";
+import { stamp, buildChapters, chaptersText, mergeCaptions, buildDescription, notebookLinks } from "./kit.mjs";
+import { buildNotebook, checkSyntax, executeNotebook, loadScenes, findFragments } from "./build-notebook.mjs";
 
 import { fileURLToPath } from "node:url";
 
@@ -78,6 +78,14 @@ if (gate.status !== 0) {
   process.exit(1);
 }
 const scenesBySegment = loadScenes(outDir, segments);
+// A derived example's numbers come from its script; a missing script leaves them with no origin.
+const missingScripts = segments.flatMap((seg) => (scenesBySegment[seg.id] ?? [])
+  .filter((sc) => sc.computedBy && !existsSync(join(outDir, "segments", seg.id, sc.computedBy)))
+  .map((sc) => `segment ${seg.id}: scene "${sc.title}" computes its example in ${sc.computedBy}, which is missing`));
+if (missingScripts.length) {
+  console.error("deliver:\n  " + missingScripts.join("\n  ") + "\ndeliver: refusing to deliver. Nothing was written.");
+  process.exit(1);
+}
 
 // ── gate 1b: the channel's rules — the viewer never hears the source, and hears the chosen voice ──────
 //
@@ -91,8 +99,8 @@ const channelPath = channelArg ? resolve(channelArg) : (() => {
     if (dirname(d) === d) return null;
   }
 })();
+let channel = null;
 if (channelPath) {
-  let channel;
   try {
     channel = JSON.parse(readFileSync(channelPath, "utf8"));
   } catch (e) {
@@ -242,8 +250,7 @@ if (wantNotebook) {
     chapter: chapterJson,
     fragments: findFragments(chapterJson),
     manifest,
-    scenesBySegment,
-    starts,
+    links: notebookLinks(channel, manifest),
     readSegmentFile: (id, f) => {
       const p = join(outDir, "segments", id, f);
       return existsSync(p) ? readFileSync(p, "utf8") : null;
@@ -259,6 +266,11 @@ if (wantNotebook) {
       errors.map(([i, msg, line]) => `code cell ${i + 1}: ${msg} (line ${line})`).join("\n  "));
     process.exit(1);
   }
+  const run = executeNotebook(notebook);
+  if (run.errors.length) {
+    console.error("deliver: a notebook cell fails when run in order:\n  " + run.errors.join("\n  "));
+    process.exit(1);
+  }
   writeFileSync(join(outDir, "notebook.ipynb"), JSON.stringify(notebook, null, 1) + "\n");
   for (const s of skipped) console.warn(`deliver: notebook skipped ${s.id} (${s.why})`);
   notebookMade = true;
@@ -272,6 +284,7 @@ writeFileSync(
     thesis: manifest.thesis,
     chapters,
     notebook: notebookMade,
+    links: notebookMade ? notebookLinks(channel, manifest) : null,
     series: manifest.series,
   }),
 );

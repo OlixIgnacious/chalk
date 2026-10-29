@@ -409,6 +409,36 @@ const notebook = [
       return r.failures.length ? fail(r.failures) : pass([`${cells.length} cell(s) ran`]);
     },
   },
+  {
+    id: "N2",
+    group: "notebook",
+    title: "The notebook stands alone: source code verbatim, source text only, example calls, and nothing about the video",
+    weight: 2,
+    run(ctx) {
+      const nb = ctx.files.notebook;
+      if (!nb) return skip("no notebook.ipynb");
+      const norm = (t) => t.replace(/\s+/g, " ").trim();
+      const blocks = [...ctx.blocks.values()];
+      const code = new Set(blocks.filter((b) => b.kind === "code").map((b) => b.text.trim()));
+      const trim = ctx.video?.notebook?.trim ?? {};
+      const prose = blocks.filter((b) => b.kind !== "code").map((b) => norm((trim[b.id] ?? []).reduce((t, cut) => t.replace(cut, ""), b.text)));
+      const bad = [];
+      for (const [i, c] of nb.cells.entries()) {
+        const src = (Array.isArray(c.source) ? c.source.join("") : c.source).trim();
+        const at = `cell ${i + 1} ("${src.split("\n")[0].slice(0, 40)}")`;
+        if (/\bassert\b|# source:|computed-by|\bsteps\(|settrace|\bvideo\b|\b\d{1,2}:\d\d\b/i.test(src)) bad.push(`${at}: an assert, a tracer, a citation or a pointer to the video`);
+        if (c.cell_type === "code") {
+          // an example: one call on one line, or that call inside try/except that prints the error
+          const one = (l) => !/^(def|class|import|from|for|while|if|with|return)\b|^\s|[^=!<>]=[^=]/.test(l);
+          const calls = (!src.includes("\n") && one(src)) ||
+            /^try:\n    [^\n]+\nexcept \w+ as error:\n    print\("\w+:", error\)$/.test(src);
+          if (!code.has(src) && !calls) bad.push(`${at}: code that is neither a source block nor example calls`);
+        } else if (!/^#{1,3} /.test(src) && !/^(Read this one|Run this first|Run the cells in order)/.test(src)
+          && !prose.some((t) => t.includes(norm(src)))) bad.push(`${at}: text that is not in the source`);
+      }
+      return bad.length ? fail(bad) : pass([`${nb.cells.length} cell(s): source code, source text and example calls only`]);
+    },
+  },
 ];
 
 export const CRITERIA = [...grounding, ...ease, ...audio, ...render, ...notebook];

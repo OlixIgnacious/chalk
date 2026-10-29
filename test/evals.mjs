@@ -108,6 +108,23 @@ test("T3: a function read line by line in a code show must be run by that scene'
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("N2: a notebook of source code, source text and example calls passes; a tracer, an assert or a timestamp fails", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-n2-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const blocks = JSON.parse(readFileSync(join(dir, "chapter.json"), "utf8")).blocks;
+  const fn = blocks.find((b) => b.kind === "code");
+  const para = blocks.find((b) => b.kind === "para");
+  const cell = (cell_type, text) => ({ cell_type, metadata: {}, source: [text], ...(cell_type === "code" ? { outputs: [], execution_count: null } : {}) });
+  const write = (cells) => writeFileSync(join(dir, "notebook.ipynb"), JSON.stringify({ nbformat: 4, nbformat_minor: 5, metadata: {}, cells }));
+  const n2 = () => evaluate(dir).results.find((x) => x.id === "N2");
+  write([cell("markdown", "# T\n\nRun the cells in order."), cell("markdown", "## Solution"), cell("markdown", para.text), cell("code", fn.text), cell("code", "f(1)"), cell("code", 'try:\n    f(-1)\nexcept ValueError as error:\n    print("ValueError:", error)')]);
+  assert.equal(n2().status, "pass", n2().evidence.join("\n"));
+  write([cell("markdown", "## 03 · The idea · video 1:45"), cell("code", "steps(f, 1)\nassert True")]);
+  assert.equal(n2().status, "fail");
+  assert.match(n2().evidence.join("\n"), /pointer to the video[\s\S]*neither a source block nor example calls/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("--text: the text gates skip criteria that judge the build, so a stale render cannot fail a script", () => {
   const r = evaluate(fx("good"), { text: true });
   for (const id of ["G2", "V2", "R1", "N1", "T9"]) assert.equal(r.results.find((x) => x.id === id).status, "skip", id);

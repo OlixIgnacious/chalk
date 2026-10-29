@@ -72,14 +72,33 @@ did not.
 
 ## The notebook
 
-One section per chapter: its timestamp and citations, the chapter's own Python **verbatim** (with its
-block id in a comment), the script behind each derived example, and a try-it cell for each exercise the
-chapter cites. Exercises no chapter cites go under "More to try".
+It stands alone: someone who never saw the video opens it, reads the problem, and runs each solution from
+the brute force up. It follows its own outline in `video.json`, not the video's parts:
+
+```json
+"notebook": {
+  "title": "Valid Anagram (LeetCode 242)",
+  "sections": [
+    { "title": "The problem", "text": ["p024", "p025"] },
+    { "title": "Solution 1: brute force", "text": ["p036"], "code": "c037", "after": ["p038"],
+      "run": ["is_anagram_brute(\"rat\", \"car\")", "f(\"é\", \"e\")  # raises IndexError"] },
+    { "title": "Similar problems to try", "text": ["p057", "p058"] }
+  ]
+}
+```
+
+Every word of explanation and every line of code is a source block, verbatim; only the section titles and
+the example calls are written for it. Each `run` call is a cell of its own, so its result shows and the learner
+edits the input in one place; `# raises X` catches X and prints it, so "Run all" finishes. `trim` cuts named
+words from a block, and only a pointer to a part of the source the notebook leaves out (`"p050": [": see
+Follow-ups"]`): a "see X" with no section X stops the build until it is added or trimmed. Delivery runs every cell
+in order and stores the outputs, so the notebook reads with its results; a cell that fails stops delivery. No tracer, no asserts, no ids, no timestamps,
+nothing about the video: a block that points elsewhere ("the next section", "the video") stops the build, and
+eval N2 checks the rest. The chalk-notebook-reviewer agent then reads it cold, seeing only the notebook.
 
 - Python only. A code block in another language, or with no language tag, is listed rather than turned
   into a cell — this tool does not run code nobody has read.
-- No outputs are stored. A result is produced when someone runs the cell, so no number in the notebook
-  can drift from the code that makes it.
+- Outputs are stored by running the cells at delivery, so every result shown is what the code printed.
 - Every code cell is parsed with Python before the notebook is written; invalid code stops delivery.
 - A derived example whose script is missing stops delivery: its numbers would have no origin.
 

@@ -154,6 +154,15 @@ export const youtube = [
     missing: "dispatch the chalk-learner agent on the output dir with the audience (it writes learner.md)",
   },
   {
+    name: "notebook-review",
+    kind: "author",
+    inputs: () => [],
+    // only when a notebook was asked for: with no outputs the stage is done
+    outputs: (o) => (o.notebook ? ["notebook-review.md"] : []),
+    newerThan: ["notebook.ipynb"],
+    missing: "dispatch the chalk-notebook-reviewer agent on the output dir (it runs the notebook and writes notebook-review.md)",
+  },
+  {
     name: "review",
     kind: "author",
     inputs: () => ["eval.json"],
@@ -166,7 +175,7 @@ export const youtube = [
     kind: "author",
     inputs: () => [],
     outputs: () => ["resolution.md"],
-    newerThan: ["eval.json", "grounding.md", "learner.md", "review.md"],
+    newerThan: ["eval.json", "grounding.md", "learner.md", "review.md", "notebook-review.md"],
     missing: "dispatch the chalk-resolver agent on the output dir (it settles where the reports disagree and writes resolution.md)",
   },
   {

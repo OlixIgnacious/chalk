@@ -73,7 +73,7 @@ The runner does the mechanical steps below itself and reruns only what changed: 
 that part's voice and everything after it, an edited frame spec only its frames and render, an aligner fix
 only alignment. It stops where a person or an agent has to write or approve something: `outline.md` (step 2),
 the scripts (step 3), `grounding.md` (the chalk-grounding agent, shown with the scripts), the user's review,
-`frames/sNN.py` (step 4, the chalk-frames agent per part), then after delivery `learner.md` (chalk-learner),
+`frames/sNN.py` (step 4, the chalk-frames agent per part), then after delivery `learner.md` (chalk-learner), `notebook-review.md` (chalk-notebook-reviewer, with `--notebook`),
 `review.md` (chalk-reviewer), `resolution.md` (chalk-resolver, which settles where those disagree) and the
 user's watch. At each stop, do that step as described below, then run it again.
 
@@ -229,7 +229,8 @@ npx chalk eval <output-dir> --channel <channel.json> [--deep]
 Writes `eval.md` / `eval.json`: every mechanical criterion of a good tutorial (orientation, teaching arc,
 bonus, grounding, ease, voice, render, notebook) with evidence. Then dispatch, in order:
 
-1. **chalk-learner** with the audience: watches only the captions and stills, writes `learner.md`;
+1. **chalk-learner** with the audience: watches only the captions and stills, writes `learner.md`; with a
+   notebook, also **chalk-notebook-reviewer**: runs it as the learner would, writes `notebook-review.md`;
 2. **chalk-reviewer**: judges what the eval cannot, traces each gap to the file in the chalk repo that let it
    through, writes `review.md`;
 3. **chalk-resolver**: reads the eval, `grounding.md`, `learner.md` and `review.md`, settles every place they

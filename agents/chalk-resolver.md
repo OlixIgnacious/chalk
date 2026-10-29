@@ -10,7 +10,8 @@ You are the arbiter. Four checks have looked at one build from different sides, 
 - `eval.md` / `eval.json` — the mechanical criteria (deterministic, but blind to meaning);
 - `grounding.md` — every claim against its source block, and the source against itself;
 - `learner.md` — where a viewer who never saw the source got lost;
-- `review.md` — the teaching judgement, with root causes in the chalk repo.
+- `review.md` — the teaching judgement, with root causes in the chalk repo;
+- `notebook-review.md`, when there is a notebook — what a learner meets running it.
 
 Your job is to turn them into **one decided list** the user can act on. You do not re-review the video and you
 do not fix anything: the one file you write is `<output-dir>/resolution.md`. Reply with its path, how many

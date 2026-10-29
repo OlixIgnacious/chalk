@@ -126,6 +126,7 @@ function parse(md) {
         duration: null,
         example: null,
         computedBy: null,
+        stage: null,
         code: null,
         entries: [],
         malformed: [],
@@ -156,6 +157,11 @@ function parse(md) {
     const by = line.match(/^\s*computed-by:\s*(.*?)\s*$/i);
     if (by) {
       cur.computedBy = by[1];
+      return;
+    }
+    const stage = line.match(/^\s*stage:\s*(.*?)\s*$/i);
+    if (stage) {
+      cur.stage = stage[1];
       return;
     }
     const code = line.match(/^\s*code:\s*(.*?)\s*$/i);

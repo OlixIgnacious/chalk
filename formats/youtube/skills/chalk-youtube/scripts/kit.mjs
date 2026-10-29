@@ -103,13 +103,30 @@ export function mergeCaptions(vtts, offsets, durations) {
  * description places the video in its series instead (`series`: { name, part, of, next }). The source
  * stays in plan.md. The timestamps heading avoids the word "chapters" for the same reason.
  */
-export function buildDescription({ title, thesis, chapters, notebook, series }) {
+/**
+ * Where a published notebook lives: channel.json `notebooks: { repo: "owner/name", branch }` and video.json
+ * `notebook.publish_as` (its path in that repo). Colab opens it straight from GitHub, so one file serves both.
+ */
+export function notebookLinks(channel, manifest) {
+  const repo = channel?.notebooks?.repo;
+  const path = manifest?.notebook?.publish_as;
+  if (!repo || !path) return null;
+  const branch = channel.notebooks.branch ?? "main";
+  return {
+    github: `https://github.com/${repo}/blob/${branch}/${path}`,
+    colab: `https://colab.research.google.com/github/${repo}/blob/${branch}/${path}`,
+  };
+}
+
+export function buildDescription({ title, thesis, chapters, notebook, series, links }) {
   const lines = [title, ""];
   if (thesis) lines.push(thesis, "");
   if (series?.name && series.part) {
     lines.push(`Part ${series.part}${series.of ? ` of ${series.of}` : ""} in the ${series.name} series.${series.next ? ` Next: ${series.next}.` : ""}`, "");
   }
   lines.push("In this video", chaptersText(chapters).trimEnd(), "");
-  if (notebook) lines.push("A hands-on Jupyter notebook accompanies this video.", "");
+  if (notebook && links) {
+    lines.push("Run the code yourself, in your browser, nothing to install:", links.colab, "", "The notebook on GitHub:", links.github, "");
+  } else if (notebook) lines.push("A hands-on Jupyter notebook accompanies this video.", "");
   return lines.join("\n");
 }

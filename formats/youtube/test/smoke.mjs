@@ -107,7 +107,7 @@ test("notebook: checkSyntax compiles, so a top-level return is caught", () => {
   assert.equal(r.errors.length, 1, "ast.parse alone accepts this; compile must not");
 });
 
-test("notebook: a fragment, a read_only block and a setup file are handled; a block cited twice appears once", () => {
+test("notebook: a fragment, a read_only block and a setup file are handled", () => {
   const chapter = {
     title: "T",
     blocks: [
@@ -118,21 +118,18 @@ test("notebook: a fragment, a read_only block and a setup file are handled; a bl
   };
   const fragments = nb.findFragments(chapter, join(root, ".venv/bin/python"));
   assert.ok(fragments.has("c1") && !fragments.has("c2"), [...fragments.keys()].join());
-  const scene = (ids) => [{ title: "s", entries: [{ source: ids }] }];
   const { notebook, problems } = nb.buildNotebook({
     chapter,
-    manifest: { title: "T", segments: [{ id: "01", title: "a" }, { id: "02", title: "b" }], notebook: { read_only: { c2: "it raises TypeError on purpose" }, setup: { c3: "segments/02/examples/setup.py" } } },
-    scenesBySegment: { "01": scene(["c1", "c2"]), "02": scene(["c1", "c3"]) },
+    manifest: { title: "T", segments: [], notebook: { read_only: { c2: "it raises TypeError on purpose" }, setup: { c3: "segments/02/examples/setup.py" },
+      sections: [{ title: "a", code: ["c1", "c2"] }, { title: "b", code: "c3" }] } },
     readSegmentFile: (id, f) => (id === "02" && f === "examples/setup.py" ? "df = [1, 2]\n" : null),
     fragments,
   });
   assert.deepEqual(problems, []);
   const text = notebook.cells.map((c) => `${c.cell_type}: ${c.source.join("")}`).join("\n---\n");
-  assert.equal((text.match(/for x in xs/g) ?? []).length, 1, "c1 appears once");
   assert.match(text, /markdown: Read this one, don't run it: it is a fragment[\s\S]*for x in xs/);
   assert.match(text, /markdown: Read this one, don't run it: it raises TypeError on purpose/);
-  assert.match(text, /code: # setup for the next cell\ndf = \[1, 2\]\n---\ncode: # source: c3/);
-  assert.ok(!/Source:|Cites:/.test(text), "the notebook names no source file and no block ids as citations");
+  assert.match(text, /markdown: Run this first: it sets up the data the next cell uses\.\n---\ncode: df = \[1, 2\]\n---\ncode: print\(len\(df\)\)/);
 });
 
 // ── a chapter, a script and a notebook ────────────────────────────────────────────────────────────
@@ -156,11 +153,20 @@ const scene = (title, fields, lines) =>
 const SCRIPTS = {
   "01": scene("hook", {}, [["A mean can hide the spread.", "p003"]]),
   "02": scene("variance", {}, [["Variance measures the distance from the mean.", "p004"], ["Here is the function.", "c005"], ["And in JavaScript.", "c007"]]) +
-    "\n" + scene("two lists, one mean", { visual: "worked example", extra: "example: derived\ncomputed-by: examples/spread.py\n" },
+    "\n" + scene("two lists, one mean", { visual: "worked example", extra: "example: derived\ncomputed-by: examples/spread.py\nrun: sum([4, 5, 6]) / 3, sum([1, 5, 9]) / 3\n" },
       [["Two lists, one mean.", "p004"]]),
   "03": scene("your turn", {}, [["Write the standard deviation.", "x008"]]),
 };
 const SPREAD_PY = "a = [4, 5, 6]\nb = [1, 5, 9]\nprint(sum(a) / len(a), sum(b) / len(b))\n";
+
+// The notebook's own outline: the problem, then the solution with its explanation and example calls.
+const NOTEBOOK = {
+  title: "Variance",
+  sections: [
+    { title: "The problem", text: ["p003", "p004"] },
+    { title: "Solution", code: "c005", after: ["p006"], run: ["variance([4, 5, 6])", "variance([1, 5, 9])", "mean([])  # raises ZeroDivisionError"] },
+  ],
+};
 
 function manifestFor(extra = {}) {
   return {
@@ -172,28 +178,17 @@ function manifestFor(extra = {}) {
       { id: "02", title: "What variance adds", mp4: "segments/02/segment.mp4", vtt: "segments/02/segment.vtt" },
       { id: "03", title: "Your turn", mp4: "segments/03/segment.mp4", vtt: "segments/03/segment.vtt" },
     ],
+    notebook: NOTEBOOK,
     ...extra,
   };
 }
 
-function scenesFor(dir) {
-  mkdirSync(dir, { recursive: true });
-  for (const [id, body] of Object.entries(SCRIPTS)) write(join(dir, "segments", id, "script.md"), body);
-  write(join(dir, "segments/02/examples/spread.py"), SPREAD_PY);
-  return nb.loadScenes(dir, manifestFor().segments);
-}
+const build = (manifest = manifestFor()) =>
+  nb.buildNotebook({ chapter: chapterJson(`nb${Math.random().toString(36).slice(2, 8)}`), manifest, readSegmentFile: () => null });
+const cellText = (notebook) => notebook.cells.map((c) => `${c.cell_type}: ${c.source.join("")}`).join("\n---\n");
 
-const readSeg = (dir) => (id, f) => {
-  const p = join(dir, "segments", id, f);
-  return existsSync(p) ? readFileSync(p, "utf8") : null;
-};
-
-test("notebook: it is valid nbformat 4 with unique cell ids and no recorded outputs", () => {
-  const dir = join(tmp, "nb1");
-  const { notebook, problems } = nb.buildNotebook({
-    chapter: chapterJson("nb1c"), manifest: manifestFor(), scenesBySegment: scenesFor(dir),
-    starts: [0, 12, 52], readSegmentFile: readSeg(dir),
-  });
+test("notebook: it is valid nbformat 4 with unique cell ids, and building it runs nothing", () => {
+  const { notebook, problems } = build();
   assert.deepEqual(problems, []);
   assert.equal(notebook.nbformat, 4);
   assert.equal(notebook.metadata.kernelspec.name, "python3");
@@ -205,86 +200,68 @@ test("notebook: it is valid nbformat 4 with unique cell ids and no recorded outp
   }
 });
 
-test("notebook: the chapter's Python is verbatim with its source id, and every cell parses", () => {
-  const dir = join(tmp, "nb2");
-  const chapter = chapterJson("nb2c");
-  const { notebook } = nb.buildNotebook({
-    chapter, manifest: manifestFor(), scenesBySegment: scenesFor(dir), starts: [0, 12, 52], readSegmentFile: readSeg(dir),
-  });
-  const py = chapter.blocks.find((b) => b.id === "c005").text;
-  const cell = notebook.cells.find((c) => c.cell_type === "code" && c.source.join("").startsWith("# source: c005"));
-  assert.ok(cell, "the c005 cell exists");
-  assert.equal(cell.source.join(""), `# source: c005\n${py}`);
+test("notebook: it follows its own outline: the problem, the solution's code verbatim, its explanation, then example calls", () => {
+  const chapter = chapterJson("nb-order");
+  const { notebook } = nb.buildNotebook({ chapter, manifest: manifestFor(), readSegmentFile: () => null });
+  const by = new Map(chapter.blocks.map((b) => [b.id, b.text]));
+  const text = cellText(notebook);
+  assert.ok(text.startsWith("markdown: # Variance\n"));
+  const order = ["## The problem", by.get("p003"), by.get("p004"), "## Solution", `code: ${by.get("c005")}\n---`, by.get("p006"), "code: variance([4, 5, 6])\n---\ncode: variance([1, 5, 9])"];
+  let at = 0;
+  for (const piece of order) {
+    const i = text.indexOf(piece, at);
+    assert.ok(i >= 0, `missing or out of order: ${piece.slice(0, 40)}`);
+    at = i;
+  }
+  assert.match(text, /code: try:\n    mean\(\[\]\)\nexcept ZeroDivisionError as error:\n    print\("ZeroDivisionError:", error\)/);
   const check = nb.checkSyntax(notebook, join(root, ".venv/bin/python"));
-  if (!check.checked) return "no Python interpreter to parse with";
-  assert.deepEqual(check.errors, []);
+  if (check.checked) assert.deepEqual(check.errors, []);
 });
 
-test("notebook: a derived example's script becomes a cell with its provenance, and a missing one is a problem", () => {
-  const dir = join(tmp, "nb3");
-  const scenesBySegment = scenesFor(dir);
-  const ok = nb.buildNotebook({ chapter: chapterJson("nb3c"), manifest: manifestFor(), scenesBySegment, starts: [0, 12, 52], readSegmentFile: readSeg(dir) });
-  const cell = ok.notebook.cells.find((c) => c.source.join("").includes("computed-by: examples/spread.py"));
-  assert.ok(cell && cell.source.join("").startsWith("# computed-by: examples/spread.py"));
-  assert.ok(cell.source.join("").includes("print(sum(a) / len(a)"));
-  const all = ok.notebook.cells.map((c) => c.source.join("")).join("\n");
-  assert.ok(!/not from the chapter/i.test(all), "the notebook carries provenance, not the log phrase");
-
-  const missing = nb.buildNotebook({ chapter: chapterJson("nb3d"), manifest: manifestFor(), scenesBySegment, starts: null, readSegmentFile: () => null });
-  assert.match(missing.problems.join("\n"), /examples\/spread\.py, which is missing/);
+test("notebook: nothing about the video, no tracer, no asserts, no ids, and no exercise stubs", () => {
+  const text = cellText(build().notebook);
+  assert.doesNotMatch(text, /video|\b\d+:\d\d\b|\bassert\b|settrace|steps\(|# source:|computed-by|your code here|Try it/i);
 });
 
-test("notebook: the code cells run top to bottom without an error", () => {
-  const dir = join(tmp, "nb-run");
-  const { notebook } = nb.buildNotebook({
-    chapter: chapterJson("nbrunc"), manifest: manifestFor(), scenesBySegment: scenesFor(dir), starts: null, readSegmentFile: readSeg(dir),
-  });
+test("notebook: executeNotebook runs the cells in order and stores what each printed and returned", () => {
   const py = join(root, ".venv/bin/python");
   if (!existsSync(py)) return "no Python interpreter to run it with";
-  // One namespace across cells, like a kernel. No Jupyter needed to prove the cells are runnable.
-  const prog = "import json,sys\nns={}\nfor s in json.load(sys.stdin):\n    exec(compile(s,'<cell>','exec'),ns)\n";
-  const cells = notebook.cells.filter((c) => c.cell_type === "code").map((c) => c.source.join(""));
-  const r = spawnSync(py, ["-c", prog], { input: JSON.stringify(cells), encoding: "utf8" });
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /5\.0 5\.0/, "the derived example computes the numbers the video shows");
+  const { notebook } = build();
+  const run = nb.executeNotebook(notebook, py);
+  assert.equal(run.ran, true);
+  assert.deepEqual(run.errors, []);
+  const out = (src) => notebook.cells.find((c) => c.source.join("") === src).outputs;
+  assert.match(out("variance([4, 5, 6])")[0].data["text/plain"].join(""), /^0\.666/);
+  assert.equal(out("variance([4, 5, 6])")[0].output_type, "execute_result");
+  assert.match(out('try:\n    mean([])\nexcept ZeroDivisionError as error:\n    print("ZeroDivisionError:", error)')[0].text.join(""), /ZeroDivisionError: division by zero/);
+  const counts = notebook.cells.filter((c) => c.cell_type === "code").map((c) => c.execution_count);
+  assert.deepEqual(counts, counts.map((_, i) => i + 1));
+  const broken = { cells: [{ cell_type: "code", source: ["1 / 0"], outputs: [] }] };
+  assert.match(nb.executeNotebook(broken, py).errors.join(), /ZeroDivisionError/);
 });
 
-test("notebook: non-Python code is reported, not turned into a cell, and an exercise block gets no try-it stub", () => {
-  const dir = join(tmp, "nb4");
-  const { notebook, skipped } = nb.buildNotebook({
-    chapter: chapterJson("nb4c"), manifest: manifestFor(), scenesBySegment: scenesFor(dir), starts: null, readSegmentFile: readSeg(dir),
-  });
-  assert.deepEqual(skipped, [{ id: "c007", why: "language: javascript" }]);
-  assert.ok(!notebook.cells.some((c) => c.cell_type === "code" && c.source.join("").includes("const mean")));
-  const md = notebook.cells.filter((c) => c.cell_type === "markdown").map((c) => c.source.join("")).join("\n");
-  assert.match(md, /`c007` is not included as a cell \(language: javascript\)/);
-  assert.doesNotMatch(md, /Try it|More to try/, "the channel has no exercises: no stubs, cited or not");
-  assert.ok(!notebook.cells.some((c) => c.source.join("").includes("# your code here")));
+test("notebook: no outline, an unknown block, or text that points outside the notebook is a problem", () => {
+  assert.match(build(manifestFor({ notebook: undefined })).problems.join(), /no notebook\.sections/);
+  assert.match(build(manifestFor({ notebook: { sections: [{ title: "x", text: ["p999"] }] } })).problems.join(), /no block p999/);
+  const chapter = { title: "t", blocks: [{ id: "p1", kind: "para", text: "As the next section shows, it is fast." }] };
+  const r = nb.buildNotebook({ chapter, manifest: { segments: [], notebook: { sections: [{ title: "x", text: ["p1"] }] } }, readSegmentFile: () => null });
+  assert.match(r.problems.join(), /p1 points outside the notebook/);
 });
 
-test("notebook: the practice part lists its problems as text, and a trace script becomes a cell", () => {
-  const chapter = { title: "t", blocks: [{ id: "p001", kind: "para", text: "| Problem | What it asks |\n|---|---|\n| Happy Number (LeetCode 202) | Does it reach 1? |" }] };
-  const { notebook } = nb.buildNotebook({
-    chapter, manifest: { segments: [{ id: "01", title: "trace" }, { id: "02", title: "Practice" }] },
-    scenesBySegment: {
-      "01": [{ title: "trace it", example: "chapter", computedBy: "examples/t.py", entries: [{ source: [] }] }],
-      "02": [{ title: "four to try", stage: "practice", entries: [{ source: ["p001"] }] }],
-    },
-    starts: null, readSegmentFile: (sid, f) => (sid === "01" && f === "examples/t.py" ? "print(1)" : null),
-  });
-  const all = notebook.cells.map((c) => c.source.join("")).join("\n");
-  assert.match(all, /Happy Number \(LeetCode 202\)/);
-  assert.match(all, /# computed-by: examples\/t\.py\nprint\(1\)/);
-});
-
-test("notebook: an untagged code block is skipped rather than assumed to be Python", () => {
-  const chapter = { title: "t", blocks: [{ id: "c001", kind: "code", lang: null, text: "x = 1" }] };
-  const { notebook, skipped } = nb.buildNotebook({
-    chapter, manifest: { segments: [{ id: "01", title: "a" }] },
-    scenesBySegment: { "01": [{ title: "s", entries: [{ source: ["c001"] }] }] }, starts: null, readSegmentFile: () => null,
-  });
-  assert.deepEqual(skipped, [{ id: "c001", why: "no language tag" }]);
+test("notebook: non-Python code is shown as text, not a cell; a list item loses its number; a dead link label is dropped", () => {
+  const chapter = { title: "t", blocks: [
+    { id: "c1", kind: "code", lang: "sql", text: "SELECT 1;" },
+    { id: "c2", kind: "code", lang: null, text: "x = 1" },
+    { id: "l1", kind: "list", text: "2. Sort first: neighbours." },
+    { id: "p1", kind: "para", text: "Input limits: 1 ≤ n. Open on LeetCode" },
+  ] };
+  const { notebook, skipped } = nb.buildNotebook({ chapter, manifest: { segments: [], notebook: { sections: [{ title: "x", text: ["l1", "p1"], code: ["c1", "c2"] }] } }, readSegmentFile: () => null });
+  assert.deepEqual(skipped.map((s) => s.id), ["c1", "c2"]);
   assert.ok(!notebook.cells.some((c) => c.cell_type === "code"));
+  const text = cellText(notebook);
+  assert.match(text, /```sql\nSELECT 1;\n```/);
+  assert.match(text, /markdown: Sort first: neighbours\./);
+  assert.match(text, /markdown: Input limits: 1 ≤ n\.\n/);
 });
 
 test("notebook: invalid Python is caught before it is written", () => {
@@ -408,7 +385,7 @@ test("deliver: a derived example that names no computed-by script stops delivery
   for (const f of kitFiles) assert.ok(!existsSync(join(dir, f)), `${f} was written despite the failure`);
 });
 
-test("deliver: a derived example whose script is missing stops the notebook", () => {
+test("deliver: a derived example whose script is missing stops delivery", () => {
   if (!haveFfmpeg) return "ffmpeg is unavailable";
   const dir = buildVideo(join(tmp, "d6"));
   rmSync(join(dir, "segments/02/examples/spread.py"));

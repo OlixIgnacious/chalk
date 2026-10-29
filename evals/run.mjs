@@ -81,7 +81,7 @@ print(json.dumps(bad))
 // Criteria that judge what is built (frames, captions, the render, the kit, the notebook). The text gates run before
 // an edited part is built again, so --text skips them there: judged on the old build, they fail a script for the
 // state of a render that is about to be replaced. E3/E4 stay: they skip a part whose narration is stale by themselves.
-const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "T9"]);
+const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "T9"]);
 
 export function evaluate(outDir, { format = "youtube", channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
   const pack = PACKS[format];
