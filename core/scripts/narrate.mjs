@@ -29,10 +29,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // ── pure helpers (tested directly) ────────────────────────────────────────────────────────────────
 
 const MARKER = /\{(beat|pause|think)\}/g;
+const SPEAKER = /\{as:([a-z][\w-]*)\}/g; // a skit's speaker change: who says the sentences after it
 
 /** Spoken text with the pause markers removed and the spacing tidied. */
 export function stripMarkers(text) {
-  return text.replace(MARKER, " ").replace(/\s+/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
+  return text.replace(MARKER, " ").replace(SPEAKER, " ").replace(/\s+/g, " ").replace(/\s+([.,;:!?])/g, "$1").trim();
 }
 
 /**
@@ -44,10 +45,16 @@ export function stripMarkers(text) {
 export function splitSpoken(text) {
   const out = [];
   let pending = null; // a marker waits for the next sentence, so one with nothing after it does nothing
-  for (const chunk of text.split(/(\{beat\}|\{pause\}|\{think\})/)) {
+  let speaker = null; // {as:name} holds until the next one; plain narration has none
+  for (const chunk of text.split(/(\{beat\}|\{pause\}|\{think\}|\{as:[a-z][\w-]*\})/)) {
     const m = chunk.match(/^\{(beat|pause|think)\}$/);
     if (m) {
       pending = m[1];
+      continue;
+    }
+    const sp = chunk.match(/^\{as:([a-z][\w-]*)\}$/);
+    if (sp) {
+      speaker = sp[1];
       continue;
     }
     for (const s of chunk.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean)) {
@@ -56,7 +63,7 @@ export function splitSpoken(text) {
         prev.gap = pending ?? (/[?]$/.test(prev.text) ? "question" : "sentence");
       }
       pending = null;
-      out.push({ text: s, gap: null });
+      out.push({ text: s, gap: null, speaker });
     }
   }
   return out;
@@ -173,8 +180,28 @@ function main() {
       die(`cannot read ${lexPath} — ${e.message}`);
     }
   }
+  // --cast <file>: a JSON file whose `cast` (or the whole file) maps a speaker to { voice, speed }. Each {as:name}
+  // sentence is said in that voice; a speaker with no entry stops the run rather than falling back silently.
+  const castPath = flag("cast", null);
+  let cast = {};
+  if (castPath) {
+    try {
+      const c = JSON.parse(readFileSync(resolve(castPath), "utf8"));
+      cast = c.cast ?? c;
+    } catch (e) {
+      die(`cannot read ${castPath} — ${e.message}`);
+    }
+  }
   const piecesFor = (text, key) =>
-    splitSpoken(applyLexicon(text, lexTerms)).map((p, i) => ({ text: p.text, gap: gapSeconds(p.gap, `${key}-${i}`, gaps) }));
+    splitSpoken(applyLexicon(text, lexTerms)).map((p, i) => {
+      const piece = { text: p.text, gap: gapSeconds(p.gap, `${key}-${i}`, gaps) };
+      if (p.speaker) {
+        const who = cast[p.speaker] ?? die(`{as:${p.speaker}} has no voice: add it to the cast (--cast), e.g. "${p.speaker}": { "voice": "am_puck", "speed": 1.0 }`);
+        if (!who.voice) die(`cast member ${p.speaker} has no voice`);
+        Object.assign(piece, { speaker: p.speaker, voice: who.voice, speed: who.speed ?? speed });
+      }
+      return piece;
+    });
 
   // Audition mode: one text, one WAV, nothing else.
   const audition = flag("text", null);
@@ -206,6 +233,7 @@ function main() {
   const noTranscribe = argv.includes("--no-transcribe");
   const engine = flag("engine", "auto");
   const metaVoices = [];
+  const turns = []; // a skit's turns: who speaks from when to when, in frame time, straight from the synthesis
   for (const [i, f] of frames.entries()) {
     const wav = takes[i].out;
     if (argv.includes("--polish")) polish(wav, die);
@@ -218,11 +246,13 @@ function main() {
       words = (Array.isArray(raw) ? raw : raw.words).map((w, n) => ({ id: `w${n}`, text: w.text, start: w.start, end: w.end }));
     }
     const dur = probeSeconds(wav) ?? takes[i].duration;
+    for (const t of takes[i].pieces ?? []) if (t.speaker) turns.push({ frame: f.frame, ...t });
     metaVoices.push({ frame: f.frame, path: `assets/voice/${pad(f.frame)}.wav`, duration_s: Number(dur.toFixed(3)), words });
     const wc = stripMarkers(f.text).split(/\s+/).length;
     console.log(`narrate: frame ${f.frame}: ${dur.toFixed(2)}s, ${wc} words (${(wc / dur).toFixed(2)}/s)`);
   }
 
+  if (turns.length) writeFileSync(join(outDir, "turns.json"), JSON.stringify(turns, null, 1) + "\n");
   writeFileSync(join(outDir, "audio_meta.json"), JSON.stringify({ bgm: null, bgm_pending: false, voices: metaVoices, sfx: [] }, null, 2));
   writeFileSync(join(outDir, "audio_engine_meta.json"), JSON.stringify({
     tts_provider: "kokoro", voice_id: voice, bgm: null, bgm_pending: false, bgm_provider: null, bgm_pid: null, bgm_log: null,

@@ -662,7 +662,155 @@ class Frame:
 
     def ground(self):
         return (f'<div id="{self.id}-ground" class="clip" data-start="0" data-duration="{self.duration}" data-track-index="0" '
-                f'style="position:absolute;inset:0;background:{INK};"></div>')
+                f'style="position:absolute;inset:0;background:{getattr(self, "_board", INK)};"></div>')
+
+    # ── the skit stage (two characters on one chalkboard) ─────────────────────────────────────
+    # The stage bible, enforced here so no skit can break it:
+    #   one set per video: the board, one floor line, one key light behind the cast — none of it changes;
+    #   fixed staging: the first cast member stands left, the second right, on the floor line, never crossing;
+    #   three shots only: "two" (the wide two-shot) and a close-up on each character; a change of shot is a cut,
+    #   or a short eased push from the two-shot; the lens (vignette, grain) sits outside the camera and never moves;
+    #   a pose changes with a quick crossfade and a small squash; the speaker bobs while talking, both breathe.
+    FLOOR = 1240          # the floor line, in world px (the content keep-out is 1320)
+    CLOSE = 1.6           # close-up magnification
+    PARALLAX = 0.25       # how much of the camera's move the board's writing makes
+
+    def stage(self, cast=("penguin", "bear"), poses=None, heights=None, board=None):
+        """Draw the set and both characters in their first pose. `poses` is {char: [pose, …]}: every pose the
+        scene uses (the first is the opening pose). Images come from <workspace>/cast/<char>/<pose>.png
+        (frames/slice-cast.py). Turns come from the take's turns.json (narrate --cast)."""
+        import shutil
+        src = next((d / "cast" for d in [Path(self.video["out_dir"]), *Path(self.video["out_dir"]).parents]
+                    if (d / "cast" / "cast-meta.json").exists()), None)
+        if not src:
+            raise FileNotFoundError("stage: no cast/cast-meta.json in the workspace — run frames/slice-cast.py")
+        meta = json.loads((src / "cast-meta.json").read_text())
+        self._board = board or meta["board"]
+        self._skit = True
+        left, right = cast
+        heights = heights or {left: 330, right: 380}  # displayed px; the bear is the bigger animal
+        self.cast, self.actor = list(cast), {}
+        world = []
+        for side, ch in (("L", left), ("R", right)):
+            m = meta["chars"][ch]
+            h = heights[ch]
+            w = round(m["w"] * h / m["h"])
+            x = 40 if side == "L" else W - w + 40  # the right one may bleed off the edge: it is the big one
+            self.actor[ch] = dict(x=x, w=w, h=h, cx=x + w / 2, top=self.FLOOR - h, pose=None)
+            imgs = []
+            for p in (poses or {}).get(ch, ["neutral"]):
+                if p not in m["poses"]:
+                    raise KeyError(f"stage: {ch} has no pose {p!r} (has: {', '.join(m['poses'])})")
+                dest = self.project / "assets" / "cast" / ch / f"{p}.png"
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(src / ch / f"{p}.png", dest)
+                op = 1 if not imgs else 0
+                imgs.append(f'<img id="{self.id}-{ch}-{p}" src="assets/cast/{ch}/{p}.png" '
+                            f'style="position:absolute;left:0;top:0;width:{w}px;height:{h}px;opacity:{op};" />')
+            self.actor[ch]["pose"] = (poses or {}).get(ch, ["neutral"])[0]
+            world.append(
+                f'<div id="{self.id}-{ch}" style="position:absolute;left:{x}px;top:{self.FLOOR - h}px;width:{w}px;height:{h}px;'
+                f'transform-origin:50% 100%;"><div id="{self.id}-{ch}-body" style="position:absolute;inset:0;transform-origin:50% 100%;">'
+                + "".join(imgs) + "</div></div>")
+        # the key light: one warm pool behind the cast, part of the world, so it moves with the camera like a real lamp
+        light = (f'<div style="position:absolute;left:-200px;top:{self.FLOOR - 760}px;width:{W + 400}px;height:900px;'
+                 f'background:radial-gradient(ellipse 50% 48% at 50% 62%, rgba(255,236,200,0.10), rgba(255,236,200,0) 70%);"></div>')
+        floor = (f'<svg style="position:absolute;left:0;top:{self.FLOOR - 6}px;overflow:visible" width="{W}" height="20">'
+                 f'<path d="M24,8 C200,4 420,11 560,7 S900,4 {W - 24},9" stroke="{CREAM}" stroke-opacity="0.42" stroke-width="4" '
+                 f'fill="none" stroke-linecap="round"/></svg>')
+        # the board's writing hangs behind the cast on its own layer: the camera moves it a quarter as much (parallax),
+        # so a close-up keeps it readable instead of cropping it at the top of the screen
+        self.add(f'<div id="{self.id}-board" style="position:absolute;left:0;top:0;width:{W}px;height:{KEEP_OUT}px;transform-origin:0 0;"></div>')
+        self.add(f'<div id="{self.id}-cam" style="position:absolute;left:0;top:0;width:{W}px;height:{KEEP_OUT}px;'
+                 f'transform-origin:0 0;">{light}{floor}{"".join(world)}</div>')
+        # the lens: grain and vignette over everything, fixed — the light never changes between shots
+        self._lens = (f'<svg style="position:absolute;inset:0;pointer-events:none;opacity:0.10;mix-blend-mode:screen" '
+                      f'width="{W}" height="{H}"><filter id="{self.id}-grain"><feTurbulence type="fractalNoise" '
+                      f'baseFrequency="0.9" numOctaves="2" seed="7"/><feColorMatrix type="saturate" values="0"/></filter>'
+                      f'<rect width="100%" height="100%" filter="url(#{self.id}-grain)"/></svg>'
+                      f'<div style="position:absolute;inset:0;pointer-events:none;'
+                      f'background:radial-gradient(ellipse 80% 70% at 50% 48%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.55) 100%);"></div>')
+        self._idle()
+        self._talk()
+
+    def _turns(self):
+        p = self.project / "turns.json"
+        if not p.exists():
+            return []
+        return [t for t in json.loads(p.read_text()) if int(t["frame"]) == self.no]
+
+    def _idle(self):
+        """Both characters breathe, slowly and out of phase, for the whole scene."""
+        for ch in self.cast:  # the resting state every later tween starts from, at any seek
+            self.tweens.append(f'tl.set("#{self.id}-{ch}-body", {{y: 0, scaleX: 1, scaleY: 1}}, 0);')
+        for i, ch in enumerate(self.cast):
+            period = 1.9 + 0.35 * i
+            reps = int(self.duration / period) + 1
+            self.tweens.append(f'tl.fromTo("#{self.id}-{ch}", {{scaleY: 1, scaleX: 1}}, {{scaleY: 1.018, scaleX: 0.994, '
+                               f'duration: {period / 2:.3f}, ease: "sine.inOut", yoyo: true, repeat: {reps * 2 - 1}}}, {0.2 + 0.6 * i:.2f});')
+
+    def _talk(self):
+        """The speaker bobs on its syllables while its line plays; the listener only breathes."""
+        for t in self._turns():
+            ch = t.get("speaker")
+            if ch not in self.actor:
+                continue
+            dur = t["end"] - t["start"]
+            beat = 0.17
+            n = max(1, int(dur / (2 * beat)))
+            self.tweens.append(f'tl.to("#{self.id}-{ch}-body", {{y: -9, duration: {beat}, ease: "sine.inOut", '
+                               f'yoyo: true, repeat: {2 * n - 1}}}, {t["start"]:.3f});')
+
+    def line_start(self, speaker, nth=1):
+        """When the nth line of a speaker starts, in frame time."""
+        ts = [t for t in self._turns() if t.get("speaker") == speaker]
+        return round(ts[nth - 1]["start"], 3)
+
+    def pose(self, ch, name, t):
+        """Swap a character's pose: a 0.12 s crossfade and a small squash, standing on the same spot."""
+        a = self.actor[ch]
+        t = self.at(t)
+        old, a["pose"] = a["pose"], name
+        if old == name:
+            return
+        self.tweens.append(f'tl.to("#{self.id}-{ch}-{old}", {{opacity: 0, duration: 0.12, ease: "none"}}, {t});')
+        self.tweens.append(f'tl.to("#{self.id}-{ch}-{name}", {{opacity: 1, duration: 0.12, ease: "none"}}, {t});')
+        self.tweens.append(f'tl.set("#{self.id}-{ch}-body", {{scaleY: 0.94, scaleX: 1.04}}, {t});')
+        self.tweens.append(f'tl.to("#{self.id}-{ch}-body", {{scaleY: 1, scaleX: 1, duration: 0.35, ease: "back.out(2.5)"}}, {t});')
+
+    def _shot_props(self, name):
+        if name == "two":
+            return 1, 0, 0
+        a = self.actor[name]
+        s = self.CLOSE
+        x = W / 2 - a["cx"] * s
+        y = (KEEP_OUT - 30) - self.FLOOR * s  # the floor stays just above the caption band
+        x = min(0, max(W - W * s, x))  # never show past the set's edges
+        return s, round(x, 1), round(y, 1)
+
+    def shot(self, name, t, push=False):
+        """Change shot: "two", or a cast member's name for their close-up. A cut unless push=True (0.5 s ease)."""
+        if name != "two" and name not in self.actor:
+            raise KeyError(f"shot: {name!r} is not a shot (two, {', '.join(self.cast)})")
+        s, x, y = self._shot_props(name)
+        k = self.PARALLAX
+        for el, props in ((f"#{self.id}-cam", f"scale: {s}, x: {x}, y: {y}"),
+                          (f"#{self.id}-board", f"scale: {round(1 + (s - 1) * k, 3)}, x: {round(x * k, 1)}, y: {round(y * k, 1)}")):
+            if push:
+                self.tweens.append(f'tl.to("{el}", {{{props}, duration: 0.5, ease: "power2.inOut"}}, {self.at(t)});')
+            else:
+                self.set(el, t, props)
+
+    def chalk(self, s, x, y, t, size=72, color=None, w=None, align="center", eid=None):
+        """Chalk writing on the board behind the cast, in board px (the two-shot shows it as placed)."""
+        eid = eid or self.uid("chalk")
+        st = (f"position:absolute;left:{x}px;top:{y}px;{f'width:{w}px;' if w else ''}font-family:'{DISPLAY}';"
+              f"font-size:{size}px;font-weight:800;color:{color or CREAM};text-align:{align};line-height:1.05;"
+              f"white-space:pre-wrap;opacity:0.92;text-shadow:0 0 2px rgba(240,236,229,0.35);")
+        self._board_html = getattr(self, "_board_html", []) + [f'<div id="{eid}" style="{st}">{esc(s)}</div>']  # on the board layer
+        self.tweens.append(f'tl.fromTo("#{eid}", {{opacity: 0, clipPath: "inset(0 100% 0 0)"}}, '
+                           f'{{opacity: 0.92, clipPath: "inset(0 0% 0 0)", duration: 0.6, ease: "power1.inOut"}}, {self.at(t)});')
+        return f"#{eid}"
 
     # ── output ────────────────────────────────────────────────────────────────────────────────
     def write(self, drift=True):
@@ -692,6 +840,10 @@ class Frame:
             for fam, wt, f in FONTS
         )
         stage = f"{self.id}-stage"
+        drift = drift and not getattr(self, "_skit", False)  # a skit's camera moves only by its shots
+        if getattr(self, "_board_html", None):
+            self.html = [h.replace(f'transform-origin:0 0;"></div>', f'transform-origin:0 0;">{"".join(self._board_html)}</div>', 1)
+                         if h.startswith(f'<div id="{self.id}-board"') else h for h in self.html]
         drift_tw = f'tl.fromTo("#{stage}", {{scale: 1}}, {{scale: 1.02, duration: {self.duration}, ease: "none"}}, 0);' if drift else ""
         body = "\n        ".join(self.html)
         tweens = "\n      ".join([drift_tw] + self.tweens)
@@ -709,6 +861,7 @@ class Frame:
         {body}
       </div>
       {self.card_html}
+      {getattr(self, "_lens", "")}
     </div>
   </div>
   <script src="assets/gsap.min.js"></script>

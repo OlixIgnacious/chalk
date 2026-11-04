@@ -4,7 +4,8 @@
 Reads one JSON job from stdin:
   { "model": ..., "voices": ..., "voice": "af_heart" | "af_heart:0.7,af_bella:0.3", "speed": 0.93,
     "lang": "en-us", "jobs": [ { "out": "a.wav", "pieces": [ { "text": "...", "gap": 0.4 }, ... ] } ] }
-and prints { "voice": ..., "takes": [ { "out": ..., "duration": seconds } ] }.
+and prints { "voice": ..., "takes": [ { "out": ..., "duration": seconds, "pieces": [ { speaker, text, start, end } ] } ] }.
+A piece may carry its own "voice", "speed" and "speaker" (a skit's cast); the job's voice is the default.
 
 Why this exists: `hyperframes tts` exposes only voice and speed, and Kokoro's own sentence_pause did
 nothing in testing (0.25 and 0.55 gave identical audio). So each piece is synthesized alone and the
@@ -48,25 +49,35 @@ def main():
     speed = float(req.get("speed", 1.0))
     lang = req.get("lang", "en-us")
     takes = []
+    styles = {req["voice"]: voice}  # a piece may name its own voice (a skit's cast); each is resolved once
     for job in req["jobs"]:
-        chunks, sr = [], 24000
+        sr = 24000
+        lead = float(job.get("lead") or 0)
+        chunks, at, spans = [], 0, []
+        if lead > 0:
+            chunks.append(np.zeros(int(lead * sr), dtype=np.float32))
+            at = len(chunks[0])
         for piece in job["pieces"]:
             text = piece["text"].strip()
             if not text:
                 continue
-            samples, sr = k.create(text, voice=voice, speed=speed, lang=lang)
+            spec = piece.get("voice") or req["voice"]
+            if spec not in styles:
+                styles[spec] = resolve_voice(k, spec)
+            samples, sr = k.create(text, voice=styles[spec], speed=float(piece.get("speed") or speed), lang=lang)
             chunks.append(samples)
+            spans.append({"speaker": piece.get("speaker"), "text": text,
+                          "start": round(at / sr, 3), "end": round((at + len(samples)) / sr, 3)})
+            at += len(samples)
             gap = float(piece.get("gap") or 0)
             if gap > 0:
                 chunks.append(np.zeros(int(gap * sr), dtype=np.float32))
-        if not chunks:
+                at += int(gap * sr)
+        if not spans:
             die(f"nothing to say for {job['out']}")
-        lead = float(job.get("lead") or 0)
-        if lead > 0:
-            chunks.insert(0, np.zeros(int(lead * sr), dtype=np.float32))
         audio = np.concatenate(chunks)
         sf.write(job["out"], audio, sr, subtype="PCM_16")
-        takes.append({"out": job["out"], "duration": round(len(audio) / sr, 3)})
+        takes.append({"out": job["out"], "duration": round(len(audio) / sr, 3), "pieces": spans})
     print(json.dumps({"voice": req["voice"], "takes": takes}))
 
 

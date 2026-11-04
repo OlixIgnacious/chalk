@@ -1174,6 +1174,17 @@ test("narrate: an explicit marker replaces the natural gap, and a trailing marke
   assert.deepEqual(mid.map((x) => x.gap), ["beat", null]);
 });
 
+// A skit has two voices in one take: {as:name} says who speaks from there on, and never reaches the captions.
+test("narrate: {as:name} sets the speaker of the sentences after it and is stripped like a pause marker", () => {
+  need(narr);
+  const p = narr.splitSpoken("{as:penguin} Is a set a list? {as:bear} No. It keeps one of each. {beat} {as:penguin} Oh.");
+  assert.deepEqual(p.map((x) => x.text), ["Is a set a list?", "No.", "It keeps one of each.", "Oh."]);
+  assert.deepEqual(p.map((x) => x.speaker), ["penguin", "bear", "bear", "penguin"]);
+  assert.deepEqual(p.map((x) => x.gap), ["question", "sentence", "beat", null]);
+  assert.equal(narr.stripMarkers("{as:penguin} Is it? {as:bear} No."), "Is it? No.");
+  assert.deepEqual(narr.splitSpoken("Plain narration.").map((x) => x.speaker), [null]);
+});
+
 test("narrate: a gap's length is deterministic, varied, and within its jitter", () => {
   need(narr);
   const o = { sentence: 0.4, question: 0.7, beat: 0.5, pause: 1.0, think: 2.5, jitter: 0.2 };

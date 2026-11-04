@@ -85,7 +85,7 @@ export function parseScript(md) {
       cur[kv[1].replace(/-(\w)/g, (_, c) => c.toUpperCase())] = kv[2].trim();
       continue;
     }
-    const f = line.match(/^\s*(-\s*)?(spoken|display|source):\s*(.*)$/);
+    const f = line.match(/^\s*(-\s*)?(spoken|display|source|speaker):\s*(.*)$/);
     if (!f) continue;
     if (f[1]) {
       entry = { spoken: "", display: "", source: [] };
@@ -94,6 +94,7 @@ export function parseScript(md) {
     const v = f[3].trim();
     if (f[2] === "source") entry.source = v.replace(/[[\]]/g, "").split(",").map((s) => s.trim()).filter(Boolean);
     else entry[f[2]] = v.replace(/^"|"$/g, "");
+    if (f[2] === "speaker") entry.speaker = entry.speaker.toLowerCase();
   }
   return { title, scenes };
 }
@@ -175,7 +176,8 @@ ${scenes.map((s) => `- Scene ${s.n} (${s.visual}${s.example ? `, example: ${s.ex
   let s = `# SCRIPT — segment ${nn}\n\n**Voice:** Kokoro ${ch?.voice ?? "(unset)"}\n**Voice direction:** A teacher talking to one viewer: warm, unhurried, clear.\n\n---\n`;
   let b = `---\nformat: ${FORMAT}\nfps: 30\nduration: ${scenes.reduce((a, x) => a + parseFloat(x.duration?.match(/[\d.]+/)?.[0] ?? 0), 0)}s\nmessage: "${title}"\naudience: "${video.audience ?? "learners"}"\nmode: autonomous\nmusic: none\n---\n`;
   for (const sc of scenes) {
-    const spoken = sc.entries.map((e) => e.spoken).join(" ");
+    // a skit's line names its speaker; narrate says it in that cast member's voice ({as:name} never reaches a caption)
+    const spoken = sc.entries.map((e) => (e.speaker ? `{as:${e.speaker}} ` : "") + e.spoken).join(" ");
     s += `\n## Line ${sc.n} — ${sc.title} (Frame ${sc.n})\n\n    ${spoken}\n`;
     b += `\n## Frame ${sc.n} — ${sc.title}\n\n- scene: ${sc.onScreen ?? sc.title}\n- duration: ${sc.duration?.replace("~", "") ?? "10s"}\n- transition_in: ${sc.n === 1 ? "cut" : "crossfade"}\n- status: outline\n- voiceover: "${sc.entries.map((e) => e.display).join(" ")}"\n- src: compositions/frames/${frameId(sc)}.html\n- visual: ${sc.visual}\n`;
   }
