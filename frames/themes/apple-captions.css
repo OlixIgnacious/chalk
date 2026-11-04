@@ -1,0 +1,8 @@
+  /* theme: apple — bold near-white words on the black canvas, no plate; the word being said in Apple blue */
+  @font-face { font-family: 'Inter'; font-weight: 800; src: url('assets/fonts/inter-latin-800-normal.woff2') format('woff2'); }
+  .caption-pill { background: transparent !important; border: 0 !important; padding: 0 !important; max-width: 88% !important; }
+  .caption-line { font-family: 'Inter', system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.02em !important;
+    font-size: 64px !important; line-height: 1.05 !important; }
+  .caption-word { color: #F5F5F7 !important; background: transparent !important; box-shadow: none !important; padding: 0 0.04em !important; }
+  .caption-word.is-active { color: #2997FF !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-spoken { color: #F5F5F7 !important; }

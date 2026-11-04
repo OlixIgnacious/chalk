@@ -11,7 +11,7 @@ import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { FORMATS } from "../pipeline/stages.mjs";
-import { run, approve, status, context, plan } from "../pipeline/run.mjs";
+import { run, approve, status, statusJson, context, plan, hashPath, hashStats } from "../pipeline/run.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "chalk-pipeline-"));
 const ALIGNER = join(tmp, "aligner.mjs"); // stands in for core's align-captions.mjs
@@ -126,6 +126,34 @@ test("status shows a stage that looks done as waiting while an upstream stage wi
   assert.equal(cell("frames", "01").after, "narrate", "frames 01 waits for the new take");
   assert.equal(cell("frames", "00").status, "done", "segment 00 is not touched by 01's script");
   assert.equal(cell("spec", "01").status, "done", "a frame spec does not go stale with its take");
+});
+
+test("status --json carries the same picture as status, for the UI", () => {
+  const j = statusJson(out, { format: "toy" });
+  assert.equal(j.format, "toy");
+  assert.deepEqual(j.stages.map((s) => s.name), FORMATS.toy.map((s) => s.name));
+  const narrate = j.stages.find((s) => s.name === "narrate");
+  assert.equal(narrate.per, "segment");
+  assert.equal(narrate.cells.find((c) => c.nn === "01").status, "stale");
+  assert.equal(j.stages.find((s) => s.name === "frames").cells.find((c) => c.nn === "01").after, "narrate");
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(j)));
+});
+
+test("the hash cache gives the same hash, re-reads only what changed, and still sees a change", () => {
+  const dir = join(tmp, "hashed");
+  mkdirSync(join(dir, "sub"), { recursive: true });
+  writeFileSync(join(dir, "big.bin"), "x".repeat(1 << 20));
+  writeFileSync(join(dir, "sub/a.txt"), "a\n");
+  const cache = { data: {}, dirty: false };
+  const plain = hashPath(dir);
+  assert.equal(hashPath(dir, cache), plain, "cached and uncached hashes agree");
+  const before = hashStats.reads;
+  assert.equal(hashPath(dir, cache), plain);
+  assert.equal(hashStats.reads, before, "nothing re-read when nothing changed");
+  writeFileSync(join(dir, "sub/a.txt"), "b\n");
+  const changed = hashPath(dir, cache);
+  assert.notEqual(changed, plain, "a same-size edit still changes the hash");
+  assert.equal(changed, hashPath(dir));
 });
 
 test("--from reruns a stage and everything after it, --only limits it to those segments", async () => {

@@ -1,0 +1,8 @@
+  /* theme: midnight — bold cool-white words on the navy canvas, no plate; the word being said in electric cyan */
+  @font-face { font-family: 'Inter'; font-weight: 800; src: url('assets/fonts/inter-latin-800-normal.woff2') format('woff2'); }
+  .caption-pill { background: transparent !important; border: 0 !important; padding: 0 !important; max-width: 88% !important; }
+  .caption-line { font-family: 'Inter', system-ui, sans-serif !important; font-weight: 800 !important; letter-spacing: -0.02em !important;
+    font-size: 64px !important; line-height: 1.05 !important; text-shadow: 0 2px 12px rgba(10,16,36,0.85) !important; }
+  .caption-word { color: #EEF2FF !important; background: transparent !important; box-shadow: none !important; padding: 0 0.04em !important; }
+  .caption-word.is-active { color: #22D3EE !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-spoken { color: #EEF2FF !important; }

@@ -85,6 +85,16 @@ duration: ~30s
 Explain what each line does and why, from the code and the source's own explanation — see
 [fidelity.md](fidelity.md) § Explaining code.
 
+Say what the code **does**, never its line number: "First, an empty dict, to remember where each value was",
+not "Line two creates a dict". The highlight on screen shows which line; the voice carries the idea.
+`check-spoken` fails a spoken line that names a line number ("line 3", "on line five").
+
+**Run it, like a real notebook.** Where the code is first finished (and on the trace), show it running: a
+`visual: code run` scene with `run: <call on the running example>` and `computed-by:` the script that runs the
+source's code and prints each call's output (framelib `code_run`). A short `[pipeline]` line invites the viewer
+to run the same cell in the notebook ("Open the notebook in the description and run this with me"); the
+notebook's example cells use exactly the calls the video runs, so the viewer sees the same output.
+
 ## Lexicon
 
 Maintain `<output-dir>/lexicon.json` — a file of the shape `{ "terms": [ … ] }` (a bare array is refused),

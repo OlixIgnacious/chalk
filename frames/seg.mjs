@@ -40,14 +40,19 @@ const lastPart = () => {
     return null;
   }
 };
-const HOLD = Number(process.env.END_HOLD ?? (nn && nn === lastPart() ? 20 : 1.8));
+// a Short (short.json) loops: it ends on a beat, not an end screen, and it is portrait
+const SHORT = existsSync(join(OUT, "short.json"));
+const FORMAT = SHORT ? "1080x1920" : "1920x1080";
+const HOLD = Number(process.env.END_HOLD ?? (SHORT ? 0.6 : nn && nn === lastPart() ? 20 : 1.8));
 if (cmd === "voice") {
   const c = channel();
   if (!c?.voice) {
     console.error("seg: channel.json has no voice — audition and record one; never fall back silently");
     process.exit(1);
   }
-  console.log(`${c.voice} ${c.speed ?? 0.93} ${c.polish ? "polish" : "plain"}`);
+  // a Short may set its own voice and pace (news is read brighter and faster than a lesson): short.json "voice", "speed"
+  const own = SHORT ? JSON.parse(readFileSync(join(OUT, "short.json"), "utf8")) : {};
+  console.log(`${own.voice ?? c.voice} ${own.speed ?? c.speed ?? 0.93} ${c.polish ? "polish" : "plain"}`);
   process.exit(0);
 }
 if (!cmd || !/^\d\d$/.test(nn ?? "")) {
@@ -103,7 +108,8 @@ function setup() {
   const chapter = JSON.parse(readFileSync(join(OUT, "chapter.json"), "utf8"));
   const byId = new Map(chapter.blocks.map((b) => [b.id, b]));
   const cited = [...new Set(scenes.flatMap((s) => s.entries.flatMap((e) => e.source)))];
-  const video = existsSync(join(OUT, "video.json")) ? JSON.parse(readFileSync(join(OUT, "video.json"), "utf8")) : {};
+  const manifest = SHORT ? "short.json" : "video.json";
+  const video = existsSync(join(OUT, manifest)) ? JSON.parse(readFileSync(join(OUT, manifest), "utf8")) : {};
   const ch = channel();
   // a marker ending a scene becomes the silence before the next scene's take (narrate); the last scene has no next take
   const last = scenes.at(-1);
@@ -116,8 +122,8 @@ workflow: faceless-explainer
 flow: automation
 storyboard: no
 message: "${title}"
-destination: youtube
-aspect: 1920x1080
+destination: ${SHORT ? "youtube-shorts" : "youtube"}
+aspect: ${FORMAT}
 fps: 30
 language: en
 audience: "${video.audience ?? "learners"}"
@@ -126,8 +132,8 @@ style_preset: broadside
 
 ## Intent
 
-Segment ${nn} of the chalk-youtube video "${video.title ?? ""}" — one YouTube chapter, "${title}". Driven by chalk-youtube step 4; the two-layer script in
-\`segments/${nn}/script.md\` is locked. Format pinned: landscape 1920x1080 at 30fps.
+${SHORT ? `The chalk Short "${video.title ?? ""}"` : `Segment ${nn} of the chalk-youtube video "${video.title ?? ""}" — one YouTube chapter, "${title}"`}. Driven by chalk step 4; the two-layer script in
+\`segments/${nn}/script.md\` is locked. Format pinned: ${SHORT ? "portrait" : "landscape"} ${FORMAT} at 30fps.
 
 ## Notes
 
@@ -167,7 +173,7 @@ ${scenes.map((s) => `- Scene ${s.n} (${s.visual}${s.example ? `, example: ${s.ex
   for (const f of readdirSync(join(ASSETS, "fonts"))) copyFileSync(join(ASSETS, "fonts", f), join(proj, "assets/fonts", f));
 
   let s = `# SCRIPT — segment ${nn}\n\n**Voice:** Kokoro ${ch?.voice ?? "(unset)"}\n**Voice direction:** A teacher talking to one viewer: warm, unhurried, clear.\n\n---\n`;
-  let b = `---\nformat: 1920x1080\nfps: 30\nduration: ${scenes.reduce((a, x) => a + parseFloat(x.duration?.match(/[\d.]+/)?.[0] ?? 0), 0)}s\nmessage: "${title}"\naudience: "coding-interview learners"\nmode: autonomous\nmusic: none\n---\n`;
+  let b = `---\nformat: ${FORMAT}\nfps: 30\nduration: ${scenes.reduce((a, x) => a + parseFloat(x.duration?.match(/[\d.]+/)?.[0] ?? 0), 0)}s\nmessage: "${title}"\naudience: "${video.audience ?? "learners"}"\nmode: autonomous\nmusic: none\n---\n`;
   for (const sc of scenes) {
     const spoken = sc.entries.map((e) => e.spoken).join(" ");
     s += `\n## Line ${sc.n} — ${sc.title} (Frame ${sc.n})\n\n    ${spoken}\n`;

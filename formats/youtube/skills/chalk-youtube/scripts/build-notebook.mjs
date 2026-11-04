@@ -46,7 +46,10 @@ function exampleCell(call) {
 /** A link label left behind when the source's link was dropped: it points nowhere in a notebook. */
 const DEAD_LINK = /\s*Open on LeetCode\s*$/;
 /** Words that would send a reader to a book or a video the notebook does not have. */
-const ELSEWHERE = /\b(chapter|section|week \d|the video|in the video|video \d)\b/i;
+// Words that point at the source or the video, which the notebook does not have: "see chapter 2", "in the video",
+// a lettered section ("in E. Two pointers"), or a part of the source the notebook left out ("the follow-ups above").
+const ELSEWHERE = /\b(chapter|section|week \d|the video|in the video|video \d|follow-ups? (?:above|below))\b/i;
+const LETTERED = /\b(?:in|see) [A-H]\. [A-Z][a-z]+/;   // case matters: "in E. Two pointers", not "in a. b"
 
 /**
  * The notebook stands alone: someone who never saw the video opens it, reads the problem, and runs each
@@ -78,8 +81,12 @@ export function buildNotebook({ chapter, manifest, readSegmentFile, fragments = 
   const block = (id, where) => {
     const b = byId.get(id);
     if (!b) problems.push(`notebook ${where}: no block ${id} in chapter.json`);
-    else if (b.kind !== "code" && ELSEWHERE.test(b.text)) problems.push(`notebook ${where}: ${id} points outside the notebook ("${b.text.match(ELSEWHERE)[0]}")`);
     return b;
+  };
+  // checked on the text the notebook shows, after notebook.trim: a trimmed-out pointer no longer points anywhere
+  const elsewhere = (b, text, where) => {
+    const hit = b.kind !== "code" && (text.match(ELSEWHERE) ?? text.match(LETTERED));
+    if (hit) problems.push(`notebook ${where}: ${b.id} points outside the notebook ("${hit[0]}")`);
   };
   // `trim: { "p050": [": see Follow-ups"] }` cuts named words from a block: only a pointer to a part of the source
   // the notebook leaves out, listed where the author can see it. Everything else is the block as written.
@@ -93,6 +100,7 @@ export function buildNotebook({ chapter, manifest, readSegmentFile, fragments = 
       const b0 = block(id, where);
       if (!b0) continue;
       const b = { ...b0, text: trimmed(b0) };
+      elsewhere(b, b.text, where);
       for (const m of b.text.matchAll(/\bsee ([A-Z][\w-]*(?: [A-Z][\w-]*)*)/g))
         if (!titles.some((t) => t.includes(m[1].toLowerCase()))) problems.push(`notebook ${where}: ${id} says "see ${m[1]}", and the notebook has no such section (add it, or list the words under notebook.trim)`);
       if (b.kind === "code") problems.push(`notebook ${where}: ${id} is code; list it under "code"`);

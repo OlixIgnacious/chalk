@@ -1,0 +1,17 @@
+{
+  "name": "chalk-short",
+  "version": "0.1.0",
+  "description": "One idea from a chapter as a vertical YouTube Short / Instagram Reel",
+  "type": "module",
+  "private": true,
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "chalk-core": "*"
+  }
+}

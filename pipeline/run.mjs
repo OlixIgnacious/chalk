@@ -14,27 +14,87 @@
 
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, realpathSync, renameSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { FORMATS } from "./stages.mjs";
 
 const SKIP_DIRS = new Set(["node_modules", "__pycache__", ".git", "renders", "assets"]);
 
-/** Hash of a file, or of every file under a directory; "missing" when it is not there. */
-export function hashPath(p) {
-  if (!existsSync(p)) return "missing";
-  const h = createHash("sha1");
+/** Files read to hash them, for the tests: an untouched file is hashed from the cache, not re-read. */
+export const hashStats = { reads: 0 };
+
+/** Every file under p (or p itself), in hashing order, as [path, stat]. */
+function filesOf(p) {
+  const files = [];
   const walk = (q) => {
-    const st = statSync(q);
+    const st = statSync(q, { bigint: true });
     if (st.isDirectory()) {
       for (const n of readdirSync(q).sort()) if (!SKIP_DIRS.has(n)) walk(join(q, n));
-    } else {
-      h.update(q.slice(p.length));
-      h.update(readFileSync(q));
-    }
+    } else files.push([q, st]);
   };
   walk(p);
-  return h.digest("hex").slice(0, 16);
+  return files;
+}
+
+/** Hash of a file, or of every file under a directory; "missing" when it is not there.
+ *
+ * With a cache (see hashCacheFor), a path whose files all have the size and mtime they had last time
+ * returns the hash recorded then, without reading them: the status a UI polls every few seconds would
+ * otherwise re-read every video it depends on. The hash itself is the same either way. */
+export function hashPath(p, cache) {
+  if (!existsSync(p)) return "missing";
+  const files = filesOf(p);
+  let sig;
+  if (cache) {
+    sig = createHash("sha1");
+    for (const [q, st] of files) sig.update(`${q.slice(p.length)}\0${st.size}\0${st.mtimeNs}\n`);
+    sig = sig.digest("hex");
+    const hit = cache.data[p];
+    if (hit && hit.sig === sig) return hit.hash;
+  }
+  const h = createHash("sha1");
+  for (const [q] of files) {
+    h.update(q.slice(p.length));
+    h.update(readFileSync(q));
+    hashStats.reads++;
+  }
+  const hash = h.digest("hex").slice(0, 16);
+  if (cache) {
+    cache.data[p] = { sig, hash };
+    cache.dirty = true;
+  }
+  return hash;
+}
+
+/** One hash cache per output dir, kept in <out>/.chalk/hashcache.json and written once when the process exits. */
+const hashCaches = new Map();
+export function hashCacheFor(out) {
+  if (hashCaches.has(out)) return hashCaches.get(out);
+  const file = join(out, ".chalk", "hashcache.json");
+  let data = {};
+  try {
+    data = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+  } catch {
+    data = {}; // a torn or corrupt cache only costs a full re-hash
+  }
+  const cache = { file, data, dirty: false };
+  hashCaches.set(out, cache);
+  if (hashCaches.size === 1) process.on("exit", flushHashCaches);
+  return cache;
+}
+export function flushHashCaches() {
+  for (const c of hashCaches.values()) {
+    if (!c.dirty) continue;
+    try {
+      mkdirSync(dirname(c.file), { recursive: true });
+      const tmp = `${c.file}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify(c.data));
+      renameSync(tmp, c.file);
+      c.dirty = false;
+    } catch {
+      // best effort: the next run re-hashes
+    }
+  }
 }
 
 const stateFile = (out) => join(out, ".chalk", "pipeline.json");
@@ -85,6 +145,7 @@ export function context(out, opts = {}) {
     channelPath,
     channel: channelPath && existsSync(channelPath) ? JSON.parse(readFileSync(channelPath, "utf8")) : null,
     segments: segmentsOf(out),
+    hashCache: hashCacheFor(out),
   };
 }
 
@@ -98,7 +159,7 @@ const inputHash = (o, stage, nn) => {
       const f = abs(o, p.path);
       const part = existsSync(f) ? createHash("sha1").update(p.only(readFileSync(f, "utf8"))).digest("hex").slice(0, 16) : "missing";
       h.update(`${p.path}[${p.as}]=${part};`);
-    } else h.update(`${isAbsolute(p) ? real(p) : p}=${hashPath(abs(o, p))};`);
+    } else h.update(`${isAbsolute(p) ? real(p) : p}=${hashPath(abs(o, p), o.hashCache)};`);
   }
   return h.digest("hex").slice(0, 16);
 };
@@ -304,6 +365,29 @@ export function status(out, opts = {}) {
   return lines.join("\n");
 }
 
+/** The same picture as status(), for a program (the UI): every stage with a cell per segment. */
+export function statusJson(out, opts = {}) {
+  out = real(out);
+  const o = context(out, opts);
+  const format = opts.format ?? "youtube";
+  return {
+    out,
+    format,
+    segments: o.segments,
+    channel: o.channelPath,
+    doc: o.doc ?? null,
+    notebook: o.notebook,
+    approvals: Object.keys(o.state.approvals),
+    stages: plan(o, format, opts).map(({ stage, cells }) => ({
+      name: stage.name,
+      kind: stage.kind,
+      per: stage.per ?? null,
+      cells: cells.map(({ nn, status, why, after }) => ({ nn: nn ?? null, status, why: why ?? null, after: after ?? null,
+        outputs: stage.outputs ? stage.outputs(o, nn ?? undefined) : [] })),
+    })),
+  };
+}
+
 export async function main(argv) {
   const val = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
   const VALUED = ["--doc", "--format", "--only", "--from", "--jobs", "--channel"];
@@ -319,7 +403,8 @@ export async function main(argv) {
   };
   const [sub, out] = pos[0] === "approve" || pos[0] === "adopt" || pos[0] === "status" ? pos : [null, pos[0]];
   // the format given, else the one this dir was built as, else a lesson if it has a lesson.json
-  opts.format ??= (out && readState(real(out)).opts.format) ?? (out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube");
+  opts.format ??= (out && readState(real(out)).opts.format) ??
+    (out && existsSync(join(out, "short.json")) ? "short" : out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube");
   if (!FORMATS[opts.format]) {
     console.error(`chalk pipeline: format "${opts.format}" has no pipeline yet (${Object.keys(FORMATS).join(", ")})`);
     return 2;
@@ -331,7 +416,7 @@ export async function main(argv) {
   }
   if (!existsSync(out)) mkdirSync(out, { recursive: true });
   if (sub === "status") {
-    console.log(status(out, opts));
+    console.log(argv.includes("--json") ? JSON.stringify(statusJson(out, opts), null, 2) : status(out, opts));
     return 0;
   }
   if (sub === "adopt") {
@@ -340,6 +425,11 @@ export async function main(argv) {
     return 0;
   }
   if (sub === "approve") {
+    // agents launched by the UI run with this set: a gate is the person's to pass, never an agent's
+    if (process.env.CHALK_NO_APPROVE) {
+      console.error("chalk pipeline approve: approvals are the person's — this process may not approve");
+      return 2;
+    }
     const what = argv.includes("--scripts") ? "scripts" : argv.includes("--watched") ? "watched" : null;
     if (!what) {
       console.error("chalk pipeline approve: say what — --scripts or --watched");

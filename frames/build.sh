@@ -16,12 +16,13 @@ CORE="node $TOOLS/../core/bin/chalk-core.mjs"  # this repo's core, whatever node
 export CHALK_ASSETS=$ASSETS
 
 if [ "${1:-}" = assets ]; then
-  [ -f "$ASSETS/gsap.min.js" ] && { echo "assets: already staged in $ASSETS"; exit 0; }
+  [ -f "$ASSETS/gsap.min.js" ] && [ -f "$ASSETS/fonts/inter-latin-900-normal.woff2" ] && { echo "assets: already staged in $ASSETS"; exit 0; }
   T=$(mktemp -d); mkdir -p "$ASSETS/fonts"
-  (cd "$T" && npm pack gsap@3.14.2 @fontsource/barlow@5.2.5 @fontsource/ibm-plex-mono@5.2.5 >/dev/null 2>&1 && for f in *.tgz; do mkdir "${f%.tgz}" && tar -xzf "$f" -C "${f%.tgz}"; done)
+  (cd "$T" && npm pack gsap@3.14.2 @fontsource/barlow@5.2.5 @fontsource/ibm-plex-mono@5.2.5 @fontsource/inter@5.2.5 >/dev/null 2>&1 && for f in *.tgz; do mkdir "${f%.tgz}" && tar -xzf "$f" -C "${f%.tgz}"; done)
   cp "$T"/gsap-3.14.2/package/dist/gsap.min.js "$ASSETS/"
   for w in 400 600 700 800 900; do cp "$T"/fontsource-barlow-5.2.5/package/files/barlow-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
   for w in 400 500 600; do cp "$T"/fontsource-ibm-plex-mono-5.2.5/package/files/ibm-plex-mono-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
+  for w in 400 600 700 800 900; do cp "$T"/fontsource-inter-5.2.5/package/files/inter-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
   rm -rf "$T"; echo "assets: staged in $ASSETS"; exit 0
 fi
 
@@ -57,9 +58,27 @@ frames)
   (cd $P
     sed -i '' 's/^- status: outline/- status: animated/' STORYBOARD.md
     node $FE/captions.mjs build --storyboard ./STORYBOARD.md --audio-meta ./audio_meta.json --hyperframes . --out ./caption_groups.json | tail -1
+    # portrait (a Short): the caption band goes just under the content (y 1350-1550), above the bottom ~20% where
+    # Shorts and Reels draw their own title and buttons, and the type grows: most people watch muted
+    if grep -q '^format: 1080x1920' STORYBOARD.md; then
+      sed -i '' -E 's/--cap-band-top: [0-9]+px/--cap-band-top: 1350px/; s/--cap-band-height: [0-9]+px/--cap-band-height: 200px/;
+        s/top: var\(--cap-band-top, [0-9]+px\)/top: var(--cap-band-top, 1350px)/; s/font-size: clamp\(32px, 5\.2vw, 46px\)/font-size: clamp(48px, 5.6vw, 62px)/' \
+        compositions/captions.html
+      grep -q -- '--cap-band-top: 1350px' compositions/captions.html || { echo "frames: could not move the portrait caption band" >&2; exit 1; }
+      # muted viewers read the captions: phrases of 3-5 words held at least 0.7 s, not 2-word flashes
+      node "$TOOLS/../core/scripts/regroup-captions.mjs" compositions/captions.html caption_groups.json
+    fi
+    # a theme's captions (themes/<name>-captions.css), layered over the preset skin
+    THEME=$(node -e 'for (const m of ["short.json","video.json","lesson.json"]) { try { const t = require(process.argv[1] + "/" + m).theme; if (t) { console.log(t); break } } catch {} }' "$OUT")
+    if [ -n "$THEME" ] && [ -f "$TOOLS/themes/$THEME-captions.css" ]; then
+      node -e 'const fs=require("fs"); const [f,css]=process.argv.slice(1); let h=fs.readFileSync(f,"utf8"); const add=fs.readFileSync(css,"utf8"); if(!h.includes("/* theme:")) h=h.replace(/<\/style>/, add+"\n</style>"); fs.writeFileSync(f,h)' compositions/captions.html "$TOOLS/themes/$THEME-captions.css"
+    fi
     node $FE/assemble-index.mjs --storyboard ./STORYBOARD.md --hyperframes . | grep -E 'total duration' || true
-    $CORE fix-index index.html
-    sed -i '' 's/<div id="el-captions" /<div id="el-captions" data-track-kind="captions" /' index.html
+    # the ground under every frame is the theme's INK (the broadside #111111 when no theme is set)
+    GROUND=$("$PY" -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import framelib as f; print(f.THEMES[sys.argv[2] or "broadside"]["INK"])' "$TOOLS" "$THEME")
+    $CORE fix-index index.html --color "$GROUND"
+    # the captions track's kind, for hyperframes lint; the tag may span several lines, so match the id alone
+    grep -q 'data-track-kind="captions"' index.html || sed -i '' 's/id="el-captions"/id="el-captions" data-track-kind="captions"/' index.html
     node $FE/transitions.mjs inject --storyboard ./STORYBOARD.md --hyperframes . | tail -1
     node $FE/transitions.mjs verify --storyboard ./STORYBOARD.md --index ./index.html | tail -1
     npx hyperframes lint 2>&1 | grep -E 'error\(s\)|✗' || true

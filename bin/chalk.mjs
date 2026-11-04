@@ -13,9 +13,10 @@
 //   chalk notebook <out>                  build notebook.ipynb (youtube format)
 //   chalk lesson-page <lesson.json>       build lesson.html (lesson format)
 //   chalk doctor                          check the machine: Python, Kokoro, Manim, ffmpeg, Hyperframes, assets
+//   chalk publish auth | <out> [--at "YYYY-MM-DD HH:MM"] [--dry-run]   upload a video or Short to YouTube (publish/)
 //
-// --format is youtube or lesson. Without it, an output dir with a lesson.json is a lesson and
-// anything else is a YouTube video.
+// --format is youtube, lesson or short. Without it, an output dir with a short.json is a Short (vertical,
+// for YouTube Shorts and Instagram Reels), one with a lesson.json is a lesson, and anything else is a YouTube video.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
@@ -33,6 +34,10 @@ const FORMATS = {
   },
   lesson: {
     skill: join(root, "formats/lesson/skills/chalk"),
+    deliver: "scripts/deliver.mjs",
+  },
+  short: {
+    skill: join(root, "formats/short/skills/chalk-short"),
     deliver: "scripts/deliver.mjs",
   },
 };
@@ -61,8 +66,8 @@ function format(argv) {
     argv.splice(i, 2);
   }
   const out = argv.find((a) => !a.startsWith("-"));
-  f ??= out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube";
-  if (!FORMATS[f]) die(`unknown format "${f}" (youtube or lesson)`);
+  f ??= out && existsSync(join(out, "short.json")) ? "short" : out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube";
+  if (!FORMATS[f]) die(`unknown format "${f}" (youtube, lesson or short)`);
   return f;
 }
 
@@ -92,11 +97,13 @@ function doctor() {
   const checks = [
     ["node ≥ 22", () => Number(process.versions.node.split(".")[0]) >= 22],
     [`python (${py})`, () => spawnSync(py, ["-c", "1"]).status === 0],
-    ["kokoro in that python", () => spawnSync(py, ["-c", "import kokoro"]).status === 0],
+    ["kokoro-onnx in that python", () => spawnSync(py, ["-c", "import kokoro_onnx"]).status === 0],
     ["manim in that python (Tier 2 only)", () => spawnSync(py, ["-c", "import manim"]).status === 0, true],
     ["ffmpeg", () => spawnSync("ffmpeg", ["-version"]).status === 0],
     ["ffprobe", () => spawnSync("ffprobe", ["-version"]).status === 0],
     ["faceless-explainer skill", () => existsSync(join(homedir(), ".claude/skills/faceless-explainer"))],
+    ["claude CLI (the UI runs agents with it)", () => spawnSync("claude", ["--version"]).status === 0, true],
+    ["streamlit in that python (the UI)", () => spawnSync(py, ["-c", "import streamlit"]).status === 0, true],
     ["fonts and GSAP staged (chalk assets)", () =>
       existsSync(join(process.env.CHALK_ASSETS ?? join(homedir(), ".cache/chalk-youtube/assets"), "gsap.min.js"))],
   ];
@@ -112,7 +119,8 @@ function doctor() {
 }
 
 if (!cmd || cmd === "--help" || cmd === "-h") {
-  const head = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1, 21);
+  const lines = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n").slice(1);
+  const head = lines.slice(0, lines.findIndex((l) => !l.startsWith("//")));
   console.log(`chalk ${pkg.version}\n` + head.map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(cmd ? 0 : 2);
 }
@@ -140,5 +148,9 @@ else if (cmd === "eval") {
 } else if (cmd === "notebook") status = node(join(FORMATS.youtube.skill, "scripts/build-notebook.mjs"), args);
 else if (cmd === "lesson-page") status = node(join(FORMATS.lesson.skill, "scripts/build-lesson-page.mjs"), args);
 else if (cmd === "doctor") status = doctor();
+else if (cmd === "publish") {
+  const { main } = await import(join(root, "publish/youtube.mjs"));
+  status = await main(args);
+}
 else die(`unknown command "${cmd}". Try: chalk --help`);
 process.exit(status);

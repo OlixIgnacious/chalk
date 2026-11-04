@@ -241,4 +241,47 @@ export const lesson = [
     missing: "your run through lesson.html against resolution.md — then: chalk pipeline approve <out> --watched" },
 ];
 
-export const FORMATS = { youtube, lesson };
+/** A Short: one idea from the chapter as a vertical video for YouTube Shorts and Instagram Reels. One part,
+ * portrait frames (short.json switches framelib and the Hyperframes project to 1080x1920), captions burned
+ * in, and no outline: short.json names the idea and the script is the plan. */
+const SHORT_SKILL = join(REPO, "formats/short/skills/chalk-short");
+export const short = [
+  same("ingest"),
+  { ...same("scripts"), inputs: () => ["chapter.json", "short.json"], outputs: () => ["segments/00/script.md"],
+    missing: "short.json and segments/00/script.md — the chalk-short skill" },
+  {
+    ...same("text-gates"),
+    inputs: (o) => ["chapter.json", "short.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), "lexicon.json",
+      ...o.segments.map((nn) => `segments/${nn}/examples`)],
+    cmd: (o) => [
+      ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
+      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
+        ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16"],
+      ["node", chalk, "eval", ".", "--format", "short", "--text", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+    ],
+  },
+  same("grounding"),
+  { ...same("scripts-approved"), inputs: (o) => ["short.json", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+    missing: "your review of short.json and the script — then: chalk pipeline approve <out> --scripts" },
+  same("narrate"),
+  same("align"),
+  same("frame-spec"),
+  same("frames"),
+  same("render"),
+  {
+    name: "deliver",
+    kind: "run",
+    inputs: (o) => [...o.segments.flatMap((nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/segment.vtt`, `segments/${nn}/script.md`]),
+      "short.json", "chapter.json", join(SHORT_SKILL, "scripts")],
+    outputs: () => ["short.mp4", "captions.srt", "description.txt", "plan.md"],
+    cmd: (o) => ["node", chalk, "deliver", ".", "--format", "short", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+  },
+  { ...same("eval"), inputs: (o) => ["short.mp4", "short.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), join(REPO, "evals"),
+    join(REPO, "formats/short/eval")],
+    cmd: (o) => ["node", chalk, "eval", ".", "--format", "short", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])] },
+  { ...same("review"), newerThan: ["eval.json", "grounding.md"] },
+  { ...same("watched"), inputs: () => ["short.mp4", "review.md"],
+    missing: "your watch of short.mp4 on a phone against review.md — then: chalk pipeline approve <out> --watched" },
+];
+
+export const FORMATS = { youtube, lesson, short };

@@ -10,7 +10,11 @@
 // the slow part, and a kit written over an ungrounded script is exactly what the gate is for. The
 // size and chapter checks run next, for the same reason. Only then does anything get written.
 
-import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, rmSync, mkdirSync, renameSync, copyFileSync } from "node:fs";
+
+// An unchanged output keeps its timestamp, so the reports read from it (learner.md reads captions.srt)
+// do not go stale every time the kit is re-delivered for a change elsewhere, such as the notebook.
+const writeIfChanged = (f, text) => { if (!existsSync(f) || readFileSync(f, "utf8") !== text) writeFileSync(f, text); };
 import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { stamp, buildChapters, chaptersText, mergeCaptions, buildDescription, notebookLinks } from "./kit.mjs";
@@ -155,7 +159,14 @@ const starts = chapters.map((c) => c.at);
 // span and can land mid-animation under a caption. A bad name fails here, before anything is written.
 let thumbIndex = 0;
 let thumbAt = null;
-if (manifest.thumbnail) {
+// A designed thumbnail (`"thumbnail": { "image": "thumbnail-src/x.png" }`) is used as it is; the frame grab
+// then goes to thumbnail-frame.png, so a re-delivery never overwrites the design.
+const thumbImage = manifest.thumbnail?.image ? resolve(outDir, manifest.thumbnail.image) : null;
+if (thumbImage && !existsSync(thumbImage)) {
+  console.error(`deliver: thumbnail image ${manifest.thumbnail.image} is not there. Nothing was written.`);
+  process.exit(1);
+}
+if (manifest.thumbnail?.segment !== undefined) {
   const { segment, at } = manifest.thumbnail;
   thumbIndex = segments.findIndex((s) => s.id === String(segment));
   if (thumbIndex < 0) {
@@ -214,9 +225,13 @@ function settledTime(file, duration) {
 }
 
 const at = thumbAt ?? settledTime(mp4s[thumbIndex], durations[thumbIndex]);
+const frameOut = join(outDir, thumbImage ? "thumbnail-frame.png" : "thumbnail.png");
 run("ffmpeg", ["-y", "-hide_banner", "-loglevel", "error", "-ss", String(at), "-i", mp4s[thumbIndex],
-               "-frames:v", "1", "-vf", "scale=1280:720", join(outDir, "thumbnail.png")]);
-console.log(`deliver: thumbnail.png from ${segments[thumbIndex].id} at ${at.toFixed(2)}s`);
+               "-frames:v", "1", "-vf", "scale=1280:720", frameOut]);
+if (thumbImage) {
+  copyFileSync(thumbImage, join(outDir, "thumbnail.png"));
+  console.log(`deliver: thumbnail.png from ${manifest.thumbnail.image} (frame grab: thumbnail-frame.png)`);
+} else console.log(`deliver: thumbnail.png from ${segments[thumbIndex].id} at ${at.toFixed(2)}s`);
 
 // ── the stitched video ────────────────────────────────────────────────────────────────────────────
 
@@ -231,15 +246,19 @@ mkdirSync(dirname(listFile), { recursive: true });
 writeFileSync(listFile, mp4s.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
 const base = ["-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile];
 const video = join(outDir, "video.mp4");
+const fresh = join(outDir, "work", "video.new.mp4");
 run("ffmpeg", uniform
-  ? [...base, "-c", "copy", "-movflags", "+faststart", video]
-  : [...base, "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", video]);
+  ? [...base, "-c", "copy", "-movflags", "+faststart", fresh]
+  : [...base, "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart", fresh]);
+// the same segments make the same bytes: keep the old file (and its timestamp) when nothing changed
+if (existsSync(video) && readFileSync(video).equals(readFileSync(fresh))) rmSync(fresh);
+else renameSync(fresh, video);
 console.log(`deliver: video.mp4 ${uniform ? "concatenated without re-encoding" : "re-encoded (segments differ)"}`);
 
 // ── the written kit ───────────────────────────────────────────────────────────────────────────────
 
-writeFileSync(join(outDir, "captions.srt"), captions);
-writeFileSync(join(outDir, "chapters.txt"), chaptersText(chapters));
+writeIfChanged(join(outDir, "captions.srt"), captions);
+writeIfChanged(join(outDir, "chapters.txt"), chaptersText(chapters));
 
 let notebookMade = false;
 if (wantNotebook) {

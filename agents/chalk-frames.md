@@ -28,7 +28,7 @@ draw what the scene needs, say so in your reply rather than working around it.
   pointer moving, the line lighting. Text cards repeating the narration are the failure this exists to
   avoid. An `insight` scene puts the running example on screen.
 - **Components only.** `headline`, `cells`, `setbox`, `chip`, `node`, `arrow` (+ `svg`, `draw`), `table`,
-  `bar`, `code_build`, `code_show`, `code_trace`, `plan_card`, `roadmap`, `example_output`, and the tweens
+  `bar`, `code_build`, `code_show`, `code_trace`, `code_run` (for `visual: code run`: `F.code_run("examples/run_x.py", [(call, cue), ...])`), `plan_card`, `roadmap`, `example_output`, and the tweens
   `rise`, `fade`, `pop`, `wipe`, `mark`, `dim`, `to`. No hand-written HTML.
 - **Code is verbatim:** pass the block id (`F.code_build("c036", …)`); never type code into a spec.
 - **Values look the way Python prints them:** `code_trace` shows a traced set as `set()` / `{1, 2}` when the

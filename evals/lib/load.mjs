@@ -158,7 +158,9 @@ export function load(outDir, { channelPath } = {}) {
     segments,
     chapter,
     blocks: new Map((chapter?.blocks ?? []).map((b) => [b.id, b])),
-    video: readJson(join(dir, "video.json")),
+    // a Short's short.json stands in for video.json: its title, part and single segment
+    video: readJson(join(dir, "video.json")) ?? readJson(join(dir, "short.json")),
+    short: readJson(join(dir, "short.json")),
     channel: chPath ? readJson(chPath) : null,
     channelPath: chPath ?? null,
     lexicon: readJson(join(dir, "lexicon.json")),
@@ -170,7 +172,7 @@ export function load(outDir, { channelPath } = {}) {
       description: readText(join(dir, "description.txt")),
       chapters: readText(join(dir, "chapters.txt")),
       notebook: readJson(join(dir, "notebook.ipynb")),
-      video: existsSync(join(dir, "video.mp4")) ? join(dir, "video.mp4") : null,
+      video: existsSync(join(dir, "video.mp4")) ? join(dir, "video.mp4") : existsSync(join(dir, "short.mp4")) ? join(dir, "short.mp4") : null,
     },
   };
 }

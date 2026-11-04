@@ -5,7 +5,7 @@ lives beside the video, not in work/ (deliver deletes work/). The orientation ev
 and part, the progress strip of this video's stages, the stage card on a part's first frame — is built here
 from channel.json, video.json and each segment's script.md `stage:` fields, so a spec only draws its scene.
 A lesson (lesson.json, no video.json) gets the same chrome from the lesson: its title, and a strip of its
-segments' titles.
+segments' titles. A Short (short.json) is drawn in portrait with only the series and part on top.
 """
 
 import importlib.util
@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import framelib  # noqa: E402
 from framelib import STAGE_NAMES, Frame, frames_of  # noqa: E402
 
 
@@ -89,15 +90,48 @@ def lesson_context(out, nn):
     }
 
 
+def short_context(out, nn):
+    """A Short: one part, portrait, opening on its example (no stage card), the series and part on top. A Short
+    outside a series (news) names its own label in short.json `label`."""
+    channel = json.loads(find_channel(out).read_text())
+    short = json.loads((out / "short.json").read_text())
+    if short.get("part_id"):
+        parts = channel["series"]["parts"]
+        part_idx = next(i for i, p in enumerate(parts) if p["id"] == short["part_id"])
+        label = f'{channel["series"]["name"]} #{part_idx + 1} · {parts[part_idx]["title"]}'
+    else:
+        label = short.get("label") or channel.get("series", {}).get("name", "")
+    return {
+        "out_dir": out,
+        "series_label": label,
+        "part_title": short["title"],
+        "segment_title": short["title"],
+        "strip": [],
+        "stage_index": 0,
+        "stage": "hook",
+        "stage_name": "Short",
+        "part_no": 1,
+        "part_count": 1,
+    }
+
+
 def main():
     nn = sys.argv[1]
     out = Path.cwd()
     spec_path = out / "frames" / f"s{nn}.py"
+    # theme and canvas before the spec is loaded: its `from framelib import *` copies the colours and sizes
+    manifest = next((json.loads((out / m).read_text()) for m in ("short.json", "video.json", "lesson.json") if (out / m).exists()), {})
+    framelib.set_theme(manifest.get("theme"))
+    if (out / "short.json").exists():
+        framelib.set_canvas("portrait")
     spec = importlib.util.spec_from_file_location(f"s{nn}", spec_path)
     mod = importlib.util.module_from_spec(spec)
     sys.modules[f"s{nn}"] = mod
     spec.loader.exec_module(mod)
-    ctx = video_context(out, nn) if (out / "video.json").exists() or not (out / "lesson.json").exists() else lesson_context(out, nn)
+    if (out / "short.json").exists():
+        ctx = short_context(out, nn)
+    else:
+        ctx = video_context(out, nn) if (out / "video.json").exists() or not (out / "lesson.json").exists() else lesson_context(out, nn)
     project = out / "segments" / nn / "video"
     for no, fid in frames_of(project):
         F = Frame(project, no, fid, ctx)

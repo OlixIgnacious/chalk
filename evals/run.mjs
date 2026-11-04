@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // run.mjs — score a chalk output dir as a tutorial.
 //
-//   node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--json] [--no-write]
+//   node evals/run.mjs <output-dir> [--format youtube|lesson|short] [--channel <channel.json>] [--deep] [--json] [--no-write]
 //
 // Writes <output-dir>/eval.json and eval.md: every criterion in shared.mjs and in the format's pack
 // (formats/<format>/eval/criteria.mjs) with pass / fail / skip,
@@ -18,10 +18,11 @@ import { skip } from "./lib/kit.mjs";
 import * as shared from "./shared.mjs";
 import * as youtube from "../formats/youtube/eval/criteria.mjs";
 import * as lesson from "../formats/lesson/eval/criteria.mjs";
+import * as short from "../formats/short/eval/criteria.mjs";
 
 /** Each format is scored on its own pack first, then on what every format shares. */
 export const PACKS = Object.fromEntries(
-  Object.entries({ youtube, lesson }).map(([name, pack]) => [
+  Object.entries({ youtube, lesson, short }).map(([name, pack]) => [
     name,
     { criteria: [...pack.CRITERIA, ...shared.CRITERIA], groups: [...new Set([...pack.GROUPS, ...shared.GROUPS])] },
   ]),
@@ -81,7 +82,7 @@ print(json.dumps(bad))
 // Criteria that judge what is built (frames, captions, the render, the kit, the notebook). The text gates run before
 // an edited part is built again, so --text skips them there: judged on the old build, they fail a script for the
 // state of a render that is about to be replaced. E3/E4 stay: they skip a part whose narration is stale by themselves.
-const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "T9"]);
+const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "T9", "S3", "S4"]);
 
 export function evaluate(outDir, { format = "youtube", channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
   const pack = PACKS[format];

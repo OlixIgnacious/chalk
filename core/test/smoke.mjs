@@ -1022,6 +1022,18 @@ test("apply-display: each word ends where the next begins, and the last where th
   assert.equal(w[2].end, 2.0, "the last display word keeps the transcript's own last end");
 });
 
+// REGRESSION (2026-10-30, Two Sum part 07) — "you get zero, one" came back as "0," and "1." on one start
+// time; "0," got a zero-length caption, emit-vtt refused it and the burned-in captions never showed it.
+test("apply-display: two words on one start time share the time up to the next word", () => {
+  const caps = { lines: [adCaptions.lines[0], adCaptions.lines[1], { id: "l003", end: 5, w: [["Four", 3.0], ["five.", 3.0]] }] };
+  const { s, c, m } = adSetup("ad-pair", adMeta(), caps);
+  const r = run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
+  assert.equal(r.status, 0, r.stderr);
+  const w = JSON.parse(readFileSync(m, "utf8")).voices[1].words;
+  assert.deepEqual(w.map((x) => x.start), [0.1, 1.0, 1.5], "the pair splits the 1.0-2.0 span in half");
+  assert.ok(w.every((x) => x.end > x.start), "no word is zero-length");
+});
+
 test("apply-display: the original transcript is kept, and re-running starts from it", () => {
   const { s, c, m, dir } = adSetup("ad3");
   run("apply-display.mjs", "--script", s, "--captions", c, "--audio-meta", m);
@@ -1315,6 +1327,15 @@ test("check-spoken: a long code build or plan with no pause is a warning, not a 
   assert.doesNotMatch(run("check-spoken.mjs", paused).stderr, /no \{pause\}/);
   const short = write("plan-short.md", `## Scene 1 — plan\nvisual: plan card (tier 1)\n\n${steps(3)}`);
   assert.doesNotMatch(run("check-spoken.mjs", short).stderr, /no \{pause\}/, "three steps can run straight");
+});
+
+test("check-spoken: naming code by its line number fails; saying what it does, or one line, does not", () => {
+  const bad = write("lineno.md", '## Scene 1 — x\n- spoken: "Line three checks the set, so you never compare twice."\n  display: "Line 3 checks the set."\n  source: [p1]\n\n- spoken: "And on line 5 we return."\n  display: "x"\n  source: [p1]\n');
+  const r = run("check-spoken.mjs", bad);
+  assert.equal(r.status, 1);
+  assert.equal((r.stderr.match(/names code by its line number/g) ?? []).length, 2, r.stderr);
+  const good = write("lineok.md", '## Scene 1 — x\n- spoken: "Then we check the set, all in one line, before we store anything."\n  display: "x"\n  source: [p1]\n');
+  assert.doesNotMatch(run("check-spoken.mjs", good).stderr, /line number/);
 });
 
 test("check-spoken: a question answered with a bare label is a warning; an answer with its reason is not", () => {

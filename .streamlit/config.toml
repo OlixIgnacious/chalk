@@ -1,0 +1,36 @@
+# The chalk UI (npm run ui). Run from the repo root so Streamlit finds this file.
+
+[server]
+address = "localhost"        # never reachable from the network: the UI starts agents that run commands
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#ff6a2b"              # brand orange: the next action, active tabs, focus
+backgroundColor = "#141414"           # the logo's blackboard
+secondaryBackgroundColor = "#1d1c1a"  # cards, inputs
+textColor = "#f3f0e8"                 # chalk white
+linkColor = "#ffa070"
+borderColor = "#2e2c29"
+showWidgetBorder = true
+codeBackgroundColor = "#0f0f0e"
+baseRadius = "0.5rem"
+font = "Inter, 'Source Sans Pro', sans-serif"
+headingFont = "'Space Grotesk', Inter, sans-serif"
+codeFont = "'JetBrains Mono', 'SF Mono', Menlo, monospace"
+codeFontSize = "0.8rem"
+greenColor = "#7bc47f"
+yellowColor = "#e8b44a"
+orangeColor = "#ff6a2b"
+redColor = "#e5534b"
+blueColor = "#6ea8fe"
+violetColor = "#b392f0"
+grayColor = "#9a968d"
+
+[theme.sidebar]
+backgroundColor = "#1a1918"
+secondaryBackgroundColor = "#232220"
+borderColor = "#2e2c29"

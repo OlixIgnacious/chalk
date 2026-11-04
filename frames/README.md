@@ -8,7 +8,7 @@ The step-4 plumbing: deterministic frames from a Python spec per segment, the vo
 | `build.sh` | `assets` once per machine; then per segment `NN voice`, `NN frames`, `NN render`. Run from the output dir. |
 | `seg.mjs` | `setup` (BRIEF, capture, frame.md, fonts, SCRIPT.md, STORYBOARD.md), `sync` (take lengths + end hold), `words` (word stream), `voice` (from channel.json). |
 | `gen.py` | Runs `<output-dir>/frames/sNN.py` and adds the orientation every frame needs. |
-| `framelib.py` | The Broadside components: `code_build`, `code_trace`, `plan_card`, `roadmap`, `stage_card`, `progress_strip`, `code_show`, `cells`, `table`, `setbox`, `chip`, `node`, `arrow`, `bar`. |
+| `framelib.py` | The Broadside components: `code_build`, `code_trace`, `code_run` (a notebook cell that runs: `In [ ]:` → ▶ → `Out[n]:`, outputs from an example script), `plan_card`, `roadmap`, `stage_card`, `progress_strip`, `code_show`, `cells`, `table`, `setbox`, `chip`, `node`, `arrow`, `bar`. |
 
 ## Run a video
 

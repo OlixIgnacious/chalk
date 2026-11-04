@@ -48,10 +48,18 @@ const grounding = [
       const ev = [];
       for (const p of panels) {
         const block = ctx.blocks.get(p.id);
-        const shown = [...p.inner.matchAll(/data-codeline[^>]*>([\s\S]*?)<\/span>/g)].map((m) => unescapeHtml(m[1].replace(/<[^>]+>/g, "")));
+        // a line drawn with its comment on the row above (framelib comments="above") carries its whole text in the attribute
+        const shown = [...p.inner.matchAll(/data-codeline(?:="([^"]*)")?[^>]*>([\s\S]*?)<\/span>/g)]
+          .map((m) => unescapeHtml(m[1] ?? m[2].replace(/<[^>]+>/g, "")));
+        // whole lines of the block, in its order: a panel may show some of them (a portrait screen shows the body)
+        const lines = block?.text.split("\n") ?? [];
+        let k = 0;
+        const inOrder = shown.every((l) => {
+          while (k < lines.length && lines[k] !== l) k++;
+          return k++ < lines.length;
+        });
         if (!block) ev.push(`${p.f.file.split("/segments/")[1]}: unknown block ${p.id}`);
-        else if (shown.join("\n") !== block.text && !block.text.split("\n").join("\n").includes(shown.join("\n")))
-          ev.push(`${p.f.file.split("/segments/")[1]}: code differs from ${p.id}`);
+        else if (!inOrder) ev.push(`${p.f.file.split("/segments/")[1]}: code differs from ${p.id}`);
       }
       return ev.length ? fail(ev) : pass([`${panels.length} code panel(s) match`]);
     },
@@ -206,11 +214,12 @@ const ease = [
   {
     id: "E4",
     group: "ease",
-    title: "No scene is rushed: at most 2.8 spoken words a second over each take, pauses included (a lesson 3.0; channel.json max_words_per_second overrides)",
+    title: "No scene is rushed: at most 2.8 spoken words a second over each take, pauses included (a lesson 3.0, a Short 3.4; short.json or channel.json max_words_per_second overrides)",
     weight: 2,
     run(ctx) {
       // a lesson is planned at Kokoro's measured 2.85 words/s (formats/lesson step-2); a tutorial video slower
-      const MAX = ctx.channel?.max_words_per_second ?? { lesson: 3.0 }[ctx.format] ?? 2.8;
+      // a Short is read faster (short.json speed): the feed rewards pace, and its one idea needs no time to settle
+      const MAX = ctx.short?.max_words_per_second ?? ctx.channel?.max_words_per_second ?? { lesson: 3.0, short: 3.4 }[ctx.format] ?? 2.8;
       // per take (one scene): a slow scene must not hide a rushed one inside the same part
       const rates = [];
       const stale = mainSegments(ctx).filter((s) => s.audioStale).map((s) => s.id);
@@ -241,10 +250,10 @@ const audio = [
   {
     id: "V1",
     group: "voice",
-    title: "Narration uses the channel's chosen voice",
+    title: "Narration uses the channel's chosen voice (or the one a Short's short.json names)",
     weight: 2,
     run(ctx) {
-      const want = ctx.channel?.voice;
+      const want = ctx.short?.voice ?? ctx.channel?.voice;
       if (!want) return fail(["channel.json has no voice: the choice is not recorded anywhere the pipeline reads"]);
       const voiced = ctx.segments.filter((s) => s.audioMeta || s.engineMeta);
       if (!voiced.length) return skip("no narration yet");
@@ -314,16 +323,17 @@ const render = [
   {
     id: "R1",
     group: "render",
-    title: "Every part is 1920x1080 at 30 fps",
+    title: "Every part is the format's size at 30 fps (1920x1080; a Short 1080x1920)",
     weight: 2,
     run(ctx, env) {
       const vids = ctx.segments.filter((s) => s.mp4);
       if (!vids.length) return skip("no rendered segments");
+      const [W, H] = ctx.format === "short" ? [1080, 1920] : [1920, 1080];
       const ev = [];
       for (const s of vids) {
         const p = env.probe(s.mp4);
         if (p === null) return skip("ffprobe unavailable");
-        if (p.width !== 1920 || p.height !== 1080 || Math.round(p.fps) !== 30) ev.push(`segments/${s.id}: ${p.width}x${p.height} @ ${p.fps.toFixed(2)}fps`);
+        if (p.width !== W || p.height !== H || Math.round(p.fps) !== 30) ev.push(`segments/${s.id}: ${p.width}x${p.height} @ ${p.fps.toFixed(2)}fps`);
       }
       return ev.length ? fail(ev) : pass([`${vids.length} part(s)`]);
     },

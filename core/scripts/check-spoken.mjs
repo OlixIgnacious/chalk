@@ -34,6 +34,7 @@ const opt = (n) => {
   }
   return v;
 };
+const LINE_NO = /\b(?:on\s+)?lines?\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b/i;
 const BANNED = (opt("banned") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const MAX_AVG = opt("max-avg") === null ? null : Number(opt("max-avg"));
 if (MAX_AVG !== null && !(MAX_AVG > 0)) {
@@ -139,6 +140,13 @@ for (const file of files) {
       if (hit) failures.push(`line ${i + 1}: the ${f[1].toLowerCase()} layer says "${hit[2]}", which this video must not — "${f[2].slice(0, 60)}"`);
     });
   }
+  // code is explained by what it does, never by its line number: "line three checks the set" makes the viewer
+  // count lines instead of following the idea ("then we check the set"). The `lines:` field says which lines.
+  md.split("\n").forEach((line, i) => {
+    const f = line.match(/^\s*(?:-\s*)?spoken:\s*"(.*)"\s*$/i);
+    const hit = f && f[1].match(LINE_NO);
+    if (hit) failures.push(`line ${i + 1}: names code by its line number ("${hit[0]}") — say what the code does instead — "${f[1].slice(0, 60)}"`);
+  });
   for (const s of m.sentenceList) {
     const n = s.split(/\s+/).length;
     // a spoken array ("one, two, three, one") is one value, not a list of items to hold in mind

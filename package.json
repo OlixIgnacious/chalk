@@ -11,12 +11,15 @@
   "workspaces": [
     "core",
     "formats/youtube",
-    "formats/lesson"
+    "formats/lesson",
+    "formats/short"
   ],
   "scripts": {
-    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs && node test/frames.mjs && node test/pipeline.mjs",
+    "test": "npm test --workspaces && node test/evals.mjs && node test/cli.mjs && node test/frames.mjs && node test/pipeline.mjs && node test/publish.mjs",
     "eval": "node evals/run.mjs",
-    "doctor": "node bin/chalk.mjs doctor"
+    "doctor": "node bin/chalk.mjs doctor",
+    "ui": ".venv/bin/python -m streamlit run ui/app.py",
+    "test:ui": ".venv/bin/python -m pytest ui/test_ui.py -q"
   },
   "bin": {
     "chalk": "bin/chalk.mjs"

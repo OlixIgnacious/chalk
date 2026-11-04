@@ -52,6 +52,58 @@ for v in [{"set": []}, {"set": [2, 1]}, set(), [1, 2], "a", 3]:
   assert.deepEqual(vals, ["set()", "{1, 2}", "set()", "[1, 2]", "'a'", "3"]);
 });
 
+test("portrait: set_canvas makes a 1080x1920 frame with only the series on top, and code can show some of its lines", () => {
+  const out = frame("Go on", `import framelib
+framelib.set_canvas("portrait")
+F.video.update({"series_label": "DSA Patterns #1 · The Seen-Set", "out_dir": "."})
+framelib._CHAPTERS["."] = {"c1": {"text": "def f(xs):                                  # O(n) time, O(n) space\\n    seen = set()\\n    return seen"}}
+F.code_show("c1", x=104, y=420, w=872, size=40, only=[2, 3])
+F.chrome()
+F.html.append("W=%d H=%d K=%d" % (framelib.W, framelib.H, framelib.KEEP_OUT))`);
+  assert.match(out, /W=1080 H=1920 K=1320/);
+  assert.doesNotMatch(out, /data-role="progress-strip"/, "a Short has no stage strip");
+  assert.match(out, /DSA Patterns #1/);
+  assert.doesNotMatch(out, /# O\(n\) time/, "the commented signature is not shown");
+  assert.match(out, /<span class="f01-plan-num">2<\/span><span class="f01-plan-ct" data-codeline>    seen = set\(\)/, "a shown line keeps its own number");
+  assert.match(out, /font-size:40px/, "the body fits at 40px");
+});
+
+test("comments=\"above\" moves a trailing comment to its own row, keeping every character and the line's own number", () => {
+  const out = frame("Go on", `import framelib
+framelib.set_canvas("portrait")
+F.video.update({"series_label": "DSA Patterns #3", "out_dir": "."})
+framelib._CHAPTERS["."] = {"c1": {"text": "def f(xs):\\n    if x in seen:                  # check BEFORE storing x\\n        return 1"}}
+F.code_show("c1", x=104, y=420, w=872, size=40, only=[2, 3], comments="above")`);
+  assert.match(out, /-cm"[^>]*><span[^>]*><\/span><span[^>]*>    # check BEFORE storing x</, "the comment sits on its own row, at the code's indent");
+  assert.match(out, /data-codeline="    if x in seen:                  # check BEFORE storing x">    if x in seen:</, "the line carries its whole text for G2");
+  assert.match(out, /f01-plan-num">2</, "the line keeps its own number");
+  assert.match(out, /font-size:40px/, "the narrow panel keeps code at 40px");
+});
+
+test("code_run shows each call with the output its example script printed, and refuses a call it did not run", () => {
+  const ex = join(tmp, "examples");
+  spawnSync("mkdir", ["-p", ex]);
+  writeFileSync(join(ex, "run_two_sum.py"),
+    'import json\ndef f(n): return [n, n + 1]\nprint(json.dumps({"calls": {"f(1)": repr(f(1))}}))\n');
+  const html = frame("Run it now", `F.code_run("examples/run_two_sum.py", [("f(1)", "Run")])`);
+  assert.match(html, /In \[ \]:/);
+  assert.match(html, />f\(1\)</);
+  assert.match(html, /Out\[1\]:<\/span><span[^>]*>\[1, 2\]</, "the output is the script's, not typed by hand");
+  const r = spawnSync(py, ["-I", "-c", `import sys; sys.path.insert(0, ${JSON.stringify(join(root, "frames"))})
+import json
+from pathlib import Path
+from framelib import Frame
+import os
+proj = ${JSON.stringify(join(tmp, "probe"))}
+os.makedirs(proj, exist_ok=True)
+open(proj + "/audio_meta.json", "w").write(json.dumps({"voices": [{"frame": 1, "duration_s": 1, "words": [{"text": "Run", "start": 0, "end": 0.2}]}]}))
+open(proj + "/STORYBOARD.md", "w").write("# x\\n\\n## Frame 1 — p\\n\\n- duration: 2.0s\\n")
+F = Frame(proj, 1, "f01-p", {"stage": "plan"})
+F.code_run("examples/run_two_sum.py", [("f(2)", "Run")])`], { encoding: "utf8" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /prints no result for \['f\(2\)'\]/);
+});
+
 let failed = 0;
 for (const [name, fn] of tests) {
   try {

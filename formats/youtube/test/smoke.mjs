@@ -246,6 +246,15 @@ test("notebook: no outline, an unknown block, or text that points outside the no
   const chapter = { title: "t", blocks: [{ id: "p1", kind: "para", text: "As the next section shows, it is fast." }] };
   const r = nb.buildNotebook({ chapter, manifest: { segments: [], notebook: { sections: [{ title: "x", text: ["p1"] }] } }, readSegmentFile: () => null });
   assert.match(r.problems.join(), /p1 points outside the notebook/);
+  // a pointer listed under notebook.trim is cut before the check, so it no longer points anywhere
+  const ok = nb.buildNotebook({ chapter, manifest: { segments: [], notebook: { sections: [{ title: "x", text: ["p1"] }], trim: { p1: "As the next section shows, ".split("|") } } }, readSegmentFile: () => null });
+  assert.doesNotMatch(ok.problems.join(), /points outside/);
+  // REGRESSION (Two Sum notebook): a lettered section and "the follow-ups above" point outside too
+  for (const text of ["That is LeetCode 167, in E. Two pointers.", "Keep a count, as in the follow-ups above."]) {
+    const c2 = { title: "t", blocks: [{ id: "p2", kind: "para", text }] };
+    const r2 = nb.buildNotebook({ chapter: c2, manifest: { segments: [], notebook: { sections: [{ title: "x", text: ["p2"] }] } }, readSegmentFile: () => null });
+    assert.match(r2.problems.join(), /p2 points outside the notebook/, text);
+  }
 });
 
 test("notebook: non-Python code is shown as text, not a cell; a list item loses its number; a dead link label is dropped", () => {

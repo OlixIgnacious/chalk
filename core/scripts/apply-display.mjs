@@ -99,7 +99,20 @@ for (const [fi, v] of meta.voices.entries()) {
   // Starts never go backwards: two display tokens sharing one misheard spoken word can come out of the
   // aligner a millisecond apart in the wrong order, and a caption cannot precede the word before it.
   let prev = 0;
-  const starts = tokens.map(([, s]) => (prev = Math.max(prev, Math.max(0, Number(s.toFixed(3))))));
+  const raw = tokens.map(([, s]) => (prev = Math.max(prev, Math.max(0, Number(s.toFixed(3))))));
+  v.rawStarts = raw;
+  // Two display tokens on one start time ("0," "1." for a spoken "zero, one" the transcript heard as one
+  // word) share the time up to the next start, so neither becomes a zero-length caption that never shows.
+  const starts = raw.slice();
+  for (let i = 0; i < raw.length; ) {
+    let j = i;
+    while (j + 1 < raw.length && raw[j + 1] === raw[i]) j++;
+    if (j > i) {
+      const span = (j + 1 < raw.length ? raw[j + 1] : lastEnd) - raw[i];
+      for (let k = i; k <= j; k++) starts[k] = Number((raw[i] + ((k - i) * span) / (j - i + 1)).toFixed(3));
+    }
+    i = j + 1;
+  }
   v.words = tokens.map(([text], i) => {
     const start = starts[i];
     const next = i + 1 < tokens.length ? starts[i + 1] : lastEnd;
@@ -111,12 +124,14 @@ meta.display_applied = true;
 // Three or more words on one start time means the alignment broke (a misheard word made the aligner skip
 // ahead and squeeze the rest together), and it prints no MISMATCH. Refuse rather than write broken captions.
 for (const v of meta.voices) {
+  const raw = v.rawStarts;
+  delete v.rawStarts;
   for (let i = 0; i < v.words.length; ) {
     let j = i;
-    while (j + 1 < v.words.length && v.words[j + 1].start === v.words[i].start) j++;
+    while (j + 1 < v.words.length && raw[j + 1] === raw[i]) j++;
     if (j - i >= 2) {
       console.error(
-        `apply-display: frame ${v.frame}: ${j - i + 1} words share one start time (${v.words[i].start}s): ` +
+        `apply-display: frame ${v.frame}: ${j - i + 1} words share one start time (${raw[i]}s): ` +
           `"${v.words.slice(i, j + 1).map((w) => w.text).join(" ")}". The transcript probably misheard a word just ` +
           "before them. Reword that line, or add a lexicon `heard` form, and align again. Nothing was written.",
       );
