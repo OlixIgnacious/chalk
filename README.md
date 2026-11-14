@@ -190,6 +190,16 @@ npx chalk pipeline approve youtube-output/my-chapter --watched    # after watchi
 A workspace `channel.json` holds what stays the same across a channel: the voice, its speed, the series and its
 parts, and banned terms. Pass it with `--channel`.
 
+An output's `video.json` holds what belongs to one video:
+
+| Key | Does |
+|---|---|
+| `segments` | the cut. A part removed from this list keeps its folder on disk but is no longer built or evaluated. |
+| `theme` | the frame palette (`broadside` by default, or `apple`, `midnight`, `yellow`, `sketch`) and its captions from [frames/themes/](frames/themes/). A Short or lesson sets it in `short.json` or `lesson.json`. |
+| `stage_names` | renames a stage on the progress strip for this video only, e.g. `{"bug": "Careful"}` |
+| `notebook.sections` | the notebook outline: each section's text, code, `run` calls and `end` text about their results. On-screen run panels number their `In [n]` cells from it, so they match the notebook the viewer runs. |
+| `accepted` | eval failures kept on purpose, each with a reason |
+
 ### Or use the UI
 
 ```bash
@@ -258,10 +268,15 @@ chalk deliver <out> [--format f]       the format's deliver script
 chalk notebook <out>                   build notebook.ipynb (YouTube)
 chalk lesson-page <lesson.json>        build lesson.html (lesson)
 chalk doctor                           check Python, Kokoro, Manim, ffmpeg, HyperFrames, assets
+chalk publish auth | <out> [--at "YYYY-MM-DD HH:MM"] [--dry-run]   upload a video or Short to YouTube
 ```
 
 `--format` is `youtube`, `lesson` or `short`. Without it, an output dir with a `short.json` is a Short, one
 with a `lesson.json` is a lesson, and anything else is a YouTube video.
+
+`chalk publish` uploads a delivered video or Short through the YouTube Data API: private, or scheduled with
+`--at`, never public at once. It uploads once and records the result in `<out>/published.json`. Setup and what it
+reads are in [publish/README.md](publish/README.md).
 
 ## Evaluation
 
@@ -291,13 +306,15 @@ pipeline/            stages.mjs (the stages per format) and run.mjs (the resumab
 agents/              chalk-grounding, -frames, -learner, -notebook-reviewer, -reviewer, -resolver
 core/                ingest, the grounding and spoken-style gates, narrate, caption alignment, Manim
   references/        the shared references every skill reads through a references/core symlink
-frames/              framelib.py components, gen.py, seg.mjs, build.sh, themes/
+frames/              framelib.py components, gen.py, seg.mjs, build.sh, slice-cast.py, themes/
 evals/               the runner, shared criteria, fixtures per format
 formats/youtube/     /chalk-youtube skill, notebook builder, deliver, eval pack
 formats/lesson/      /chalk skill, lesson player, deliver, eval pack
 formats/short/       /chalk-short skill, deliver, eval pack
-test/                CLI, pipeline, frames and eval-fixture suites
+test/                CLI, pipeline, frames, publish and eval-fixture suites
 ui/                  the Streamlit UI: app, orchestrator, agent launchers
+publish/             chalk publish: YouTube upload, scheduling and playlists
+docs/                research notes
 ```
 
 ## Contributing
@@ -311,7 +328,7 @@ Read [CLAUDE.md](CLAUDE.md) first, and the `CLAUDE.md` in any directory you chan
 - **Gates are not advisory.** A failing gate stops the run, and the step-3 gate always stops for the user.
 
 ```bash
-npm test             # core, youtube, lesson and short suites, then CLI, frames, pipeline and eval fixtures
+npm test             # core, youtube, lesson and short suites, then eval fixtures, CLI, frames, pipeline and publish
 npm run eval         # the eval runner
 npm run test:ui      # the UI: launchers, orchestrator, page
 npx chalk doctor

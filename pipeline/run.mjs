@@ -122,7 +122,12 @@ function findChannel(out, given) {
 function segmentsOf(out) {
   const root = join(out, "segments");
   if (existsSync(root)) {
-    const ids = readdirSync(root).filter((d) => /^\d\d$/.test(d) && existsSync(join(root, d, "script.md"))).sort();
+    let ids = readdirSync(root).filter((d) => /^\d\d$/.test(d) && existsSync(join(root, d, "script.md"))).sort();
+    // a part cut from video.json keeps its folder on disk, but is no longer built (the eval reads the same list)
+    try {
+      const listed = JSON.parse(readFileSync(join(out, "video.json"), "utf8")).segments?.map((s) => s.id);
+      if (listed?.length) ids = ids.filter((d) => listed.includes(d));
+    } catch { /* no video.json yet */ }
     if (ids.length) return ids;
   }
   const lesson = join(out, "lesson.json");
@@ -311,6 +316,20 @@ export async function run(out, opts = {}) {
   return 0;
 }
 
+/** True when the oldest output is older than the newest file among the stage's inputs (by mtime). */
+function olderThanInputs(o, stage, nn, outs) {
+  const newest = (p) => {
+    const f = abs(o, p);
+    if (!existsSync(f)) return 0n;
+    return filesOf(f).reduce((m, [, st]) => (st.mtimeNs > m ? st.mtimeNs : m), 0n);
+  };
+  const oldestOut = outs.map((p) => statSync(abs(o, p), { bigint: true }).mtimeNs).reduce((a, b) => (a < b ? a : b));
+  // a { path, only } input is a view of part of a file (the spoken lines of a lexicon): its mtime says nothing,
+  // so a heard-form edit can still be adopted without re-narrating
+  const ins = stage.inputs(o, nn).filter((p) => typeof p !== "object");
+  return ins.some((p) => newest(p) > oldestOut);
+}
+
 /** Record the current inputs of every mechanical stage whose outputs exist, without running anything. */
 export function adopt(out, opts = {}) {
   out = real(out);
@@ -323,6 +342,8 @@ export function adopt(out, opts = {}) {
       const outs = stage.outputs(o, nn);
       if (!stage.cmd(o, nn) || (outs.length && outs.some((p) => !existsSync(abs(o, p))))) continue;
       if (!outs.length && stage.name !== "text-gates") continue;
+      // an output older than an input it is built from was not built from these inputs: leave it stale
+      if (outs.length && olderThanInputs(o, stage, nn, outs)) continue;
       state.stages[key(stage, nn)] = { hash: inputHash(o, stage, nn), at: new Date().toISOString(), adopted: true };
       n++;
     }

@@ -104,6 +104,46 @@ F.code_run("examples/run_two_sum.py", [("f(2)", "Run")])`], { encoding: "utf8" }
   assert.match(r.stderr, /prints no result for \['f\(2\)'\]/);
 });
 
+test("table: a one-line cell that would run into the next column fails the build; wrap=(c,) lets it break instead", () => {
+  const long = "arrays already sorted, or memory is tight and you may sort in place";
+  const out = frame("Compare", `try:
+    F.table(["a", "when", "b"], [["Sets", ${JSON.stringify(long)}, "x"]], 104, 240, [400, 600, 300], size=40)
+    F.html.append("NO-ERROR")
+except ValueError as e:
+    F.html.append("ERR:" + str(e))
+F.table(["a", "when", "b"], [["Sets", ${JSON.stringify(long)}, "x"]], 104, 240, [400, 600, 300], size=40, row_h=104, wrap=(1,))`);
+  assert.match(out, /ERR:table cell \(0,1\).*wrap=\(1,\)/);
+  assert.doesNotMatch(out, /NO-ERROR/);
+  assert.match(out, /white-space:normal;line-height:1\.15;">arrays already sorted/);
+  // a last column may use the room up to the canvas edge
+  frame("Go", `F.table(["a", "b"], [["x", "only to state as the starting point"]], 104, 240, [400, 300], size=40)`);
+});
+
+test("code_run numbers its cells as the notebook does, and a statement shows no Out row", () => {
+  const out = join(tmp, "nb-out");
+  spawnSync("mkdir", ["-p", join(tmp, "examples")]);
+  spawnSync("mkdir", ["-p", out]);
+  writeFileSync(join(out, "chapter.json"), JSON.stringify({ blocks: [{ id: "c1", kind: "code", lang: "python", text: "def f(n): return n" }] }));
+  writeFileSync(join(out, "video.json"), JSON.stringify({ notebook: { sections: [
+    { title: "a", code: "c1", run: ["f(0)"] },
+    { title: "b", run: ["x = 2", "f(x)"] },
+  ] } }));
+  writeFileSync(join(tmp, "examples", "run_seq.py"),
+    'import json\nprint(json.dumps({"calls": {"x = 2": "", "f(x)": "2"}}))\n');
+  const html = frame("Set it run it", `F.video["out_dir"] = ${JSON.stringify(out)}
+F.code_run("examples/run_seq.py", [("x = 2", "Set"), ("f(x)", "run")])
+F.html.extend(F.tweens)  # the cell numbers are set on the timeline`);
+  assert.match(html, /In \[3\]:/, "x = 2 is the notebook's third code cell (the def, f(0), then x = 2)");
+  assert.match(html, /In \[4\]:/);
+  assert.match(html, /Out\[4\]:/);
+  assert.doesNotMatch(html, /Out\[3\]:/, "a statement prints nothing, so it has no Out row");
+  const replay = frame("Again here", `F.video["out_dir"] = ${JSON.stringify(out)}
+F.code_run("examples/run_seq.py", [("x = 2", "Again"), ("f(x)", "here")], ran=True)
+F.html.extend(F.tweens)`);
+  assert.match(replay, /In \[4\]:/, "a replay keeps the notebook's number");
+  assert.doesNotMatch(replay, /In \[\*\]:|running…<\/div>/.source ? /In \[\*\]:/ : /x/, "a replay is not running again");
+});
+
 let failed = 0;
 for (const [name, fn] of tests) {
   try {

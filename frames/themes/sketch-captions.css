@@ -1,0 +1,10 @@
+  /* theme: sketch — black comic capitals on white paper, no plate, no accent; at the top, clear of the characters */
+  @font-face { font-family: 'Barlow'; font-weight: 900; src: url('assets/fonts/barlow-latin-900-normal.woff2') format('woff2'); }
+  .caption-stage { top: 250px !important; height: 220px !important; }
+  .caption-pill { background: transparent !important; border: 0 !important; padding: 0 !important; max-width: 86% !important; }
+  .caption-line { font-family: 'Barlow', system-ui, sans-serif !important; font-weight: 900 !important; letter-spacing: 0 !important;
+    font-size: 72px !important; line-height: 1.0 !important; text-transform: uppercase !important;
+    -webkit-text-stroke: 14px #FFFFFF; paint-order: stroke fill; }
+  .caption-word { color: #C8C8C8 !important; background: transparent !important; box-shadow: none !important; padding: 0 0.04em !important; }
+  .caption-word.is-active { color: #111111 !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-spoken { color: #111111 !important; }

@@ -117,8 +117,10 @@ const orientation = [
       if (!last?.script) return skip("no outro script");
       const parts = ctx.channel?.series?.parts ?? [];
       const me = parts.findIndex((p) => p.id && ctx.video?.part_id === p.id);
-      const next = me >= 0 ? parts[me + 1] : null;
-      if (!next) return parts.length ? fail(["video.json has no part_id matching channel.json series.parts"]) : skip("no series parts in channel.json");
+      if (me < 0) return parts.length ? fail(["video.json has no part_id matching channel.json series.parts"]) : skip("no series parts in channel.json");
+      // the series' last part has no next part to name; its outro closes the series instead
+      if (me === parts.length - 1) return pass([`${parts[me].title} is the last part of the series`]);
+      const next = parts[me + 1];
       const said = last.script.scenes.flatMap((s) => s.entries).some((e) => e.display.toLowerCase().includes(next.title.toLowerCase()));
       return said ? pass([`next: ${next.title}`]) : fail([`segments/${last.id}/script.md never names the next part "${next.title}"`]);
     },

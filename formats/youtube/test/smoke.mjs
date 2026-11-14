@@ -257,6 +257,13 @@ test("notebook: no outline, an unknown block, or text that points outside the no
   }
 });
 
+test("notebook: \"end\" text comes after the section's run cells, \"after\" between the code and the runs", () => {
+  const chapter = { title: "t", blocks: [{ id: "p1", kind: "para", text: "Between." }, { id: "p2", kind: "para", text: "Return 3." }] };
+  const r = nb.buildNotebook({ chapter, manifest: { segments: [], notebook: { sections: [{ title: "x", after: ["p1"], run: ["f(1)"], end: ["p2"] }] } }, readSegmentFile: () => null });
+  const src = r.notebook.cells.map((c) => (Array.isArray(c.source) ? c.source.join("") : c.source));
+  assert.ok(src.indexOf("Between.") < src.indexOf("f(1)") && src.indexOf("f(1)") < src.indexOf("Return 3."), src.join(" | "));
+});
+
 test("notebook: non-Python code is shown as text, not a cell; a list item loses its number; a dead link label is dropped", () => {
   const chapter = { title: "t", blocks: [
     { id: "c1", kind: "code", lang: "sql", text: "SELECT 1;" },

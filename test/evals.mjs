@@ -15,7 +15,7 @@
 
 import assert from "node:assert/strict";
 import { join, resolve } from "node:path";
-import { cpSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, utimesSync } from "node:fs";
+import { cpSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, utimesSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -108,6 +108,42 @@ test("T3: a function read line by line in a code show must be run by that scene'
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("O5: the last part of a series has no next part to name, and passes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-o5-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const vj = join(dir, "video.json"), v = JSON.parse(readFileSync(vj, "utf8"));
+  const parts = [{ id: "a", title: "First" }, { id: v.part_id ?? "last", title: "Last" }];
+  writeFileSync(vj, JSON.stringify({ ...v, part_id: parts[1].id }));
+  writeFileSync(join(dir, "channel.json"), JSON.stringify({ series: { name: "S", parts } }));
+  const o5 = evaluate(dir, { channelPath: join(dir, "channel.json") }).results.find((x) => x.id === "O5");
+  assert.equal(o5.status, "pass", o5.evidence.join("\n"));
+  assert.match(o5.evidence.join(""), /last part of the series/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("E2: the pattern's own illustration and values taken from the running example are not new examples", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-e2-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const e2 = () => evaluate(dir).results.find((x) => x.id === "E2");
+  const spot = join(dir, "segments/01/script.md");
+  // the pattern part illustrates the pattern on the source's own small list: not a second running example
+  writeFileSync(spot, readFileSync(spot, "utf8").replace(/stage: spot\n/, "stage: spot\non-screen: set([3, 1, 3, 2, 1]) → {1, 2, 3}\n"));
+  assert.equal(e2().status, "pass", e2().evidence.join("\n"));
+  // an output made of the running example's values ([5, 2] from [2, 5, 1]) folds into it
+  const later = join(dir, "segments/03/script.md");
+  writeFileSync(later, readFileSync(later, "utf8").replace(/(\nvisual: [^\n]*\n)/, "$1on-screen: [2, 5, 1] → [5, 2] → 5, 2, 1\n"));
+  assert.equal(e2().status, "pass", e2().evidence.join("\n"));
+  // the problem statement's own example, reused in a later part, is not a new example either
+  const prob = readdirSync(join(dir, "segments")).map((d) => join(dir, "segments", d, "script.md")).find((f) => /stage: problem/.test(readFileSync(f, "utf8")));
+  writeFileSync(prob, readFileSync(prob, "utf8").replace(/stage: problem\n/, "stage: problem\non-screen: [7, 7, 8] → 2\n"));
+  writeFileSync(later, readFileSync(later, "utf8").replace("[5, 2] → 5, 2, 1", "[5, 2] → 5, 2, 1 · [7, 7, 8]"));
+  assert.equal(e2().status, "pass", e2().evidence.join("\n"));
+  // two genuinely new lists still fail
+  writeFileSync(later, readFileSync(later, "utf8").replace("[5, 2] → 5, 2, 1 · [7, 7, 8]", "[7, 8, 9] → [10, 11, 12]"));
+  assert.equal(e2().status, "fail");
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("N2: a notebook of source code, source text and example calls passes; a tracer, an assert or a timestamp fails", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-n2-"));
   cpSync(fx("good"), dir, { recursive: true });
@@ -122,6 +158,14 @@ test("N2: a notebook of source code, source text and example calls passes; a tra
   write([cell("markdown", "## 03 · The idea · video 1:45"), cell("code", "steps(f, 1)\nassert True")]);
   assert.equal(n2().status, "fail");
   assert.match(n2().evidence.join("\n"), /pointer to the video[\s\S]*neither a source block nor example calls/);
+  // an assignment is an example only when the notebook outline declares it as a run
+  write([cell("markdown", "## Solution"), cell("code", fn.text), cell("code", "xs = [1, 1, 2]"), cell("code", "f(xs)")]);
+  assert.equal(n2().status, "fail");
+  const vj = join(dir, "video.json");
+  const video = JSON.parse(readFileSync(vj, "utf8"));
+  video.notebook = { ...(video.notebook ?? {}), sections: [{ title: "Solution", run: ["xs = [1, 1, 2]", "f(xs)"] }] };
+  writeFileSync(vj, JSON.stringify(video));
+  assert.equal(n2().status, "pass", n2().evidence.join("\n"));
   rmSync(dir, { recursive: true, force: true });
 });
 

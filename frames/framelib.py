@@ -52,6 +52,9 @@ THEMES = {
     "midnight": dict(INK="#0A1024", INK_ALT="#121B36", ORANGE="#22D3EE", CREAM="#EEF2FF", MUTED="#8B95B5", HINT="#4A5578",
                      BORDER="#1F2A4A", DISPLAY="Inter", GRADIENT="linear-gradient(90deg, #22D3EE 0%, #818CF8 55%, #C084FC 100%)",
                      MARK_FILL="rgba(34,211,238,0.18)"),
+    # sketch: black line on white paper, no accent colour (a cartoon skit's look; captions in frames/themes/sketch-captions.css)
+    "sketch": dict(INK="#FFFFFF", INK_ALT="#F4F4F4", ORANGE="#111111", CREAM="#111111", MUTED="#777777", HINT="#BBBBBB",
+                   BORDER="#DDDDDD", DISPLAY="Barlow", GRADIENT=None, MARK_FILL="rgba(0,0,0,0.08)"),
     # the yellow template (formats/youtube/templates/yellow/README.md): white and #FFD60A on near-black, Barlow
     "yellow": dict(INK="#0D0D0D", INK_ALT="#1D1D1D", ORANGE="#FFD60A", CREAM="#FFFFFF", MUTED="#8A8A8A", HINT="#3A3A3A",
                    BORDER="#2A2A2A", DISPLAY="Barlow", GRADIENT=None, MARK_FILL="rgba(255,214,10,0.18)"),
@@ -498,27 +501,46 @@ class Frame:
 
     RUN_BUSY = 0.9  # seconds "running…" stays up, so it can be read (hyperframes check wants ~0.8 s)
 
-    def code_run(self, script_rel, runs, x=104, y=170, w=1100, size=40, start=1, title="notebook"):
+    def code_run(self, script_rel, runs, x=104, y=170, w=1100, size=40, start=None, title="notebook", ran=False):
         """Run code the way a notebook does: each call sits in an `In [ ]:` cell, the ▶ run button lights on its
-        cue, a moment of "running…", then `In [n]:` and `Out[n]:` with the result. Nothing on screen is typed by
+        cue, `In [*]:` and "running…" while it runs, then `In [n]:` and `Out[n]:` with the result. Nothing on screen is typed by
         hand: the results come from the segment's example script (`script_rel`), which runs the source's code
         and prints {"calls": {"<call>": "<repr of its result>"}}. runs: [(call, cue)] or [(call, cue, out_cue)], top
         to bottom: the button lights on `cue`; "running…" stays at least RUN_BUSY seconds, until `out_cue` when the
-        narration names the result later, so `Out[n]` lands on the words that read it. Returns the bottom y."""
+        narration names the result later, so `Out[n]` lands on the words that read it. `start` (the first cell's n) comes
+        from the notebook outline in video.json, so the panel matches the notebook the viewer runs; pass it only to
+        override. A statement (`nums = [...]`, printed as "") shows `In [n]` and no `Out`, as Jupyter does.
+        ran=True shows cells the viewer already ran earlier in the video (a replay): `In [n]` and its `Out` at the
+        cue, with no ▶ run and no "running…", since re-running would give a new, higher number.
+        Returns the bottom y."""
         out = json.loads(self.example_output(script_rel))["calls"]
         runs = [r if len(r) > 2 else (r[0], r[1], None) for r in runs]
         missing = [r[0] for r in runs if r[0] not in out]
+        if start is None:
+            start = notebook_number(self.video["out_dir"], [r[0] for r in runs]) if "out_dir" in self.video else None
+            if start is None:
+                start = 1
+                self.video.setdefault("warnings", []).append(
+                    f"{self.id}: {[r[0] for r in runs]} are not consecutive run cells of one notebook section in video.json; "
+                    "the panel counts from In [1], which will not match the notebook")
         if missing:
             raise KeyError(f"{self.id}: {script_rel} prints no result for {missing} (it printed: {list(out)})")
         pid = self.uid("run")
         row_h = round(size * 1.5)
         cell_h = row_h * 2 + 44
         head = 64
-        cells = []
+        cells, cy = [], head
         for k, (call, cue, _) in enumerate(runs):
-            n, cy = start + k, head + k * (cell_h + 18)
+            n, shows = start + k, out[call] != ""   # a statement prints nothing: no Out row, a one-row cell
+            ch = cell_h if shows else row_h + 28
+            out_html = (f'<div id="{pid}-busy{k}" style="position:absolute;left:170px;top:{row_h + 26}px;font-family:\'IBM Plex Mono\';'
+                        f'font-size:{LABEL_FLOOR}px;color:{MUTED};opacity:0;">running…</div>'
+                        f'<div id="{pid}-out{k}" style="position:absolute;left:20px;top:{row_h + 22}px;opacity:0;display:flex;gap:0;">'
+                        f'<span style="width:150px;font-family:\'IBM Plex Mono\';font-size:{LABEL_FLOOR}px;color:{ORANGE};padding-top:{max(0, (size - LABEL_FLOOR) // 2)}px;">'
+                        f'Out[{n}]:</span><span style="font-family:\'IBM Plex Mono\';font-size:{size}px;font-weight:600;color:{ORANGE};white-space:pre;">'
+                        f'{esc(out[call])}</span></div>') if shows else ""
             cells.append(
-                f'<div id="{pid}-c{k}" style="position:absolute;left:24px;right:24px;top:{cy}px;height:{cell_h}px;opacity:0;'
+                f'<div id="{pid}-c{k}" style="position:absolute;left:24px;right:24px;top:{cy}px;height:{ch}px;opacity:0;'
                 f'border-radius:12px;background:{INK};border:1px solid {BORDER};">'
                 f'<div id="{pid}-in{k}" style="position:absolute;left:20px;top:18px;width:150px;font-family:\'IBM Plex Mono\';'
                 f'font-size:{LABEL_FLOOR}px;color:{MUTED};">In [ ]:</div>'
@@ -526,14 +548,9 @@ class Frame:
                 f'white-space:pre;">{esc(call)}</div>'
                 f'<div id="{pid}-btn{k}" style="position:absolute;right:20px;top:14px;height:{row_h - 6}px;padding:0 18px;border-radius:10px;'
                 f'border:2px solid {HINT};display:flex;align-items:center;font-family:\'IBM Plex Mono\';font-size:{LABEL_FLOOR}px;'
-                f'color:{MUTED};">▶ run</div>'
-                f'<div id="{pid}-busy{k}" style="position:absolute;left:170px;top:{row_h + 26}px;font-family:\'IBM Plex Mono\';'
-                f'font-size:{LABEL_FLOOR}px;color:{MUTED};opacity:0;">running…</div>'
-                f'<div id="{pid}-out{k}" style="position:absolute;left:20px;top:{row_h + 22}px;opacity:0;display:flex;gap:0;">'
-                f'<span style="width:150px;font-family:\'IBM Plex Mono\';font-size:{LABEL_FLOOR}px;color:{ORANGE};padding-top:{max(0, (size - LABEL_FLOOR) // 2)}px;">'
-                f'Out[{n}]:</span><span style="font-family:\'IBM Plex Mono\';font-size:{size}px;font-weight:600;color:{ORANGE};white-space:pre;">'
-                f'{esc(out[call])}</span></div></div>')
-        height = head + len(runs) * (cell_h + 18) + 10
+                f'color:{MUTED};">▶ run</div>{out_html}</div>')
+            cy += ch + 18
+        height = cy + 10
         self.add(f'<div id="{pid}" data-run="{esc(script_rel)}" style="position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{height}px;'
                  f'background:{INK_ALT};border:1px solid {BORDER};border-radius:16px;">'
                  f'<div style="position:absolute;left:24px;top:18px;font-family:\'IBM Plex Mono\';font-size:{LABEL_FLOOR}px;'
@@ -541,13 +558,25 @@ class Frame:
         self.fade(f"#{pid}", max(0.0, self.at(runs[0][1]) - 1.0), dur=0.3)
         for k, (call, cue, out_cue) in enumerate(runs):
             t = self.at(cue)
-            done = round(max(t + self.RUN_BUSY, self.at(out_cue) if out_cue else 0.0), 3)
+            shows = out[call] != ""
+            if ran:   # already run: the cell as it stands in the notebook
+                self.rise(f"#{pid}-c{k}", max(0.0, round(t - 0.8, 3)), dy=14, dur=0.3)
+                self.set(f"#{pid}-btn{k}", 0, "opacity: 0")
+                self.set(f"#{pid}-in{k}", 0, f'textContent: "In [{start + k}]:"')
+                if shows:
+                    self.rise(f"#{pid}-out{k}", round(self.at(out_cue) if out_cue else t, 3), dy=10, dur=0.25)
+                continue
+            busy = self.RUN_BUSY if shows else 0.35   # a statement runs at once: In [*] for a beat, then In [n]
+            done = round(max(t + busy, self.at(out_cue) if out_cue else 0.0), 3)
             self.rise(f"#{pid}-c{k}", max(0.0, round(t - 0.8, 3)), dy=14, dur=0.3)
             self.to(f"#{pid}-btn{k}", t, f'borderColor: "{ORANGE}", color: "{ORANGE}"', dur=0.15)
-            self.tweens.append(f'tl.fromTo("#{pid}-busy{k}", {{opacity: 0}}, {{opacity: 1, duration: 0.1, immediateRender: false}}, {round(t + 0.05, 3)});')
-            self.set(f"#{pid}-busy{k}", done, "opacity: 0")
+            self.set(f"#{pid}-in{k}", round(t + 0.05, 3), 'textContent: "In [*]:"')  # as Jupyter shows a running cell
+            if shows:
+                self.tweens.append(f'tl.fromTo("#{pid}-busy{k}", {{opacity: 0}}, {{opacity: 1, duration: 0.1, immediateRender: false}}, {round(t + 0.05, 3)});')
+                self.set(f"#{pid}-busy{k}", done, "opacity: 0")
             self.set(f"#{pid}-in{k}", done, f'textContent: "In [{start + k}]:"')
-            self.rise(f"#{pid}-out{k}", done, dy=10, dur=0.25)
+            if shows:
+                self.rise(f"#{pid}-out{k}", done, dy=10, dur=0.25)
             self.to(f"#{pid}-btn{k}", round(done + 0.15, 3), f'borderColor: "{HINT}", color: "{MUTED}"', dur=0.3)
         bottom = y + height
         if bottom > KEEP_OUT:
@@ -605,8 +634,9 @@ class Frame:
                  f"font-family:'{DISPLAY}';font-weight:800;font-size:{font_size}px;color:{color};\">{esc(str(v))}</div>")
         return f"#{cid}"
 
-    def table(self, header, rows, x, y, widths, size=30, row_h=64, mono_cols=(), header_at=0.0):
-        """header_at: the time or cue the header fades in on (default: the frame's start)."""
+    def table(self, header, rows, x, y, widths, size=30, row_h=64, mono_cols=(), header_at=0.0, wrap=()):
+        """header_at: the time or cue the header fades in on (default: the frame's start).
+        wrap: columns whose text may break onto more lines (give row_h room for them); other cells stay on one line."""
         tid = self.uid("tab")
         cells, out, hx = {}, [], x
         for c, (hd, w) in enumerate(zip(header, widths)):
@@ -620,9 +650,15 @@ class Frame:
             for c, (val, w) in enumerate(zip(row, widths)):
                 fam = "IBM Plex Mono" if c in mono_cols else DISPLAY
                 pad = 16 if c == 0 else 0   # clear of the highlight tint's 4px left border
+                # a one-line cell never runs into the next column or off the canvas unseen (the checker sees only its box)
+                est = len(str(val)) * size * (0.6 if fam != DISPLAY else 0.47)
+                room = (w - 16 - pad) if c < len(widths) - 1 else (W - 48 - x - cx - pad)
+                if c not in wrap and est > room:
+                    raise ValueError(f"table cell ({r},{c}) {str(val)[:40]!r} needs ~{est:.0f}px, has {room}px: "
+                                     f"widen the column, lower size, or pass wrap=({c},) with a taller row_h")
                 inner.append(f'<div id="{rid}-c{c}" style="position:absolute;left:{cx + pad}px;top:0;width:{w - 16 - pad}px;height:{row_h}px;'
                              f"display:flex;align-items:center;font-family:'{fam}';font-size:{size}px;font-weight:{500 if fam != DISPLAY else 600};"
-                             f'color:{CREAM};white-space:nowrap;">{esc(str(val))}</div>')
+                             f'color:{CREAM};{"white-space:normal;line-height:1.15;" if c in wrap else "white-space:nowrap;"}">{esc(str(val))}</div>')
                 cells[(r, c)] = f"#{rid}-c{c}"
                 cx += w
             self.add(f'<div id="{rid}" style="position:absolute;left:{x}px;top:{ry}px;width:{sum(widths)}px;height:{row_h}px;'
@@ -814,7 +850,8 @@ class Frame:
 
     # ── output ────────────────────────────────────────────────────────────────────────────────
     def write(self, drift=True):
-        self.chrome()
+        if not getattr(self, "_no_chrome", False):  # a skit is the whole picture: no series label
+            self.chrome()
         self.card_html = ""
         # the hook opens on its example (step-2-outline.md § The hook): a title card would hide it
         if self.no == 1 and self.video.get("stage") != "hook":
@@ -888,6 +925,40 @@ _CHAPTERS = {}
 def broadside_case(s):
     """Broadside titles are lower case, but O(1), SQL, LeetCode and [1, 2, 3, 1] keep theirs."""
     return " ".join(w if re.search(r"[\d()\[\]]|[A-Z].*[A-Z]", w) else w.lower() for w in s.split(" "))
+
+
+PYTHON_LANGS = {"python", "py", "python3", "ipython"}
+
+
+def notebook_cells(out_dir):
+    """The notebook's code cells in order, as build-notebook.mjs writes them from video.json `notebook.sections`:
+    each section's Python code blocks (minus `read_only` ones), then its `run` calls. Returns
+    [(section title, kind, text)] with kind "code" (a block id) or "run" (a call); a cell's In [n] is its index + 1.
+    Its `setup` cells, where a video has them, count before their block."""
+    vj = Path(out_dir) / "video.json"
+    nb = json.loads(vj.read_text()).get("notebook", {}) if vj.exists() else {}
+    ro, setup = set(nb.get("read_only", {})), nb.get("setup", {})
+    blocks = {b["id"]: b for b in json.loads((Path(out_dir) / "chapter.json").read_text())["blocks"]}
+    cells = []
+    for sec in nb.get("sections", []):
+        for bid in ([sec["code"]] if isinstance(sec.get("code"), str) else sec.get("code", [])):
+            b = blocks.get(bid, {})
+            if (b.get("lang") or "").lower() in PYTHON_LANGS and bid not in ro:
+                if bid in setup:
+                    cells.append((sec["title"], "setup", bid))
+                cells.append((sec["title"], "code", bid))
+        cells += [(sec["title"], "run", c) for c in sec.get("run", [])]
+    return cells
+
+
+def notebook_number(out_dir, calls):
+    """In [n] of the first of `calls` in the notebook, where `calls` sit in that order, one after another, in one
+    section's run cells — so a panel shows the number the viewer sees in the notebook. None if they don't."""
+    cells = notebook_cells(out_dir)
+    for i in range(len(cells)):
+        if [c[2] for c in cells[i:i + len(calls)]] == list(calls) and all(c[1] == "run" for c in cells[i:i + len(calls)]):
+            return i + 1
+    return None
 
 
 def chapter_block(out_dir, bid):

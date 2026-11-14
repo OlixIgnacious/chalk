@@ -918,6 +918,35 @@ test("align-captions: tens, plural numerals and homophones match what was said",
   assert.equal(w[9][1], 2.4, 'a lexicon spoken form ("scene set") is normalised word by word');
 });
 
+test("align-captions: the write pointer matches a heard \"right\", and Zeroes a heard \"zeros\"", () => {
+  const tokens = write("wr-tokens.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["move", "write's", "write", "forward.", "Move", "Zeroes"] }] }));
+  const words = write("wr-words.json", JSON.stringify([
+    { text: "move", start: 0.0, end: 0.3 }, { text: "right's", start: 0.3, end: 0.6 }, { text: "right", start: 0.6, end: 0.9 },
+    { text: "forward.", start: 0.9, end: 1.3 }, { text: "Move", start: 1.3, end: 1.5 }, { text: "zeros", start: 1.5, end: 1.9 },
+  ]));
+  const dest = out("wr.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, r.stderr);
+  const w = JSON.parse(readFileSync(dest, "utf8")).lines[0].w;
+  assert.deepEqual(w.map((x) => x[1]), [0.0, 0.3, 0.6, 0.9, 1.3, 1.5]);
+});
+
+// REGRESSION (2026-11-13, Two Pointers part 03): a lexicon token of several words ended after its first word,
+// because close() is true for any prefix; past four leftover words the next line could not resync.
+test("align-captions: a multi-word lexicon token consumes all its words, even at the end of a line", () => {
+  const tokens = write("mw-tokens.json", JSON.stringify({ lines: [
+    { id: "l1", tokens: ["sort", "costs", { display: "O(n log n) time, too.", spoken: "O of n log in time, too" }] },
+    { id: "l2", tokens: ["So", "it's", "worth"] },
+  ] }));
+  const words = write("mw-words.json", JSON.stringify(
+    ["sort", "costs", "O", "of", "n", "log", "in", "time,", "too.", "So", "it's", "worth"].map((text, i) => ({ text, start: i, end: i + 0.5 }))));
+  const dest = out("mw.json");
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", dest);
+  assert.equal(r.status, 0, r.stderr);
+  const lines = JSON.parse(readFileSync(dest, "utf8")).lines;
+  assert.equal(lines[1].w[1][1], 10, '"it\'s" starts where it was heard, after the whole token');
+});
+
 test("align-captions: a VO that does not match the script reports MISMATCH and fails", () => {
   const tokens = write("t2.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["price", "rises"] }] }));
   const words = write(

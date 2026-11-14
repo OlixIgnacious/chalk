@@ -11,6 +11,7 @@
 // `per: "segment"` stages run once per segments/NN; their paths take the segment id as `nn`.
 
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
 export const REPO = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const core = (f) => join(REPO, "core/scripts", f);
@@ -27,6 +28,22 @@ const lexiconSpoken = (t) => {
     return t;
   }
 };
+// what every part's frames share from video.json: the part list (the "NN / total" tag and the progress strip),
+// stage renames, the theme, and the notebook outline (run panels number their cells from it) — not, say, accepted
+const videoForFrames = (t) => {
+  try {
+    const v = JSON.parse(t);
+    return JSON.stringify([v.segments, v.stage_names, v.theme, v.notebook?.sections?.map((s) => [s.code, s.run])]);
+  } catch { return t; }
+};
+const stageLine = (md) => md.split("\n").filter((l) => /^stage:/.test(l)).join("\n");
+/** every listed part's stage line: the strip on each part's frames is built from all of them */
+const allStages = (o) => {
+  let ids = [];
+  try { ids = JSON.parse(readFileSync(join(o.out, "video.json"), "utf8")).segments.map((s) => s.id); } catch { /* none */ }
+  return ids.map((id) => ({ path: `segments/${id}/script.md`, as: "stage", only: stageLine }));
+};
+
 const NARRATE_CODE = [core("narrate.mjs"), core("kokoro_narrate.py"), frames("seg.mjs")];
 const ALIGN_CODE = [core("build-tokens.mjs"), core("align-captions.mjs"), core("apply-display.mjs")];
 const FRAME_CODE = [frames("framelib.py"), frames("gen.py"), frames("build.sh"), core("fix-index.mjs")];
@@ -114,7 +131,8 @@ export const youtube = [
     name: "frames",
     kind: "run",
     per: "segment",
-    inputs: (o, nn) => [`frames/s${nn}.py`, `segments/${nn}/video/audio_meta.json`, "chapter.json", `segments/${nn}/examples`, ...FRAME_CODE],
+    inputs: (o, nn) => [`frames/s${nn}.py`, `segments/${nn}/video/audio_meta.json`, "chapter.json", `segments/${nn}/examples`,
+      { path: "video.json", as: "frames", only: videoForFrames }, ...allStages(o), ...FRAME_CODE],
     outputs: (o, nn) => [`segments/${nn}/video/index.html`],
     cmd: (o, nn) => ["bash", frames("build.sh"), nn, "frames"],
   },

@@ -2,7 +2,7 @@
 name: chalk-frames
 description: Writes one segment's frame spec (frames/sNN.py) for a chalk build from its approved script and its narration timings, using only the frame library's components, then builds the frames and checks the stills. One agent per segment, so a video's frames are written in parallel. Use when `chalk status` shows frame-spec waiting, or to redo one segment's visuals.
 tools: Read, Write, Edit, Grep, Glob, Bash
-model: inherit
+model: sonnet
 ---
 
 You draw one segment. Your prompt names an output dir and a segment `NN`. You write exactly one file,

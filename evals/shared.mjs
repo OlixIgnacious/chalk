@@ -174,20 +174,41 @@ const ease = [
     title: "One running example through the main parts (at most two distinct example inputs; the problem statement's own examples excepted)",
     weight: 1,
     run(ctx) {
+      const ARR = /\[(?:\s*-?\d+\s*,)+\s*-?\d+\s*\]|(?<![\d,]\s?)-?\d+(?:, -?\d+){2,}(?![\d,])/g;
+      // the same values in another order (e.g. sorted) are the same example
+      const keyOf = (m) => "[" + m.replace(/[\s[\]]+/g, "").split(",").sort((a, b) => a - b).join(",") + "]";
+      const textOf = (sc) => [sc.onScreen ?? "", ...sc.entries.map((e) => e.display)].join(" ");
+      // the problem statement's own examples are excepted wherever they reappear (e.g. a coda that fires a branch
+      // the running example never takes)
+      const statement = new Set();
+      for (const s of mainSegments(ctx))
+        for (const sc of s.script?.scenes ?? [])
+          if ((sc.stage ?? "").toLowerCase() === "problem") for (const m of textOf(sc).matchAll(ARR)) statement.add(keyOf(m[0]));
       const arrays = new Map();
       for (const s of mainSegments(ctx)) {
         for (const sc of s.script?.scenes ?? []) {
-          if ((sc.stage ?? "").toLowerCase() === "problem") continue;
-          const text = [sc.onScreen ?? "", ...sc.entries.map((e) => e.display)].join(" ");
+          // the problem's own examples, and the pattern's own illustration from the source, are not new examples
+          if (["problem", "spot"].includes((sc.stage ?? "").toLowerCase())) continue;
           // "[1, 2, 3, 1]" on screen, or "1, 2, 3, 1" as the lexicon writes a spoken example
-          for (const m of text.matchAll(/\[(?:\s*-?\d+\s*,)+\s*-?\d+\s*\]|(?<![\d,]\s?)-?\d+(?:, -?\d+){2,}(?![\d,])/g)) {
-            // the same values in another order (e.g. sorted) are the same example
-            const k = "[" + m[0].replace(/[\s[\]]+/g, "").split(",").sort((a, b) => a - b).join(",") + "]";
-            arrays.set(k, (arrays.get(k) ?? new Set()).add(s.id));
+          for (const m of textOf(sc).matchAll(ARR)) {
+            const k = keyOf(m[0]);
+            if (!statement.has(k)) arrays.set(k, (arrays.get(k) ?? new Set()).add(s.id));
           }
         }
       }
       if (!arrays.size) return skip("no example arrays found");
+      // values taken from an example already counted (an output like [9, 4], a state like 9, 4, 9, 4) are that example:
+      // a key whose values all come from a bigger key, each no more often than there, folds into it
+      const bag = (k) => k.slice(1, -1).split(",").reduce((m, v) => m.set(v, (m.get(v) ?? 0) + 1), new Map());
+      const within = (a, b) => [...bag(a)].every(([v, n]) => (bag(b).get(v) ?? 0) >= n);
+      const keys = [...arrays.keys()].sort((a, b) => b.split(",").length - a.split(",").length);
+      for (const k of keys) {
+        const host = keys.find((h) => h !== k && arrays.has(h) && h.split(",").length > k.split(",").length && within(k, h));
+        if (host) {
+          for (const id of arrays.get(k)) arrays.get(host).add(id);
+          arrays.delete(k);
+        }
+      }
       const list = [...arrays].map(([k, v]) => `${k} in part(s) ${[...v].join(", ")}`);
       return arrays.size <= 2 ? pass(list) : fail([`${arrays.size} different example inputs in the main parts`, ...list]);
     },
@@ -440,7 +461,10 @@ const notebook = [
         if (c.cell_type === "code") {
           // an example: one call on one line, or that call inside try/except that prints the error
           const one = (l) => !/^(def|class|import|from|for|while|if|with|return)\b|^\s|[^=!<>]=[^=]/.test(l);
-          const calls = (!src.includes("\n") && one(src)) ||
+          // a one-line cell the notebook outline declares as an example run (e.g. "nums = [1, 1, 2, 2, 3]" before an
+          // in-place call) is an example too: the outline is where examples are chosen, and G3 checks they ran
+          const declared = new Set((ctx.video?.notebook?.sections ?? []).flatMap((s) => s.run ?? []).map((r) => r.trim()));
+          const calls = (!src.includes("\n") && (one(src) || declared.has(src))) ||
             /^try:\n    [^\n]+\nexcept \w+ as error:\n    print\("\w+:", error\)$/.test(src);
           if (!code.has(src) && !calls) bad.push(`${at}: code that is neither a source block nor example calls`);
         } else if (!/^#{1,3} /.test(src) && !/^(Read this one|Run this first|Run the cells in order)/.test(src)

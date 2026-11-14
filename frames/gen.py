@@ -48,9 +48,11 @@ def video_context(out, nn):
     for s in segs:
         md = (out / "segments" / s["id"] / "script.md").read_text()
         stages.append(segment_stage(md, s["title"]))
+    # video.json "stage_names" renames a stage for this video only, e.g. {"bug": "Careful"} when the source names no bug
+    names = {**STAGE_NAMES, **video.get("stage_names", {})}
     strip, index_of = [], {}
     for sid, st in zip([s["id"] for s in segs], stages):
-        name = STAGE_NAMES.get(st, st.title())
+        name = names.get(st, st.title())
         if not strip or strip[-1] != name:
             strip.append(name)
         index_of[sid] = len(strip) - 1
@@ -63,7 +65,7 @@ def video_context(out, nn):
         "strip": strip,
         "stage_index": index_of[nn],
         "stage": stages[pos],
-        "stage_name": STAGE_NAMES.get(stages[pos], stages[pos].title()),
+        "stage_name": names.get(stages[pos], stages[pos].title()),
         "part_no": pos + 1,
         "part_count": len(segs),
     }

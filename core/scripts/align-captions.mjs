@@ -60,11 +60,14 @@ const NUMBER_WORDS = {
   nineteen: "19", twenty: "20", thirty: "30", forty: "40", fifty: "50", sixty: "60", seventy: "70",
   eighty: "80", ninety: "90",
 };
-const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues", i: "eye" };
+const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues", i: "eye",
+  // a two-pointer lesson says "write" (the pointer) dozens of times; the transcript hears "right"
+  right: "write", rights: "writes", zeros: "zeroes" };
 // Short function words a transcript may leave out or swap for another; see the dropped-word fix below.
 const DROPPABLE = new Set(["a", "an", "the", "this", "that", "of", "up", "to", "in", "on", "and", "so", "it", "is"]);
 const norm = (s) => {
   const t = s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (HOMOPHONES[t]) return HOMOPHONES[t];   // before the number rules, which would read "zeros" as "0s"
   if (NUMBER_WORDS[t]) return NUMBER_WORDS[t];
   if (t.endsWith("s") && t !== "twos" && NUMBER_WORDS[t.slice(0, -1)]) return NUMBER_WORDS[t.slice(0, -1)] + "s";
   if (t === "twos") return "2s";
@@ -183,7 +186,9 @@ function consume(from, fromOff, spokenNorm) {
       acc = cand;
       k++;
       off = 0;
-      if (close(acc, spokenNorm)) return { start, next: k, off: 0 };
+      // done only once the words read cover the token (or all but a letter of it, for a near miss): close() alone
+      // is true for any prefix, which ended a multi-word token after its first word ("O of n log in time" took "O")
+      if (acc.length >= spokenNorm.length - 1 && close(acc, spokenNorm)) return { start, next: k, off: 0 };
       continue;
     }
     break;

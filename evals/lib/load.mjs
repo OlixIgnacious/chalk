@@ -119,8 +119,12 @@ function audioStale(md, project, sdir) {
 export function load(outDir, { channelPath } = {}) {
   const dir = resolve(outDir);
   const segRoot = join(dir, "segments");
+  // video.json's segment list is the cut: a part dropped from it (its folder kept on disk) is not in the video
+  let listed = null;
+  try { listed = JSON.parse(readFileSync(join(dir, "video.json"), "utf8")).segments?.map((s) => s.id) ?? null; } catch { /* no video.json */ }
   const ids = existsSync(segRoot)
-    ? readdirSync(segRoot).filter((d) => /^\d\d$/.test(d) && statSync(join(segRoot, d)).isDirectory()).sort()
+    ? readdirSync(segRoot).filter((d) => /^\d\d$/.test(d) && statSync(join(segRoot, d)).isDirectory()
+      && (!listed || listed.includes(d))).sort()
     : [];
   const segments = ids.map((id) => {
     const sdir = join(segRoot, id);

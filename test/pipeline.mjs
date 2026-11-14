@@ -180,6 +180,48 @@ test("an agent's report waits again once anything it read is newer than it", asy
 });
 
 let failed = 0;
+test("youtube frames depend on the part list and every listed part's stage, so cutting a part redoes them all", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-frames-in-"));
+  writeFileSync(join(dir, "video.json"), JSON.stringify({ segments: [{ id: "00" }, { id: "02" }], accepted: { E3: "x" } }));
+  const frames = FORMATS.youtube.find((st) => st.name === "frames");
+  const ins = frames.inputs({ out: dir }, "00");
+  const vj = ins.find((p) => typeof p === "object" && p.path === "video.json");
+  assert.ok(vj, "video.json is an input");
+  // the part list counts; a waiver does not
+  const a = vj.only(JSON.stringify({ segments: [{ id: "00" }, { id: "02" }], accepted: { E3: "x" } }));
+  assert.equal(a, vj.only(JSON.stringify({ segments: [{ id: "00" }, { id: "02" }], accepted: {} })));
+  assert.notEqual(a, vj.only(JSON.stringify({ segments: [{ id: "00" }] })));
+  // only listed parts' stage lines, not a cut folder's
+  const stagePaths = ins.filter((p) => typeof p === "object" && p.as === "stage").map((p) => p.path);
+  assert.deepEqual(stagePaths, ["segments/00/script.md", "segments/02/script.md"]);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("a part cut from video.json is no longer built, though its folder stays", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-cut-"));
+  for (const id of ["00", "01", "02"]) { mkdirSync(join(dir, "segments", id), { recursive: true }); writeFileSync(join(dir, "segments", id, "script.md"), "# x\n"); }
+  writeFileSync(join(dir, "video.json"), JSON.stringify({ segments: [{ id: "00" }, { id: "02" }] }));
+  assert.deepEqual(context(dir).segments, ["00", "02"]);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("adopt leaves a stage stale when its output is older than an input (a render older than its rebuilt frames)", async () => {
+  const { adopt } = await import("../pipeline/run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "chalk-adopt-"));
+  mkdirSync(join(dir, "segments/00/video/compositions"), { recursive: true });
+  writeFileSync(join(dir, "segments/00/script.md"), "# x\n");
+  writeFileSync(join(dir, "video.json"), JSON.stringify({ segments: [{ id: "00" }] }));
+  for (const f of ["segment.mp4", "segment.vtt"]) writeFileSync(join(dir, "segments/00", f), "old render");
+  const past = new Date(Date.now() - 60_000);
+  for (const f of ["segment.mp4", "segment.vtt"]) utimesSync(join(dir, "segments/00", f), past, past);
+  writeFileSync(join(dir, "segments/00/video/index.html"), "<new frames/>");
+  writeFileSync(join(dir, "segments/00/video/caption_groups.json"), "[]");
+  adopt(dir);
+  const state = JSON.parse(readFileSync(join(dir, ".chalk/pipeline.json"), "utf8"));
+  assert.equal((state.stages ?? state)["render:00"], undefined, "the old render is not adopted");
+  rmSync(dir, { recursive: true, force: true });
+});
+
 for (const [name, fn] of tests) {
   try {
     await fn();

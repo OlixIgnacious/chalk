@@ -58,7 +58,8 @@ const LETTERED = /\b(?:in|see) [A-H]\. [A-Z][a-z]+/;   // case matters: "in E. T
  *   { "title": "Valid Anagram (LeetCode 242)",
  *     "sections": [ { "title": "The problem", "text": ["p024", "p025"] },
  *                   { "title": "Brute force", "text": ["p036"], "code": "c037", "after": ["p038"],
- *                     "run": ["is_anagram_brute(\"rat\", \"car\")"] }, ... ] }
+ *                     "run": ["is_anagram_brute(\"rat\", \"car\")"], "end": ["p039"] }, ... ] }
+ * ("after" sits between the code and the runs; "end" after the runs, for text about their results.)
  *
  * Every word of explanation and every line of code is a source block, verbatim; only the titles and the
  * example calls are written for the notebook. No tracer, no asserts, no timestamps, nothing about the video.
@@ -144,6 +145,7 @@ export function buildNotebook({ chapter, manifest, readSegmentFile, fragments = 
     }
     prose(sec.after, where);
     for (const call of sec.run ?? []) code(exampleCell(call));
+    prose(sec.end, where);   // text about the runs' results, after them ("Return 3. The answer is …")
   }
 
   const notebook = {
