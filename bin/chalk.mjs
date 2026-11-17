@@ -8,6 +8,7 @@
 //   chalk assets                          stage fonts and GSAP once per machine (frames/build.sh)
 //   chalk voice|narrate|align|frames|render NN   step 4 for one segment, run from the output dir
 //   chalk stills NN [--every 5]           contact sheet of segments/NN/segment.mp4 → work/stills/NN.png
+//   chalk read-aloud <out>                the scripts as a viewer gets them (screen, code, captions; no sources)
 //   chalk eval <out> [--format f] […]     score an output dir (evals/)
 //   chalk deliver <out> [--format f] […]  the format's deliver script
 //   chalk notebook <out>                  build notebook.ipynb (youtube format)
@@ -139,6 +140,10 @@ else if (STAGES.includes(cmd)) {
   if (!/^\d+$/.test(args[0] ?? "")) die(`usage: chalk ${cmd} NN (from the output dir)`);
   status = run("bash", [join(root, "frames/build.sh"), args[0], cmd]);
 } else if (cmd === "stills") status = stills(args);
+else if (cmd === "read-aloud") {
+  const { main } = await import(join(root, "pipeline/read-aloud.mjs"));
+  status = main(args);
+}
 else if (cmd === "eval") {
   const f = format(args);
   status = node(join(root, "evals/run.mjs"), [...args, "--format", f]);

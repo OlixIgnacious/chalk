@@ -154,6 +154,18 @@ def test_agent_command_tools_guards_and_resume(tmp_path):
     assert again[again.index("--resume") + 1] == "sess-1" and again[again.index("-p") + 1] == "use a table"
 
 
+def test_only_agents_that_say_network_true_reach_the_web(tmp_path):
+    netted = sorted(n for n, a in launchers.agents().items() if a["network"])
+    assert netted == ["chalk-factcheck"], netted
+    check = launchers.command("source-check", tmp_path, {"format": "youtube"})
+    denied = check[check.index("--disallowedTools") + 1].split(",")
+    assert "WebFetch" not in denied and "WebSearch" not in denied
+    assert {"Bash(curl:*)", "Bash(wget:*)", "Bash(*pipeline approve*)"} <= set(denied)
+    for stage in ["grounding", "learner", "review", "resolve"]:
+        argv = launchers.command(stage, tmp_path, {"format": "youtube"})
+        assert {"WebFetch", "WebSearch"} <= set(argv[argv.index("--disallowedTools") + 1].split(",")), stage
+
+
 def test_answers_reach_later_prompts(fakes):
     api.ui_dir(fakes).joinpath("questions.md").write_text("- Which example in part 2?\n")
     assert api.open_questions(fakes) == ["Which example in part 2?"]

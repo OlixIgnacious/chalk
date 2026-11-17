@@ -31,6 +31,7 @@ pipeline.
 | Principle | What it means in practice |
 |---|---|
 | **Grounded** | Every narrated line and on-screen claim cites a paragraph id of the source. A line with no source fails the gate. |
+| **Checked at the source** | The source itself is fact-checked once per version of it: every number, date, superlative and quotation gets a verdict and its evidence. A contradicted claim stops the build until the source is fixed or you waive it. |
 | **Computed, not invented** | Every derived number comes from running an example script that ships with the build. Code on screen is the source block, character for character. |
 | **Audio is the clock** | Scene timing comes from the voice-over's word timings, so captions and cuts never drift. |
 | **Reviewed before rendered** | The pipeline stops after the scripts for a human review. Fixing the teaching takes minutes; re-rendering takes much longer. |
@@ -58,7 +59,7 @@ scripts before anything is rendered, and once to watch the finished video.
 flowchart LR
     subgraph P1 ["1 · Plan"]
         direction TB
-        A1[Ingest] --> A2[Outline] --> A3[Scripts] --> A4[Text gates] --> A5([Grounding agent])
+        A1[Ingest] --> A0([Fact-check agent]) --> A2[Outline] --> A3[Scripts] --> A4[Text gates] --> A5([Grounding agent])
     end
     subgraph P2 ["2 · Build"]
         direction TB
@@ -74,7 +75,7 @@ flowchart LR
 
     classDef agent fill:#fdf1ec,stroke:#d97757,color:#000
     classDef gate fill:#fff4cc,stroke:#c9a400,color:#000
-    class A5,B3,C2,C3,C4 agent
+    class A0,A5,B3,C2,C3,C4 agent
     class G1,G2 gate
 ```
 
@@ -85,6 +86,7 @@ flowchart LR
 | # | Stage | Done by | Produces |
 |---|---|---|---|
 | 1 | Ingest | pipeline | `chapter.json`: the source split into numbered blocks |
+| 1b | Source check | **chalk-factcheck** agent, once per version of the source | `facts.md`: every checkable claim with a verdict and its evidence; a contradicted one waits until fixed or waived in `facts-accepted.md` |
 | 2 | Outline | skill | `outline.md`: the parts and their order (a lesson writes `syllabus.md`) |
 | 3 | Scripts | skill | `segments/NN/script.md`: what is said and shown, each line citing a block |
 | 4 | Text gates | pipeline | pass or fail on readability, spoken style and the text eval |
@@ -109,6 +111,33 @@ changes, only the stages after it run again.
 `lesson.html` before delivery. A Short skips the outline, the learner and the resolver, and you watch it on a
 phone against `review.md`.
 
+### The source check
+
+Grounding makes the video say only what the source says, so a wrong source becomes a wrong video. The source
+check runs first, right after ingest, and asks whether the source is right. Your own script counts as a source,
+and it is the one that has had no editor.
+
+- **What gets checked.** Every paragraph with a number, a superlative ("first", "only", "the tallest",
+  "Africa's highest", "a record") or a quotation must have a row in `facts.md`. The agent also adds claims the
+  rule misses, such as a date in words. `chalk-core facts <out> --claims` prints that worklist.
+- **What each verdict does.** *Supported* and *computed* pass. *None* means the paragraph matched but states
+  nothing checkable. *Unverifiable* passes the build, but eval G8 still fails the video if it says or shows that
+  quotation. *Contradicted* stops the build.
+- **Clearing a contradiction.** Fix the source and run ingest again, and the agent checks the new version. Or
+  accept the claim in `facts-accepted.md`, which only you write. The acceptance stops counting as soon as that
+  paragraph's text changes.
+- **When it runs again.** Only when the source text changes. Re-ingesting the same text keeps the check
+  done. A build that was ingested before the check existed, or that you have already watched, is not held up.
+  Writing a `facts.md` for it brings it under the check.
+
+```markdown
+| id | block | block-hash | reason |
+|---|---|---|---|
+| F10 | p009 | 3fa9c1d2 | a figure of speech the audience knows is a myth |
+```
+
+Get the block hash with `chalk-core facts <out> --block-hash p009`.
+
 ### The agents
 
 The agents live in [agents/](agents/). Each writes exactly one report and changes nothing else, so their
@@ -116,6 +145,7 @@ findings stay independent. Each one sees only what its role needs.
 
 | Agent | Runs after | Sees | Writes | Job |
 |---|---|---|---|---|
+| [chalk-factcheck](agents/chalk-factcheck.md) | ingest, once per version of the source | **only** `chapter.json`, and the web | `facts.md` | Checks whether the source is right: numbers, dates, names, superlatives and quotations against the source's other blocks, a computation, an attached reference or primary sources on the web. A quotation needs the primary text or two independent sources. |
 | [chalk-grounding](agents/chalk-grounding.md) | text gates, and again before delivery | source, scripts, example scripts, frame specs | `grounding.md` | Checks every claim against the block it cites, every number against the script that printed it, and the source against itself. |
 | [chalk-frames](agents/chalk-frames.md) | align | one segment's script and word timings, the frame library | `frames/sNN.py` | Draws one segment from frame-library components only, with each reveal cued on a spoken phrase. One agent per segment, run in parallel. |
 | [chalk-learner](agents/chalk-learner.md) | render / eval | **only** captions, chapter list and stills | `learner.md` | Watches as the target audience would: where they get lost, what they would ask, and whether they could write the solution afterwards. |
@@ -240,7 +270,7 @@ A Streamlit control panel for the whole build, in the chalk palette. It listens 
 
 The build runs in its own process ([ui/orchestrate.py](ui/orchestrate.py)), one per output dir, so refreshing or
 closing the page does not stop it. Agent runs use your Claude Code account: `--permission-mode acceptEdits`,
-each agent limited to the tools its definition lists, with no network fetches.
+each agent limited to the tools its definition lists. No agent reaches the network except one whose definition says `network: true` (only chalk-factcheck), and that one gets web search and page reads, never `curl` or `wget`.
 
 | File | Does |
 |---|---|
@@ -268,6 +298,7 @@ chalk deliver <out> [--format f]       the format's deliver script
 chalk notebook <out>                   build notebook.ipynb (YouTube)
 chalk lesson-page <lesson.json>        build lesson.html (lesson)
 chalk doctor                           check Python, Kokoro, Manim, ffmpeg, HyperFrames, assets
+chalk-core facts <out> [--claims | --block-hash <id>]   the source check, its worklist, or a block's hash for a waiver
 chalk publish auth | <out> [--at "YYYY-MM-DD HH:MM"] [--dry-run]   upload a video or Short to YouTube
 ```
 
@@ -285,7 +316,7 @@ weighted criteria and writes `eval.json` and `eval.md`.
 
 | Pack | IDs | Covers |
 |---|---|---|
-| [Shared](evals/shared.mjs) (every format) | G1–G5 | grounding: lines sourced, code verbatim, numbers computed |
+| [Shared](evals/shared.mjs) (every format) | G1–G5, G7–G8 | grounding: lines sourced, code verbatim, numbers computed; the source fact-checked for this version of it, and every quotation supported |
 | | E1–E4 | plain spoken language, one running example, pacing |
 | | V1–V3 | the channel's voice, captions match the display layer, no stray silences |
 | | R1, R3–R5 | resolution, `hyperframes check`, readability on a phone |

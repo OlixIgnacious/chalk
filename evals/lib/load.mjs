@@ -12,7 +12,7 @@ const unquote = (s) => s.trim().replace(/^"|"$/g, "");
 
 /**
  * A segment's script.md → { title, scenes }. Scene fields: visual, tier, duration, example, computedBy,
- * onScreen, stage, code, codeDepth, trace. Entry fields: spoken, display, source[], lines[].
+ * onScreen, stage, code, codeDepth, trace, skips. Entry fields: spoken, display, source[], lines[].
  */
 export function parseScript(md) {
   const title = md.match(/^#\s+\d+\s+[—-]\s+(.+)$/m)?.[1]?.trim() ?? "";
@@ -30,7 +30,7 @@ export function parseScript(md) {
       continue;
     }
     if (!cur) continue;
-    const kv = line.match(/^(visual|example|computed-by|on-screen|duration|stage|code-depth|code|trace):\s*(.*)$/i);
+    const kv = line.match(/^(visual|example|computed-by|on-screen|duration|stage|code-depth|code|trace|skips):\s*(.*)$/i);
     if (kv) {
       const key = kv[1].toLowerCase().replace(/-(\w)/g, (_, c) => c.toUpperCase());
       cur[key] = kv[2].trim();
@@ -170,12 +170,16 @@ export function load(outDir, { channelPath } = {}) {
     lexicon: readJson(join(dir, "lexicon.json")),
     lesson: readJson(join(dir, "lesson.json")),
     lessonPage: existsSync(join(dir, "lesson.html")) ? join(dir, "lesson.html") : null,
-    outline: existsSync(join(dir, "outline.md")) ? parseOutline(readFileSync(join(dir, "outline.md"), "utf8")) : null,
+    // a row for a part cut from video.json is not judged (T8 counted the cut part 11 of dsa-05)
+    outline: existsSync(join(dir, "outline.md"))
+      ? parseOutline(readFileSync(join(dir, "outline.md"), "utf8")).filter((r) => !listed || !/^\d+$/.test(r.n) || listed.includes(r.n.padStart(2, "0")))
+      : null,
     files: {
       captions: readText(join(dir, "captions.srt")),
       description: readText(join(dir, "description.txt")),
       chapters: readText(join(dir, "chapters.txt")),
       notebook: readJson(join(dir, "notebook.ipynb")),
+      facts: readText(join(dir, "facts.md")),
       video: existsSync(join(dir, "video.mp4")) ? join(dir, "video.mp4") : existsSync(join(dir, "short.mp4")) ? join(dir, "short.mp4") : null,
     },
   };

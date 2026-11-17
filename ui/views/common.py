@@ -67,7 +67,7 @@ def cell_key(stage: dict, cell: dict, running: set, failed: set) -> str:
     if cell["status"] == "stale":
         return "stale"
     if cell["status"] == "waiting":
-        return {"approve": "you", "author": "agent"}.get(stage["kind"], "blocked")
+        return {"approve": "you", "gate": "you", "author": "agent"}.get(stage["kind"], "blocked")
     return "todo"
 
 

@@ -379,7 +379,99 @@ const teaching = [
       return ev.length ? fail(ev) : pass(ok);
     },
   },
+  {
+    id: "T10",
+    group: "teaching",
+    title: "Every branch of narrated code is said: a part that walks one branch of an if/elif/else walks them all, and a narrated `if a or b` says the \"or\" (a scene's `skips: <block> — why` excuses one)",
+    weight: 2,
+    run(ctx) {
+      const ev = [], ok = [];
+      for (const seg of ctx.segments) {
+        const scenes = (seg.script?.scenes ?? []).filter((sc) => !UNTAUGHT.includes(sc.stage));
+        const skips = (seg.script?.scenes ?? []).map((sc) => sc.skips ?? "").join(" ");
+        const spoken = scenes.flatMap((sc) => sc.entries.map((e) => e.spoken)).join(" ").toLowerCase();
+        // per code block: the lines this part narrates (from `lines:`), and whether it is cited at all
+        const blocks = new Map();
+        for (const sc of scenes) for (const e of sc.entries) {
+          const id = e.source.find((s) => ctx.blocks.get(s)?.kind === "code");
+          if (!id) continue;
+          if (!blocks.has(id)) blocks.set(id, { lines: new Set(), entries: [] });
+          for (const n of e.lines) blocks.get(id).lines.add(n);
+          blocks.get(id).entries.push(e);
+        }
+        for (const [id, use] of blocks) {
+          if (new RegExp(`\\b${id}\\b`).test(skips)) { ok.push(`segments/${seg.id}: ${id} skipped on purpose`); continue; }
+          const code = ctx.blocks.get(id).text.split("\n");
+          for (const chain of branchChains(code)) {
+            const said = chain.map((b) => (use.lines.size ? b.lines.some((n) => use.lines.has(n)) : commentSaid(b, chain, spoken)));
+            if (said.every((s) => s === null)) continue;
+            if (!said.some(Boolean) || said.every((s) => s !== false)) continue;
+            const missed = chain.filter((b, i) => said[i] === false);
+            for (const b of missed) {
+              ev.push(`segments/${seg.id}: ${id} line ${b.lines[0]} \`${code[b.lines[0] - 1].trim().slice(0, 70)}\` is never said, though its sibling branch is — say what happens there, or add skips: ${id} — <why>`);
+            }
+          }
+          // a compound condition read out without its "or"/"and" drops one of its reasons (dsa-04's `not result`)
+          for (const n of use.lines) {
+            const m = code[n - 1]?.match(/^\s*(?:if|elif|while)\s+(.*):/);
+            if (!m) continue;
+            const ops = [...new Set([...m[1].replace(/(["'])(?:(?!\1).)*\1/g, "").matchAll(/\b(or|and)\b/g)].map((x) => x[1]))];
+            const about = use.entries.filter((e) => e.lines.includes(n)).map((e) => e.spoken.toLowerCase()).join(" ");
+            for (const op of ops) {
+              const heard = op === "or" ? /\b(or|either|unless)\b/ : /\b(and|both)\b/;
+              if (!heard.test(about)) ev.push(`segments/${seg.id}: ${id} line ${n} \`${code[n - 1].trim().slice(0, 70)}\` is narrated without its "${op}" — each side of it is a reason the viewer needs`);
+            }
+          }
+        }
+      }
+      return ev.length ? fail(ev) : pass(ok.length ? ok : ["every narrated branch has its siblings said"]);
+    },
+  },
 ];
+
+/** Stages that name code without teaching it. */
+const UNTAUGHT = ["hook", "recap", "practice", "next"];
+
+/** The if/elif/else chains of a code block with two or more branches: [[{ lines: [header, ...body], comment }]]. */
+function branchChains(code) {
+  const indent = (l) => l.match(/^\s*/)[0].length;
+  const blank = (l) => !l.trim() || /^\s*#/.test(l);
+  const chains = [];
+  const open = new Map(); // indent → the chain still accepting elif/else at that indent
+  code.forEach((l, i) => {
+    if (blank(l)) return;
+    const d = indent(l);
+    for (const k of [...open.keys()]) if (k > d || (k === d && !/^\s*(elif\b|else\s*:)/.test(l))) open.delete(k);
+    const m = l.match(/^\s*(if|elif|else)\b/);
+    if (!m) return;
+    let end = i + 1;
+    while (end < code.length && (blank(code[end]) || indent(code[end]) > d)) end++;
+    const lines = Array.from({ length: end - i }, (_, k) => i + 1 + k).filter((n) => !blank(code[n - 1]));
+    const comment = lines.map((n) => code[n - 1].match(/#\s*(.*)$/)?.[1] ?? "").join(" ").toLowerCase();
+    const branch = { lines, comment };
+    if (m[1] === "if") {
+      const chain = [branch];
+      chains.push(chain);
+      open.set(d, chain);
+    } else open.get(d)?.push(branch);
+  });
+  return chains.filter((c) => c.length > 1);
+}
+
+const STOP = new Set("the a an it its is are was to of in on at by for and or not no only this that so if else then can could when with from as be".split(" "));
+const stem = (w) => w.replace(/(?:ing|ed|es|s)$/, "");
+/** With no `lines:`, a branch counts as said when a word only its own comment has is in the part's narration;
+ * null when the branch has no comment of its own to go by. Half of those words, not one: a word like "left" is
+ * also how the narration names a pointer. */
+function commentSaid(b, chain, spoken) {
+  const words = (c) => (c.match(/[a-z]{3,}/g) ?? []).filter((w) => !STOP.has(w));
+  const others = new Set(chain.filter((x) => x !== b).flatMap((x) => words(x.comment)));
+  const own = words(b.comment).filter((w) => !others.has(w));
+  if (!own.length) return null;
+  // at least half of them: "the left pointer moves" names a pointer, it does not say the else branch's "too big"
+  const heard = new Set((spoken.match(/[a-z]+/g) ?? []).map(stem));
+  return own.filter((w) => heard.has(stem(w))).length * 2 >= own.length;
+}
 
 // ── bonus ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -430,5 +522,25 @@ const youtubeRender = [
   },
 ];
 
-export const CRITERIA = [...orientation, ...teaching, ...bonus, ...youtubeRender];
+const youtubeGrounding = [
+  {
+    id: "G6",
+    group: "grounding",
+    title: "The thesis cites its blocks like a narrated line: video.json thesis_source names the blocks it says (it goes into the public description)",
+    weight: 1,
+    run(ctx) {
+      const thesis = ctx.video?.thesis;
+      if (!thesis) return skip("no thesis in video.json yet");
+      const src = ctx.video.thesis_source;
+      if (!Array.isArray(src) || !src.length) {
+        return fail([`video.json thesis has no thesis_source: cite the blocks each of its claims comes from, so the grounding agent can check it — "${thesis.slice(0, 80)}"`]);
+      }
+      const unknown = src.filter((id) => !ctx.blocks.has(id));
+      if (unknown.length) return fail([`video.json thesis_source names blocks the chapter does not have: ${unknown.join(", ")}`]);
+      return pass([`thesis cites ${src.join(", ")}`]);
+    },
+  },
+];
+
+export const CRITERIA = [...orientation, ...youtubeGrounding, ...teaching, ...bonus, ...youtubeRender];
 export const GROUPS = ["orientation", "teaching", "bonus", "render"];

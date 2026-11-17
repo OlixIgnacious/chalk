@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // run.mjs — score a chalk output dir as a tutorial.
 //
-//   node evals/run.mjs <output-dir> [--format youtube|lesson|short] [--channel <channel.json>] [--deep] [--json] [--no-write]
+//   node evals/run.mjs <output-dir> [--format youtube|lesson|short] [--channel <channel.json>] [--deep] [--pin] [--json] [--no-write]
 //
 // Writes <output-dir>/eval.json and eval.md: every criterion in shared.mjs and in the format's pack
 // (formats/<format>/eval/criteria.mjs) with pass / fail / skip,
@@ -10,7 +10,7 @@
 // it reads this report first.
 
 import { spawnSync } from "node:child_process";
-import { writeFileSync, existsSync } from "node:fs";
+import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "./lib/load.mjs";
@@ -82,7 +82,7 @@ print(json.dumps(bad))
 // Criteria that judge what is built (frames, captions, the render, the kit, the notebook). The text gates run before
 // an edited part is built again, so --text skips them there: judged on the old build, they fail a script for the
 // state of a render that is about to be replaced. E3/E4 stay: they skip a part whose narration is stale by themselves.
-const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "T9", "S3", "S4"]);
+const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "N3", "T9", "S3", "S4"]);
 
 export function evaluate(outDir, { format = "youtube", channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
   const pack = PACKS[format];
@@ -98,14 +98,26 @@ export function evaluate(outDir, { format = "youtube", channelPath, deep = false
     }
     return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...r };
   });
-  // video.json "accepted": { "T6": "why" } — a failure the user chose to keep. It still scores nothing, but it
-  // no longer fails the run, so one part can be rebuilt without fixing it. One that now passes is reported stale.
+  // video.json "accepted": { "E3": { "reason": "why", "evidence": [...] } } — a failure the user chose to keep. It
+  // still scores nothing, but it no longer fails the run, so one part can be rebuilt without fixing it. The waiver
+  // covers the failure as it was when accepted: an evidence line it does not hold, or a number in one that grew
+  // (a 130.5 s part now 140 s), fails again. A bare string waiver covers anything under that id and is reported
+  // unpinned (--pin records its evidence). One that now passes is reported stale.
   const accepted = ctx.video?.accepted ?? {};
-  const stale = [];
+  const stale = [], unpinned = [];
   for (const r of results) {
     if (!(r.id in accepted)) continue;
-    if (r.status === "fail") Object.assign(r, { status: "accepted", reason: accepted[r.id] });
-    else stale.push(r.id);
+    const w = accepted[r.id];
+    if (r.status !== "fail") { stale.push(r.id); continue; }
+    const reason = typeof w === "string" ? w : w?.reason ?? "";
+    if (!Array.isArray(w?.evidence)) {
+      unpinned.push(r.id);
+      Object.assign(r, { status: "accepted", reason });
+      continue;
+    }
+    const outside = (r.evidence ?? []).filter((e) => !w.evidence.some((a) => covers(a, e)));
+    if (outside.length) r.evidence = outside.map((e) => `not in the waiver: ${e}`);
+    else Object.assign(r, { status: "accepted", reason });
   }
   const ran = results.filter((r) => r.status !== "skip");
   const max = ran.reduce((a, r) => a + r.weight, 0);
@@ -118,7 +130,28 @@ export function evaluate(outDir, { format = "youtube", channelPath, deep = false
       return [g, st];
     }),
   );
-  return { dir: ctx.dir, format, channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results, stale };
+  return { dir: ctx.dir, format, channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results, stale, unpinned };
+}
+
+const NUM = /\d+(?:\.\d+)?/g;
+/** An accepted evidence line covers a new one when they read the same with the numbers taken out, and no number
+ * has grown by more than 2% (a re-take that moves a part from 130.5 s to 131 s is the same part; 140 s is not). */
+export function covers(acceptedLine, line) {
+  if (String(acceptedLine).replace(NUM, "#") !== String(line).replace(NUM, "#")) return false;
+  const a = String(acceptedLine).match(NUM) ?? [], b = String(line).match(NUM) ?? [];
+  return b.every((x, i) => Number(x) <= Number(a[i]) * 1.02 + 1e-9);
+}
+
+/** video.json's accepted entries with each failing criterion's evidence recorded: what --pin writes. */
+export function pinAccepted(video, report) {
+  const accepted = { ...(video.accepted ?? {}) };
+  for (const r of report.results) {
+    if (!(r.id in accepted) || !["fail", "accepted"].includes(r.status)) continue;
+    const w = accepted[r.id];
+    const evidence = (r.evidence ?? []).map((e) => String(e).replace(/^not in the waiver: /, ""));
+    accepted[r.id] = { reason: typeof w === "string" ? w : w?.reason ?? "", evidence };
+  }
+  return { ...video, accepted };
 }
 
 export function toMarkdown(report) {
@@ -139,6 +172,7 @@ export function toMarkdown(report) {
     ),
     "",
     ...(report.stale?.length ? [`Accepted in video.json but passing now — remove: ${report.stale.join(", ")}`, ""] : []),
+    ...(report.unpinned?.length ? [`Accepted without the evidence it covers, so a worse failure would pass too — pin with --pin: ${report.unpinned.join(", ")}`, ""] : []),
   ];
   return lines.join("\n");
 }
@@ -149,10 +183,18 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const val = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
   const outDir = argv.find((a, i) => !a.startsWith("--") && !["--channel", "--format"].includes(argv[i - 1]));
   if (!outDir) {
-    console.error("usage: node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--text] [--json] [--no-write]");
+    console.error("usage: node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--text] [--pin] [--json] [--no-write]");
     process.exit(2);
   }
-  const report = evaluate(outDir, { format: val("format") ?? "youtube", channelPath: val("channel"), deep: flag("deep"), text: flag("text") });
+  const opts = { format: val("format") ?? "youtube", channelPath: val("channel"), deep: flag("deep"), text: flag("text") };
+  let report = evaluate(outDir, opts);
+  // --pin: record, in video.json, the evidence each accepted criterion fails with now — the user's waiver, made exact
+  if (flag("pin")) {
+    const vf = join(report.dir, "video.json");
+    if (!existsSync(vf)) { console.error("--pin: no video.json"); process.exit(2); }
+    writeFileSync(vf, JSON.stringify(pinAccepted(JSON.parse(readFileSync(vf, "utf8")), report), null, 2) + "\n");
+    report = evaluate(outDir, opts);
+  }
   if (!flag("no-write")) {
     writeFileSync(join(report.dir, "eval.json"), JSON.stringify(report, null, 2) + "\n");
     writeFileSync(join(report.dir, "eval.md"), toMarkdown(report));
@@ -161,6 +203,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   else {
     for (const r of report.results) console.log(`${r.status.padEnd(4)} ${r.id} ${r.title}${r.status === "fail" ? `\n       ${r.evidence.slice(0, 3).join("\n       ")}` : r.reason ? `\n       accepted: ${r.reason}` : ""}`);
     if (report.stale.length) console.log(`\nstale: ${report.stale.join(", ")} accepted in video.json but passing now — remove them`);
+    if (report.unpinned.length) console.log(`\nunpinned: ${report.unpinned.join(", ")} accepted with a reason only — --pin records the evidence it covers`);
     console.log(`\neval:${report.score}/${report.max} (${report.percent}%) — ${Object.entries(report.groups).map(([g, s]) => `${g} ${s}`).join(", ")}`);
   }
   process.exit(report.results.some((r) => r.status === "fail") ? 1 : 0);

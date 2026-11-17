@@ -25,6 +25,7 @@ const COMMANDS = {
   "emit-vtt": "emit-vtt.mjs",
   "fix-index": "fix-index.mjs",
   "manim-render": "manim-render.mjs",
+  facts: "facts.mjs",
 };
 
 const [cmd, ...args] = process.argv.slice(2);

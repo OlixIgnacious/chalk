@@ -118,6 +118,19 @@ duration: ~30s
 
 Narrate the steps that teach (the first add, the moment the check hits), not every line event.
 
+**Every branch, every clause.** Leaving out line events is fine. Leaving out a *choice* is not.
+- If a part says what one branch of an `if/elif/else` does, it says what every branch does. If the sum is
+  too small, the left pointer moves; say what happens when it is too big as well, even if the example
+  never goes there.
+- In a walk where each step chooses, every step you name says its choice. Write "nine is bigger than
+  eight, so the second pointer moves", not "nine meets eight".
+- A narrated condition with `or` or `and` says each side. For `if not result or result[-1] != v`, the
+  empty-list case is a reason too.
+
+If a branch is left out on purpose (it is the practice problem, or the source never explains it), add
+`skips: <block> — <why>` to the scene. The eval (T10) fails a part that says one branch and drops its
+sibling, or reads an `or` without saying "or". It runs in the text gates, before anything is voiced.
+
 ## Gaps
 
 If an idea cannot be illustrated without inventing a fact, leave the scene out, write `gap:` in the

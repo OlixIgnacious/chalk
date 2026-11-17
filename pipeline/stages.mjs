@@ -7,11 +7,14 @@
 //   author   written by you or an agent (outline, scripts, frame specs, review); the runner says what is
 //            missing and stops
 //   approve  a human stop; `chalk pipeline approve <out> --<name>` records what was approved
+//   gate     a stop on something outside this build (`gate(o)` says done or waiting, and why); no agent writes it
 //
 // `per: "segment"` stages run once per segments/NN; their paths take the segment id as `nn`.
 
 import { join } from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { openDebt } from "./debt.mjs";
+import { checkFacts } from "../core/scripts/facts.mjs";
 
 export const REPO = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 const core = (f) => join(REPO, "core/scripts", f);
@@ -36,12 +39,48 @@ const videoForFrames = (t) => {
     return JSON.stringify([v.segments, v.stage_names, v.theme, v.notebook?.sections?.map((s) => [s.code, s.run])]);
   } catch { return t; }
 };
+// the approval of the scripts reads grounding.md for being there, not for what it says: the report is rewritten
+// once the frame specs exist (grounding-frames), and that must not take back an approval of unchanged scripts
+const GROUNDED = { path: "grounding.md", as: "present", only: () => "" };
+// deliver reads video.json for the title, thesis, part list and notebook; a waiver or the thesis's citation
+// changes what is checked, not the video
+const videoForDeliver = (t) => {
+  try {
+    const { accepted, thesis_source, ...v } = JSON.parse(t);
+    return JSON.stringify(v);
+  } catch { return t; }
+};
 const stageLine = (md) => md.split("\n").filter((l) => /^stage:/.test(l)).join("\n");
 /** every listed part's stage line: the strip on each part's frames is built from all of them */
 const allStages = (o) => {
   let ids = [];
   try { ids = JSON.parse(readFileSync(join(o.out, "video.json"), "utf8")).segments.map((s) => s.id); } catch { /* none */ }
   return ids.map((id) => ({ path: `segments/${id}/script.md`, as: "stage", only: stageLine }));
+};
+
+// The source check landed on this date: a build whose source was ingested before it, or that is already watched,
+// is not held for a facts.md it never had. Writing one opts it in: a facts.md that exists is always checked.
+export const SOURCE_CHECK_SINCE = "2026-11-18T00:00:00Z";
+const FACTCHECK = "dispatch the chalk-factcheck agent on the output dir (it runs `chalk-core facts <out> --claims` for its worklist and writes facts.md), " +
+  "then show the user facts.md; a contradicted claim waits until the source is fixed or the user waives it in facts-accepted.md";
+
+/** The source check: done once per version of the source (facts.md names the hash of the blocks it checked). */
+const sourceCheck = {
+  name: "source-check",
+  kind: "author",
+  inputs: () => [],
+  outputs: () => ["facts.md"],
+  gate: (o) => {
+    if (!existsSync(join(o.out, "chapter.json"))) return { status: "waiting", why: "chapter.json is not there yet" };
+    if (!existsSync(join(o.out, "facts.md"))) {
+      const ingested = o.state.stages.ingest?.at;
+      if (o.state.approvals.watched || (ingested && ingested < SOURCE_CHECK_SINCE)) return { status: "done" };
+    }
+    const r = checkFacts(o.out);
+    if (r.status === "done") return { status: "done" };
+    return { status: "waiting", why: r.status === "missing" ? FACTCHECK : `${r.why} — ${r.status === "stale" ? FACTCHECK : "fix the source, or the user waives it in facts-accepted.md"}` };
+  },
+  missing: FACTCHECK,
 };
 
 const NARRATE_CODE = [core("narrate.mjs"), core("kokoro_narrate.py"), frames("seg.mjs")];
@@ -57,6 +96,7 @@ export const youtube = [
     cmd: (o) => (o.doc ? ["node", chalk, "ingest", o.doc, "--out", "chapter.json"] : null),
     missing: "chapter.json — pass --doc <source> once so the runner can ingest it",
   },
+  sourceCheck,
   {
     name: "outline",
     kind: "author",
@@ -94,9 +134,27 @@ export const youtube = [
     missing: "dispatch the chalk-grounding agent on the output dir (it writes grounding.md), and show it to the user with the scripts",
   },
   {
+    // the learner, before anything is voiced: it reads the scripts as captions and screens (chalk read-aloud), so
+    // its questions reach the author while the fix is a script edit or a source sentence, not a re-narration
+    name: "learner-scripts",
+    kind: "author",
+    inputs: () => [],
+    outputs: () => ["learner-scripts.md"],
+    newerThan: (o) => o.segments.map((nn) => `segments/${nn}/script.md`),
+    // a learner who watched the render of these very scripts (learner.md newer than all of them) has already read them
+    gate: (o) => {
+      const t = (p) => (existsSync(join(o.out, p)) ? statSync(join(o.out, p)).mtimeMs : null);
+      const newest = Math.max(0, ...o.segments.map((nn) => t(`segments/${nn}/script.md`) ?? 0));
+      for (const f of ["learner-scripts.md", "learner.md"]) if (t(f) != null && t(f) >= newest) return { status: "done" };
+      const why = t("learner-scripts.md") != null ? "learner-scripts.md is older than a script: " : "";
+      return { status: "waiting", why: why + "dispatch the chalk-learner agent in script mode (it reads `chalk read-aloud <out>` and writes learner-scripts.md), and show it to the user with the scripts" };
+    },
+    missing: "dispatch the chalk-learner agent in script mode (it reads `chalk read-aloud <out>` and writes learner-scripts.md), and show it to the user with the scripts",
+  },
+  {
     name: "scripts-approved",
     kind: "approve",
-    inputs: (o) => ["outline.md", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+    inputs: (o) => ["outline.md", GROUNDED, ...o.segments.map((nn) => `segments/${nn}/script.md`)],
     missing: "your review of the outline and every script — then: chalk pipeline approve <out> --scripts",
   },
   {
@@ -120,12 +178,40 @@ export const youtube = [
     cmd: (o, nn) => ["bash", frames("build.sh"), nn, "align"],
   },
   {
+    // the pipeline items earlier builds' resolutions left open (pipeline/debt.mjs). They block a new build's
+    // frame specs, so this round's guards are in the frame library before the next video copies frame code.
+    // A build whose frame specs are all written is past this point and is not held back.
+    name: "pipeline-debt",
+    kind: "gate",
+    inputs: () => [],
+    outputs: () => [],
+    gate: (o) => {
+      if (o.segments.length && o.segments.every((nn) => existsSync(join(o.out, `frames/s${nn}.py`)))) return { status: "done" };
+      const open = openDebt(o, REPO);
+      if (!open.length) return { status: "done" };
+      const list = open.map((d) => `\n     ${d.file}:${d.line}  ${d.text}${d.why === "open" ? "" : `  (${d.why})`}`).join("");
+      return { status: "waiting", why: `${open.length} pipeline item(s) from earlier builds are still open:${list}\n   ` +
+        "Land each in chalk and tick it with its commit (- [x] … — <sha>), or mark it \"deferred: <why>\"." };
+    },
+    missing: "the open pipeline items of earlier builds",
+  },
+  {
     name: "frame-spec",
     kind: "author",
     per: "segment",
     inputs: () => [],
     outputs: (o, nn) => [`frames/s${nn}.py`],
     missing: "frames/sNN.py — one per segment (the chalk-frames agent writes them, in parallel)",
+  },
+  {
+    // the same report, again once the frame specs exist: on-screen text is a claim too, and a frame edited after
+    // grounding.md was written (a recap reworded, a label added) has not been checked against its block
+    name: "grounding-frames",
+    kind: "author",
+    inputs: () => [],
+    outputs: () => ["grounding.md"],
+    newerThan: (o) => ["chapter.json", "video.json", ...o.segments.flatMap((nn) => [`segments/${nn}/script.md`, `frames/s${nn}.py`])],
+    missing: "re-run the chalk-grounding agent over the frame text as well (frames/sNN.py changed after grounding.md was written)",
   },
   {
     name: "frames",
@@ -143,13 +229,15 @@ export const youtube = [
     jobs: true,
     inputs: (o, nn) => [`segments/${nn}/video/index.html`, `segments/${nn}/video/compositions`, `segments/${nn}/video/caption_groups.json`],
     outputs: (o, nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/segment.vtt`],
-    cmd: (o, nn) => ["bash", frames("build.sh"), nn, "render"],
+    // then drop this part's old stills: whoever reads work/stills next would see frames that no longer exist
+    cmd: (o, nn) => [["bash", frames("build.sh"), nn, "render"],
+      ["bash", "-c", `rm -f work/stills/${nn}.png work/stills/${nn}-*.png work/stills/${nn}_*.png`]],
   },
   {
     name: "deliver",
     kind: "run",
     inputs: (o) => [...o.segments.flatMap((nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/segment.vtt`, `segments/${nn}/script.md`]),
-      "video.json", "chapter.json", join(REPO, "formats/youtube/skills/chalk-youtube/scripts")],
+      { path: "video.json", as: "deliver", only: videoForDeliver }, "chapter.json", join(REPO, "formats/youtube/skills/chalk-youtube/scripts")],
     outputs: (o) => ["video.mp4", "captions.srt", "chapters.txt", "description.txt", "plan.md", ...(o.notebook ? ["notebook.ipynb"] : [])],
     cmd: (o) => ["node", chalk, "deliver", ".", "--format", "youtube", "--keep-work", ...(o.notebook ? ["--notebook"] : [])],
   },
@@ -185,7 +273,7 @@ export const youtube = [
     kind: "author",
     inputs: () => ["eval.json"],
     outputs: () => ["review.md"],
-    newerThan: ["eval.json", "learner.md", "grounding.md"],
+    newerThan: ["eval.json", "learner.md", "grounding.md", "notebook-review.md"],
     missing: "dispatch the chalk-reviewer agent on the output dir (it writes review.md)",
   },
   {
@@ -209,6 +297,7 @@ const same = (name) => youtube.find((s) => s.name === name);
 const LESSON_SKILL = join(REPO, "formats/lesson/skills/chalk");
 export const lesson = [
   same("ingest"),
+  same("source-check"),
   {
     name: "syllabus",
     kind: "author",
@@ -227,11 +316,14 @@ export const lesson = [
     ],
   },
   same("grounding"),
-  { ...same("scripts-approved"), inputs: (o) => ["syllabus.md", "lesson.json", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+  same("learner-scripts"),
+  { ...same("scripts-approved"), inputs: (o) => ["syllabus.md", "lesson.json", GROUNDED, ...o.segments.map((nn) => `segments/${nn}/script.md`)],
     missing: "your review of the syllabus, the checkpoints and every script — then: chalk pipeline approve <out> --scripts" },
   same("narrate"),
   same("align"),
+  same("pipeline-debt"),
   same("frame-spec"),
+  same("grounding-frames"),
   same("frames"),
   same("render"),
   {
@@ -265,6 +357,7 @@ export const lesson = [
 const SHORT_SKILL = join(REPO, "formats/short/skills/chalk-short");
 export const short = [
   same("ingest"),
+  same("source-check"),
   { ...same("scripts"), inputs: () => ["chapter.json", "short.json"], outputs: () => ["segments/00/script.md"],
     missing: "short.json and segments/00/script.md — the chalk-short skill" },
   {
@@ -279,11 +372,13 @@ export const short = [
     ],
   },
   same("grounding"),
-  { ...same("scripts-approved"), inputs: (o) => ["short.json", "grounding.md", ...o.segments.map((nn) => `segments/${nn}/script.md`)],
+  { ...same("scripts-approved"), inputs: (o) => ["short.json", GROUNDED, ...o.segments.map((nn) => `segments/${nn}/script.md`)],
     missing: "your review of short.json and the script — then: chalk pipeline approve <out> --scripts" },
   same("narrate"),
   same("align"),
+  same("pipeline-debt"),
   same("frame-spec"),
+  same("grounding-frames"),
   same("frames"),
   same("render"),
   {

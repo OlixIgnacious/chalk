@@ -62,12 +62,14 @@ const NUMBER_WORDS = {
 };
 const HOMOPHONES = { scene: "seen", scenes: "seen", cue: "queue", cues: "queues", i: "eye",
   // a two-pointer lesson says "write" (the pointer) dozens of times; the transcript hears "right"
-  right: "write", rights: "writes", zeros: "zeroes" };
+  right: "write", rights: "writes" };
 // Short function words a transcript may leave out or swap for another; see the dropped-word fix below.
 const DROPPABLE = new Set(["a", "an", "the", "this", "that", "of", "up", "to", "in", "on", "and", "so", "it", "is"]);
 const norm = (s) => {
-  const t = s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (HOMOPHONES[t]) return HOMOPHONES[t];   // before the number rules, which would read "zeros" as "0s"
+  const raw = s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // both spellings of the plural are one word ("Move Zeroes" heard as "zeros"; a caption "0s" said "zeros")
+  const t = raw === "zeroes" ? "zeros" : raw;
+  if (HOMOPHONES[t]) return HOMOPHONES[t];
   if (NUMBER_WORDS[t]) return NUMBER_WORDS[t];
   if (t.endsWith("s") && t !== "twos" && NUMBER_WORDS[t.slice(0, -1)]) return NUMBER_WORDS[t.slice(0, -1)] + "s";
   if (t === "twos") return "2s";
@@ -159,7 +161,7 @@ const outLines = [];
 // matched the whole glued word by prefix and swallowed it, desynchronising every token after.
 // A maths chapter is mostly single-letter variables, so that is the common case here. Tokens
 // sharing one spoken word share its start — the word was said once, at one time.
-function consume(from, fromOff, spokenNorm) {
+function consume(from, fromOff, spokenNorm, nextNorm = "") {
   let acc = "",
     start = null,
     k = from,
@@ -181,6 +183,11 @@ function consume(from, fromOff, spokenNorm) {
       return { start, next: done ? k + 1 : k, off: done ? 0 : end };
     }
     const cand = acc + wn;
+    // words already read that cover all but a couple of letters ("match" for "matched") end the token: taking the
+    // next word too only makes a fuzzier match ("matchyet") and steals that word from the next token
+    if (acc && acc.length >= spokenNorm.length - 2 && close(acc, spokenNorm) && !spokenNorm.startsWith(cand)) break;
+    // ...and so does a heard word that is the next token itself ("accent" + "E." for "accented" before "e.")
+    if (acc && close(acc, spokenNorm) && nextNorm && wn === nextNorm) break;
     if (spokenNorm.startsWith(cand) || close(cand, spokenNorm)) {
       if (start === null) start = stream[k].start;
       acc = cand;
@@ -196,9 +203,12 @@ function consume(from, fromOff, spokenNorm) {
   return acc && close(acc, spokenNorm) ? { start, next: k, off } : null;
 }
 
-for (const line of script.lines) {
+const tokNorm = (tok) => (typeof tok === "string" ? tok : tok.spoken).split(/\s+/).map(norm).join("");
+for (const [li, line] of script.lines.entries()) {
   const w = [];
-  for (const tok of line.tokens) {
+  for (const [ti, tok] of line.tokens.entries()) {
+    const after = line.tokens[ti + 1] ?? script.lines[li + 1]?.tokens?.[0];
+    const nextNorm = after === undefined ? "" : tokNorm(after);
     const display = typeof tok === "string" ? tok : tok.display;
     const spoken = typeof tok === "string" ? tok : tok.spoken;
     const spokenNorm = spoken.split(/\s+/).map(norm).join(""); // word by word, as the stream is normalised
@@ -211,7 +221,7 @@ for (const line of script.lines) {
     // LOCAL FIX: past the cursor, only a match that ends on a word boundary: a dropped "a" otherwise
     // matched the first letter of an "and" two words on, and every token after it was out of step.
     for (let skip = 0; skip <= 4 && !hit; skip++) {
-      hit = consume(si + skip, skip === 0 ? soff : 0, spokenNorm);
+      hit = consume(si + skip, skip === 0 ? soff : 0, spokenNorm, nextNorm);
       if (hit && skip > 0 && hit.off) hit = null;
     }
     if (!hit && /^\d+$/.test(spokenNorm)) {

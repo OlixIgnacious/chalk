@@ -104,6 +104,59 @@ F.code_run("examples/run_two_sum.py", [("f(2)", "Run")])`], { encoding: "utf8" }
   assert.match(r.stderr, /prints no result for \['f\(2\)'\]/);
 });
 
+test("table: a wrapped cell with more lines than its row holds fails the build", () => {
+  const long = "arrays already sorted, or memory is tight and you may sort in place, as written, for the loop version";
+  const out = frame("Compare", `try:
+    F.table(["a", "when", "b"], [["Sets", ${JSON.stringify(long)}, "x"]], 104, 240, [300, 400, 300], size=40, row_h=100, wrap=(1,))
+    F.html.append("NO-ERROR")
+except ValueError as e:
+    F.html.append("ERR:" + str(e))`);
+  assert.match(out, /ERR:table cell \(0,1\).*wraps to ~\d+ lines .* in a 100px row/);
+});
+
+test("pointer_walk: named chips with carets that move one step at a time; a name that reads as a digit is refused", () => {
+  const out = frame("Read walks then write moves", `w = F.pointer_walk([1, 1, 2, 2, 3], 300, 400, {"read": ("above", 1), "write": ("below", 1)}, eid="pw")
+w.walk([{"t": "walks", "read": 2}, {"t": "moves", "read": 3, "write": 2}, {"t": "moves", "read": 3}])
+F.html.append("CELL:" + w.cell(4) + " SEL:" + w.sel("write"))
+F.html.append("TWEENS:" + "\\n".join(F.tweens))
+try:
+    F.pointer_walk([1, 2], 300, 700, {"l": ("above", 0)})
+    F.html.append("NO-ERROR")
+except ValueError as e:
+    F.html.append("ERR:" + str(e))`);
+  assert.match(out, /id="pw-p0"[^>]*>read</);
+  assert.match(out, /id="pw-p1"[^>]*>write</);
+  assert.match(out, /CELL:#pw-a-c4 SEL:#pw-p1, #pw-p1-sv/);
+  const moves = out.split("TWEENS:")[1].split("\n").filter((l) => /tl\.to\("#pw-p/.test(l));
+  assert.equal(moves.length, 3, "read twice, write once; a pointer already there does not move");
+  assert.match(moves[0], /x: 138/, "one cell (120 + 18) along from where read started");
+  assert.match(out, /ERR:pointer name 'l' reads as a digit/);
+  assert.doesNotMatch(out, /NO-ERROR/);
+});
+
+test("reject: a true fact that breaks a rule gets a cross and an arrow into the rule, never a strike", () => {
+  const out = frame("extra memory breaks the rule", `F.text("O(n)", 900, 520, size=60, eid="fact")
+x, ar = F.reject((900, 520, 160, 70), (640, 690, 400, 60), "extra", sel="#fact")
+F.html.append("SEL:" + x + "|" + ar)
+F.html.append("TWEENS:" + "\\n".join(F.tweens))`);
+  assert.match(out, />✗</);
+  assert.match(out, /<path id="f01-plan-rej\d+-ar" d="M980,598 /, "from under the fact, toward the rule below it");
+  assert.match(out, /tl\.to\("#fact"[^\n]*color/);
+  assert.doesNotMatch(out, /line-through/);
+});
+
+test("block_table: a source table drawn as written, rows picked by their first cell", () => {
+  const md = "| Way | Time | Memory |\\n|---|---|---|\\n| \`sorted(set(nums))\` | O(n log n) | O(n) |\\n| Two pointers | O(n) | O(1) |";
+  const out = frame("Compare", `F.block = lambda bid: {"id": bid, "text": "${md}"}
+head, rows = F.table_rows("p045")
+F.html.append("ROWS:" + repr(rows))
+F.block_table("p045", 104, 240, [500, 300, 300], pick=["Two"], cols=(0, 2))`);
+  assert.match(out, /ROWS:\[\['sorted\(set\(nums\)\)', 'O\(n log n\)', 'O\(n\)'\], \['Two pointers', 'O\(n\)', 'O\(1\)'\]\]/);
+  assert.match(out, />Two pointers</);
+  assert.match(out, />O\(1\)</);
+  assert.doesNotMatch(out, /O\(n log n\)<\/div>/, "the row not picked is not drawn");
+});
+
 test("table: a one-line cell that would run into the next column fails the build; wrap=(c,) lets it break instead", () => {
   const long = "arrays already sorted, or memory is tight and you may sort in place";
   const out = frame("Compare", `try:
@@ -117,6 +170,31 @@ F.table(["a", "when", "b"], [["Sets", ${JSON.stringify(long)}, "x"]], 104, 240, 
   assert.match(out, /white-space:normal;line-height:1\.15;">arrays already sorted/);
   // a last column may use the room up to the canvas edge
   frame("Go", `F.table(["a", "b"], [["x", "only to state as the starting point"]], 104, 240, [400, 300], size=40)`);
+});
+
+test("code_run numbers each call from its own notebook cell, consecutive or not, and fails on a call the notebook never runs", () => {
+  const out = join(tmp, "nb-spread");
+  spawnSync("mkdir", ["-p", join(tmp, "examples"), out]);
+  writeFileSync(join(out, "chapter.json"), JSON.stringify({ blocks: [{ id: "c1", kind: "code", lang: "python", text: "def f(n): return n" }] }));
+  // the notebook merged a repeat: "nums" runs in the second section, away from "f(x)" (dsa-05's "Careful")
+  writeFileSync(join(out, "video.json"), JSON.stringify({ notebook: { sections: [
+    { title: "a", code: "c1", run: ["x = 2", "f(x)"] },
+    { title: "b", run: ["nums"] },
+  ] } }));
+  writeFileSync(join(tmp, "examples", "run_spread.py"),
+    'import json\nprint(json.dumps({"calls": {"x = 2": "", "f(x)": "2", "nums": "[1]", "g(1)": "1"}}))\n');
+  const html = frame("Set it run it then nums", `F.video["out_dir"] = ${JSON.stringify(out)}
+F.code_run("examples/run_spread.py", [("f(x)", "run"), ("nums", "nums")])
+F.html.extend(F.tweens)
+try:
+    F.code_run("examples/run_spread.py", [("g(1)", "Set")])
+    F.html.append("NO-ERROR")
+except ValueError as e:
+    F.html.append("ERR:" + str(e))`);
+  assert.match(html, /In \[3\]:/, "f(x) is the third code cell");
+  assert.match(html, /In \[4\]:/, "nums is the fourth, in the next section");
+  assert.match(html, /ERR:.*never runs \['g\(1\)'\]/);
+  assert.doesNotMatch(html, /NO-ERROR/);
 });
 
 test("code_run numbers its cells as the notebook does, and a statement shows no Out row", () => {

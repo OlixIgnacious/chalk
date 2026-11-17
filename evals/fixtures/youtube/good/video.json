@@ -2,6 +2,7 @@
   "title": "Test Patterns #1: Running Totals",
   "part_id": "running-total",
   "thesis": "Keep one running total.",
+  "thesis_source": ["p002"],
   "segments": [
     {
       "id": "00",

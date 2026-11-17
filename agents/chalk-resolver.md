@@ -60,7 +60,12 @@ A finding that every report agrees on is not a conflict. List it once, under "Ag
    criterion and add a fixture), not a waiver. A true failure stands.
 7. **Of two fixes that both satisfy rules 1–6, take the one that clears more findings for less rebuild.**
    Cost, from cheapest: frames only, then one part re-narrated, then several parts, then a new outline. Say
-   what the other option would have cost.
+   what the other option would have cost. A notebook change that renumbers the run panels costs nothing
+   here. `code_run` takes each call's `In [n]` from the notebook outline in `video.json`, and the frames
+   rebuild by themselves, with no spec edit. So "the panel numbers would change" is never a reason to keep
+   a notebook as it is. The notebook stands alone (the user's notebook style). Decide its order and its
+   repeats on what reads best there. The one real constraint: a call shown in a panel must still be run
+   somewhere in the notebook, or the frames build fails and says so.
 8. **Taste is the user's call.** If it comes down to taste, say which way you lean and why, and mark it
    **needs the user**. Taste includes pace, keeping or cutting an optional part, and how much a recap
    repeats.
@@ -86,6 +91,20 @@ Reports read: eval <score>, grounding <yes/no>, learner <yes/no>, review <yes/no
 
 ## Do next, in order
 1. <the decided items, cheapest rebuild that clears the most first; author and user items called out>
+
+## Pipeline
+- [ ] <one change in the chalk repo: the file, what it gains, and the fixture from this build that proves it>
 ```
+
+The `## Pipeline` section is a checklist the pipeline reads (`pipeline/debt.mjs`). The next build's
+`pipeline-debt` stage stops before its frame specs until every `- [ ]` here is closed. An item is closed in
+two ways only. It names the commit that landed it (`- [x] … — 3f2c1ab`, checked against the chalk repo), or
+it says why it waits (`- [x] … — deferred: <reason>`, a reason the user gave). So:
+
+- Put every pipeline item from the review and your decisions here, one per line. Each line should be small
+  enough for one commit. Never leave a pipeline item only in "Do next" or in prose: there it is never checked.
+- Do not copy an earlier build's open items. They are still open in that build's resolution.md, and the gate
+  reads every resolution in the workspace. Name them in "Do next" if this build makes them more urgent.
+- Never tick an item yourself. The person or agent who lands the change ticks it with the commit.
 
 Keep it under about 120 lines. Quote both sides; never paraphrase a line you are deciding against.

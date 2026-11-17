@@ -224,6 +224,142 @@ test("video.json accepted: a kept failure stops failing the run but still scores
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("a pinned waiver covers the failure as accepted: a grown number or a new line fails again", async () => {
+  const { covers, pinAccepted } = await import(pathToFileURL(join(root, "evals/run.mjs")).href);
+  const line = 'segments/11 "Version 2": 130.5s';
+  assert.ok(covers(line, line));
+  assert.ok(covers(line, 'segments/11 "Version 2": 131.0s'), "a re-take within 2% is the same part");
+  assert.ok(covers(line, 'segments/11 "Version 2": 120.0s'), "shorter is fine");
+  assert.ok(!covers(line, 'segments/11 "Version 2": 140.0s'), "140 s against a 130.5 s waiver is not covered");
+  assert.ok(!covers(line, 'segments/12 "Recap": 90.8s'.replace("12", "1")), "another part is another line");
+
+  const dir = mkdtempSync(join(tmpdir(), "chalk-pin-"));
+  cpSync(fx("rushed"), dir, { recursive: true });
+  const vj = join(dir, "video.json");
+  const video = JSON.parse(readFileSync(vj, "utf8"));
+  writeFileSync(vj, JSON.stringify({ ...video, accepted: { T8: "kept" } }));
+  let r = evaluate(dir);
+  assert.deepEqual(r.unpinned, ["T8"], "a reason-only waiver is reported unpinned");
+  const pinned = pinAccepted(JSON.parse(readFileSync(vj, "utf8")), r);
+  assert.equal(pinned.accepted.T8.reason, "kept");
+  assert.ok(pinned.accepted.T8.evidence.length > 0);
+  writeFileSync(vj, JSON.stringify(pinned));
+  r = evaluate(dir);
+  assert.equal(r.results.find((x) => x.id === "T8").status, "accepted");
+  assert.deepEqual(r.unpinned, []);
+  // the outline's four-idea row grows a fifth idea: the waiver no longer covers it
+  const grown = { ...pinned, accepted: { T8: { reason: "kept", evidence: pinned.accepted.T8.evidence.map((e) => e.replace(/teaches (\d+)/, (_, n) => `teaches ${n - 1}`)) } } };
+  writeFileSync(vj, JSON.stringify(grown));
+  const t8 = evaluate(dir).results.find((x) => x.id === "T8");
+  assert.equal(t8.status, "fail");
+  assert.match(t8.evidence[0], /^not in the waiver: /);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("T8 does not judge the outline row of a part cut from video.json", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-cut-t8-"));
+  cpSync(fx("rushed"), dir, { recursive: true });
+  const t8 = () => evaluate(dir).results.find((x) => x.id === "T8");
+  const before = t8();
+  assert.equal(before.status, "fail");
+  const part = before.evidence[0].match(/part (\d+)/)[1].padStart(2, "0");
+  const vj = join(dir, "video.json");
+  const video = JSON.parse(readFileSync(vj, "utf8"));
+  writeFileSync(vj, JSON.stringify({ ...video, segments: video.segments.filter((s) => s.id !== part) }));
+  assert.equal(t8().status, "pass", t8().evidence.join("\n"));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("T10: one branch of an if/else said and not the other fails; a narrated `or` must be heard; skips: excuses it", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-t10-"));
+  mkdirSync(join(dir, "segments/01"), { recursive: true });
+  const code = ["while lo < hi:", "    if total < goal:", "        lo += 1   # total too small: move lo up to grow it",
+    "    else:", "        hi -= 1   # total too big: move hi down to shrink it", "if not seen or seen[-1] != x:", "    seen.append(x)"].join("\n");
+  writeFileSync(join(dir, "chapter.json"), JSON.stringify({ blocks: [{ id: "c001", kind: "code", lang: "python", text: code }, { id: "p001", kind: "para", text: "x" }] }));
+  writeFileSync(join(dir, "video.json"), JSON.stringify({ segments: [{ id: "01" }] }));
+  const script = (spoken, extra = "", lines = "") => `# 01 — Walk\n\n## Scene 1 — the walk\nvisual: code build (tier 1)\nstage: write\n${extra}\n` +
+    spoken.map((s, i) => `- spoken: "${s}"\n  display: "${s}"\n  source: [c001, p001]\n${lines ? `  lines: [${lines.split(";")[i]}]\n` : ""}`).join("\n");
+  const t10 = () => evaluate(dir, { text: true }).results.find((x) => x.id === "T10");
+  const put = (...a) => writeFileSync(join(dir, "segments/01/script.md"), script(...a));
+
+  put(["The total is too small, so a bigger value from the left grows it, and the left pointer moves."]);
+  assert.equal(t10().status, "fail", "the 'too big' branch is never said (dsa-05 part 05)");
+  assert.match(t10().evidence.join("\n"), /c001 line 4 `else:` is never said/);
+  put(["Too small, so moving lo up grows it.", "Too big, so moving hi down shrinks it."]);
+  assert.equal(t10().status, "pass", t10().evidence.join("\n"));
+  put(["You keep it only if it isn't the last one you kept."], "", "6");
+  assert.match(t10().evidence.join("\n"), /line 6 .* without its "or"/, "dsa-04's dropped `not result`");
+  put(["You keep it if nothing is kept yet, or if it isn't the last one you kept."], "", "6");
+  assert.equal(t10().status, "pass", t10().evidence.join("\n"));
+  put(["You move the left pointer while the total is too small."], "skips: c001 — the other move is a practice problem", "2;3");
+  assert.equal(t10().status, "pass", "an explicit skip with a reason is allowed");
+  put(["You move the left pointer while the total is too small."], "", "2,3");
+  assert.equal(t10().status, "fail", "by lines: lines 2–3 said, the else at 4–5 not");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("N3: two cells re-run in the same order fail; a reset alone or a bare name shown twice does not", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-n3-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const nb = (srcs) => writeFileSync(join(dir, "notebook.ipynb"), JSON.stringify({ cells: srcs.map((s) => ({ cell_type: s.startsWith("#") ? "markdown" : "code", source: s })) }));
+  const n3 = () => evaluate(dir).results.find((x) => x.id === "N3");
+  // dsa-05: the solution's run, then "Careful" running the same two cells again
+  nb(["def dedupe(xs): ...", "xs = [1, 1, 2]", "k = dedupe(xs)", "k", "## Careful", "xs = [1, 1, 2]", "k = dedupe(xs)", "xs"]);
+  assert.equal(n3().status, "fail");
+  assert.match(n3().evidence[0], /cells 2–3 run again as cells 6–7/);
+  nb(["def dedupe(xs): ...", "xs = [1, 1, 2]", "k = dedupe(xs)", "k", "## Careful", "xs = [1, 1, 2]", "sorted(xs)", "k", "xs"]);
+  assert.equal(n3().status, "pass", n3().evidence.join("\n"));
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("G6: a thesis with no thesis_source, or one naming a block that is not there, fails", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-g6-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const vj = join(dir, "video.json");
+  const video = JSON.parse(readFileSync(vj, "utf8"));
+  const g6 = () => evaluate(dir, { text: true }).results.find((x) => x.id === "G6");
+  assert.equal(g6().status, "pass");
+  const { thesis_source, ...bare } = video;
+  writeFileSync(vj, JSON.stringify(bare));
+  assert.match(g6().evidence[0], /no thesis_source/);
+  writeFileSync(vj, JSON.stringify({ ...video, thesis_source: ["p999"] }));
+  assert.match(g6().evidence[0], /p999/);
+  const { thesis, ...none } = bare;
+  writeFileSync(vj, JSON.stringify(none));
+  assert.equal(g6().status, "skip", "no thesis yet: written at deliver");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("G7: no facts.md skips; one for this source with a row per claim passes; a gap or a contradiction fails", async () => {
+  const { sourceHash, claimBlocks } = await import(pathToFileURL(join(root, "core/scripts/facts.mjs")).href);
+  const dir = mkdtempSync(join(tmpdir(), "chalk-g7-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const g7 = () => evaluate(dir, { text: true }).results.find((x) => x.id === "G7");
+  assert.equal(g7().status, "skip", "a build from before the source check");
+  const chapter = JSON.parse(readFileSync(join(dir, "chapter.json"), "utf8"));
+  const ids = claimBlocks(chapter).map((c) => c.id);
+  const facts = (rows) => `# Facts\n\nsource: ${sourceHash(chapter)}\n\n| id | block | claim | verdict | evidence |\n|---|---|---|---|---|\n${rows}\n`;
+  writeFileSync(join(dir, "facts.md"), facts(`| F1 | ${ids.join(", ")} | — | none | positions and a computed trace |`));
+  assert.equal(g7().status, "pass", g7().evidence.join("\n"));
+  writeFileSync(join(dir, "facts.md"), facts(`| F1 | ${ids.slice(1).join(", ")} | — | none | x |`));
+  assert.match(g7().evidence.join("\n"), new RegExp(`${ids[0]} .* has no row`));
+  writeFileSync(join(dir, "facts.md"), facts(`| F1 | ${ids.join(", ")} | O(1) memory | contradicted | it is O(n) |`));
+  assert.match(g7().evidence.join("\n"), /F1 is contradicted/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("G8: a quotation in a display line must sit in a source block marked supported; code strings are not quotations", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-g8-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  const g8 = () => evaluate(dir, { text: true }).results.find((x) => x.id === "G8");
+  assert.equal(g8().status, "pass", "the good fixture's quoted values are not quotations");
+  const sp = join(dir, "segments/01/script.md");
+  const md = readFileSync(sp, "utf8");
+  writeFileSync(sp, md.replace(/(display:\s*")([^"\n]*)/, (_, a, b) => `${a}As they say, “a running total never forgets” — Ada. ${b}`));
+  assert.match(g8().evidence.join("\n"), /a running total never forgets.*in no source block/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 test("O6: a hook on strings opens on a quoted word; one with no values still fails", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-o6-"));
   cpSync(fx("good"), dir, { recursive: true });

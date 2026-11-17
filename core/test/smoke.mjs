@@ -34,6 +34,7 @@ const out = (name) => join(tmp, name);
 
 // narrate.mjs exports its pure helpers; a missing file must fail its own tests, not the whole suite.
 const narr = await import(pathToFileURL(join(scripts, "narrate.mjs")).href).catch(() => null);
+const facts = await import(pathToFileURL(join(scripts, "facts.mjs")).href);
 const need = (m) => assert.ok(m, "scripts/narrate.mjs does not exist yet");
 
 const tests = [];
@@ -735,6 +736,41 @@ test("align-captions: display tokens take their first spoken word's start", () =
   assert.equal(caps.lines[0].w.at(-1)[0], "KaTeX");
   assert.equal(caps.lines[0].w.at(-1)[1], 1.2, "a multi-word spoken token starts at its first word");
   assert.equal(caps.lines[0].end, 1.9, "a line ends where the next one's first word starts");
+});
+
+// REGRESSION (Frequency Map, part 15): "accented" heard as "accent", then the next token "e." — the heard "E." is
+// that next token, even though "accent"+"e" is a prefix of "accented"
+test("align-captions: a heard word that is the next token is left for it", () => {
+  const tokens = write("tok-acc.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["the", "single", "accented", "e.", "So", "done."] }] }));
+  const words = write("w-acc.json", JSON.stringify([{ text: "the", start: 0, end: 0.2 }, { text: "single", start: 0.2, end: 0.5 },
+    { text: "accent", start: 0.5, end: 0.9 }, { text: "E.", start: 1.0, end: 1.2 }, { text: "So", start: 1.6, end: 1.8 }, { text: "done.", start: 1.8, end: 2.1 }]));
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", out("acc.json"));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const caps = JSON.parse(readFileSync(out("acc.json"), "utf8"));
+  assert.equal(caps.lines[0].w[3][1], 1.0, "e. starts on E.");
+});
+
+// REGRESSION (Value-to-Index, part 13): a caption "0s" spoken "zeros" must still match a heard "zeros"
+test("align-captions: a caption 0s matches a heard \"zeros\"", () => {
+  const tokens = write("tok-0s.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["two", { display: "0s", spoken: "zeros" }, "here."] }] }));
+  const words = write("w-0s.json", JSON.stringify([{ text: "two", start: 0, end: 0.3 }, { text: "zeros,", start: 0.4, end: 0.8 }, { text: "here.", start: 0.9, end: 1.2 }]));
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", out("0s.json"));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+// REGRESSION (De-duplication, part 02): "matched" was heard as "match"; the multi-word rule kept reading,
+// took "yet" too ("matchyet" is one edit from "matched"), and the next token "yet." found "Then".
+test("align-captions: a near-miss word ends its token; it does not swallow the next word", () => {
+  const tokens = write("tok-mt.json", JSON.stringify({ lines: [{ id: "l1", tokens: ["nothing", "has", "matched", "yet."] }, { id: "l2", tokens: ["Then", "it", "goes."] }] }));
+  const words = write("w-mt.json", JSON.stringify([
+    { text: "nothing", start: 0, end: 0.3 }, { text: "has", start: 0.3, end: 0.5 }, { text: "match", start: 0.5, end: 0.9 },
+    { text: "yet.", start: 1.0, end: 1.3 }, { text: "Then", start: 2.0, end: 2.2 }, { text: "it", start: 2.2, end: 2.3 }, { text: "goes.", start: 2.3, end: 2.6 },
+  ]));
+  const r = run("align-captions.mjs", "--tokens", tokens, "--words", words, "--out", out("mt.json"));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const caps = JSON.parse(readFileSync(out("mt.json"), "utf8"));
+  assert.equal(caps.lines[0].w.at(-1)[1], 1.0, "yet. starts on yet");
+  assert.equal(caps.lines[1].w[0][1], 2.0, "Then starts on Then");
 });
 
 // whisper renders a standalone single letter as "X"/"Y" and GLUES it to the following word
@@ -1597,10 +1633,104 @@ test("manim-render: fps and resolution are validated before anything renders", (
 const cli = (...args) =>
   spawnSync(process.execPath, [join(root, "bin/chalk-core.mjs"), ...args], { encoding: "utf8" });
 
+// ── facts: the source check ───────────────────────────────────────────────────────────────────────
+
+/** An output dir with a chapter of the given blocks, and optionally facts.md and facts-accepted.md. */
+function factsDir(name, blocks, factsMd, accepted) {
+  const d = out(name);
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, "chapter.json"), JSON.stringify({ source: "t.md", blocks }));
+  if (factsMd) writeFileSync(join(d, "facts.md"), factsMd(facts.sourceHash({ blocks })));
+  if (accepted) writeFileSync(join(d, "facts-accepted.md"), accepted);
+  return d;
+}
+const B = [
+  { id: "p001", kind: "paragraph", text: "The bridge opened in 1937 and was the longest span in the world." },
+  { id: "p002", kind: "paragraph", text: "Walk slowly and look up." },
+  { id: "c003", kind: "code", text: "x = 1\nprint(x)" },
+  { id: "p004", kind: "paragraph", text: "“The best way out is always through” — Robert Frost." },
+];
+const factsTable = (rows) => (h) => `# Facts\n\nsource: ${h}\n\n| id | block | claim | verdict | evidence |\n|---|---|---|---|---|\n${rows.join("\n")}\n`;
+
+test("facts: the threshold lists numbers, superlatives and quotations, never code or plain prose", () => {
+  const list = facts.claimBlocks({ blocks: B });
+  assert.deepEqual(list.map((c) => c.id), ["p001", "p004"]);
+  assert.deepEqual(list[0].classes, ["number", "superlative"]);
+  assert.ok(list[1].classes.includes("quote"));
+});
+
+test("facts: any superlative counts, not only the listed ones; a word that merely ends in -est does not", () => {
+  const sup = (text) => facts.claimBlocks({ blocks: [{ id: "p001", kind: "paragraph", text }] })[0]?.classes ?? [];
+  for (const t of ["For decades it was the tallest structure in the world.", "Africa's highest peak.", "Its deepest point lies far below.", "This is a world record."])
+    assert.ok(sup(t).includes("superlative"), t);
+  for (const t of ["Take the rest of the day.", "We walked through the forest.", "Run the test again.", "Be honest with yourself."])
+    assert.deepEqual(sup(t), [], t);
+});
+
+test("facts: a quotation is four words in quotes, or fewer with an attribution; a code string is not one", () => {
+  assert.deepEqual(facts.quotedSpans('call is_anagram("rat", "car")'), []);
+  assert.deepEqual(facts.quotedSpans('"Stay hungry" — Steve Jobs'), ["Stay hungry"]);
+  assert.deepEqual(facts.quotedSpans('He wrote "the map is not the territory" once'), ["the map is not the territory"]);
+});
+
+test("facts: the source hash follows the blocks' text, not anything else in chapter.json", () => {
+  const h = facts.sourceHash({ blocks: B });
+  assert.equal(facts.sourceHash({ source: "other.md", blocks: B.map((b) => ({ ...b, page: 9 })) }), h);
+  assert.notEqual(facts.sourceHash({ blocks: [{ ...B[0], text: B[0].text.replace("1937", "1938") }, ...B.slice(1)] }), h);
+});
+
+test("facts: no facts.md is missing; one for another version of the source is stale", () => {
+  assert.equal(facts.checkFacts(factsDir("f-none", B)).status, "missing");
+  const d = factsDir("f-stale", B, () => "# Facts\n\nsource: 0000000000000000\n");
+  assert.equal(facts.checkFacts(d).status, "stale");
+});
+
+test("facts: every block on the worklist needs a row, and verdicts come from the list", () => {
+  const d = factsDir("f-open", B, factsTable(["| F1 | p001 | opened 1937 | supported | x |", "| F2 | p999 | ? | maybe | y |"]));
+  const r = facts.checkFacts(d);
+  assert.equal(r.status, "open");
+  assert.ok(r.problems.some((p) => p.startsWith("p004")), r.problems.join("\n"));
+  assert.ok(r.problems.some((p) => /verdict "maybe"/.test(p)));
+  assert.ok(r.problems.some((p) => /p999, which is not a block/.test(p)));
+});
+
+test("facts: a contradicted claim holds the check until a waiver pinned to the block's text accepts it", () => {
+  const rows = ["| F1 | p001 | longest span in 1937 | contradicted | it was second |", "| F2 | p004 | Frost | supported | A Servant to Servants, l. 56 |"];
+  const held = facts.checkFacts(factsDir("f-contra", B, factsTable(rows)));
+  assert.equal(held.status, "open");
+  assert.match(held.problems[0], /F1 is contradicted/);
+  const pin = facts.blockHash(B[0]);
+  const ok = facts.checkFacts(factsDir("f-waived", B, factsTable(rows), `| id | block | block-hash | reason |\n|---|---|---|---|\n| F1 | p001 | ${pin} | course uses it |\n`));
+  assert.equal(ok.status, "done", ok.why);
+  const lapsed = facts.checkFacts(factsDir("f-lapsed", B, factsTable(rows), `| id | block | block-hash | reason |\n|---|---|---|---|\n| F1 | p001 | deadbeef | old text |\n`));
+  assert.equal(lapsed.status, "open", "a waiver for other text has lapsed");
+});
+
+test("facts: a quotation on screen must sit in a block with a supported row", () => {
+  const ch = { blocks: B };
+  const md = factsTable(["| F2 | p004 | Frost | supported | primary |"])(facts.sourceHash(ch));
+  assert.deepEqual(facts.unsupportedQuotes([{ at: "s1", text: "“The best way out is always through” — Frost" }], ch, md), []);
+  const unver = factsTable(["| F2 | p004 | Frost | unverifiable | one quote site |"])(facts.sourceHash(ch));
+  assert.equal(facts.unsupportedQuotes([{ at: "s1", text: '"The best way out is always through" - Frost' }], ch, unver).length, 1);
+  assert.match(facts.unsupportedQuotes([{ at: "s2", text: '"Be the change you wish to see" - Gandhi' }], ch, md)[0], /in no source block/);
+});
+
+test("facts: the CLI prints the worklist and the hash, and exits 1 until the check is done", () => {
+  const d = factsDir("f-cli", B);
+  const claims = cli("facts", d, "--claims");
+  assert.equal(claims.status, 0, claims.stderr);
+  assert.match(claims.stdout, /2 block\(s\) need a row/);
+  assert.equal(cli("facts", d, "--hash").stdout.trim(), facts.sourceHash({ blocks: B }));
+  assert.equal(cli("facts", d).status, 1);
+  writeFileSync(join(d, "facts.md"), factsTable(["| F1 | p001 | 1937, longest | supported | x |", "| F2 | p004 | Frost | supported | y |"])(facts.sourceHash({ blocks: B })));
+  const done = cli("facts", d);
+  assert.equal(done.status, 0, done.stdout);
+});
+
 test("cli: every command maps to a script that exists", () => {
   const src = readFileSync(join(root, "bin/chalk-core.mjs"), "utf8");
   const files = [...src.matchAll(/^\s+(?:"[a-z-]+"|[a-z]+):\s*"([a-z-]+\.mjs)",?$/gm)].map((m) => m[1]);
-  assert.equal(files.length, 10, "expected the ten shared scripts");
+  assert.equal(files.length, 11, "expected the eleven shared scripts");
   for (const f of files) assert.ok(existsSync(join(scripts, f)), `${f} is mapped but missing`);
 });
 

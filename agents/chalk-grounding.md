@@ -17,8 +17,19 @@ An output dir (given in your prompt) with `chapter.json` (blocks, each with an `
 `example:` and `computed-by:`), `segments/NN/examples/*.py` (derived examples), and `frames/sNN.py` (the
 on-screen text). The chalk repo's `core/references/fidelity.md` is the standard you apply; read it first.
 
+You run twice in a build. The first time is after the scripts (the `grounding` stage), and the frame specs may
+not exist yet. The second time is once they do (the `grounding-frames` stage). The pipeline waits for you
+again whenever a `frames/sNN.py` is newer than `grounding.md`. On that run, check every on-screen string
+in the frame specs that states a fact (`F.text`, table cells, card lines, labels with a number or a rule),
+not only the scripts. A recap reworded in `s14.py` after the scripts were grounded is exactly what slipped
+through before. Write the whole report again; do not append. Head it with `rN` and the frames you read.
+
 ## Procedure
 
+0. **Title and thesis.** `video.json` `title` and `thesis` go into the public description. Check the thesis
+   against its `thesis_source` blocks like a narrated line, and say who the source credits. "Two index
+   variables can replace extra memory" against a block that says the *sorted order* does is unsupported,
+   however close the words are. When there is no `video.json` yet (the first run), say so and skip it.
 1. **Claims.** For every entry whose display line states a fact (a number, a complexity, a rule, an edge
    case, a definition, a "because"), open each cited block and decide: *supported* (the block says it,
    in other words is fine), *partly* (the block says less, or hedges and the line does not), or

@@ -32,6 +32,13 @@ for that part; read it before changing anything there. This file holds what span
   criterion and a fixture that fails it.
 - **Gates are not advisory**, and the step-3 gate stops for the user: rendering before the teaching has
   been reviewed is the expensive mistake.
+- **Two checks, two questions.** Grounding asks whether every line says only what its source block says, on
+  every run. The source check (`facts.md`, the chalk-factcheck agent, `core/scripts/facts.mjs`) asks whether
+  the source is right, once per version of it: the stage compares the hash of the blocks' text, not a file
+  time. chalk is not only for one channel; a user's own script or a motivational piece quoting someone is a
+  source too, and the least certain kind.
+- **The network is per agent.** No agent reaches the web unless its definition says `network: true`; today
+  only chalk-factcheck does. Waivers (`facts-accepted.md`) are the person's; no agent writes them.
 
 ## Testing
 

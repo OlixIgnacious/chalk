@@ -12,6 +12,7 @@ Write `<output-dir>/video.json` before running it:
 {
   "title": "Stats Patterns #2: Averages — Without Hiding the Spread",
   "thesis": "A mean is one number standing in for a whole list, and that is its danger.",
+  "thesis_source": ["p004", "p011"],
   "source": "ch3.md",
   "part_id": "averages",
   "series": { "name": "Stats Patterns", "part": 2, "of": 5, "next": "Variance" },
@@ -29,7 +30,11 @@ every frame carries the burned-in caption pill, so choose a moment when the card
 caption is short. A thumbnail naming a missing segment, or a time outside it, stops delivery.
 
 `title` and `thesis` go into the description, so they must be the chapter's own: the thesis is the
-sentence you stated at the end of step 1. A segment `title` is what a viewer sees in the progress bar.
+sentence you stated at the end of step 1. `thesis_source` cites the blocks it comes from, the way a
+narrated line does. The eval fails a thesis without it (G6), and the grounding agent checks the thesis
+against those blocks. A thesis can credit the wrong thing even when it reads well. dsa-05's said "two
+index variables can replace extra memory", but the source credits the sorted order. The video fixed its
+recap, and the description kept the old line, because nothing checked it. A segment `title` is what a viewer sees in the progress bar.
 Neither names the source: `source` goes to `plan.md` only. `part_id` and `series` come from
 `channel.json`; the description says "Part n of m in the <series> series. Next: …". `notebook.read_only`
 lists blocks to show but not run (a block that does not compile alone is detected and shown that way

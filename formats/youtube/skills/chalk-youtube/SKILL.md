@@ -72,8 +72,12 @@ npx chalk pipeline <output-dir> --only 03 [--from frames]     # redo one part
 The runner does the mechanical steps below itself and reruns only what changed: an edited script redoes
 that part's voice and everything after it, an edited frame spec only its frames and render, an aligner fix
 only alignment. It stops where a person or an agent has to write or approve something: `outline.md` (step 2),
-the scripts (step 3), `grounding.md` (the chalk-grounding agent, shown with the scripts), the user's review,
-`frames/sNN.py` (step 4, the chalk-frames agent per part), then after delivery `learner.md` (chalk-learner), `notebook-review.md` (chalk-notebook-reviewer, with `--notebook`),
+the scripts (step 3), `grounding.md` (the chalk-grounding agent, shown with the scripts),
+`learner-scripts.md` (the chalk-learner agent in script mode, also shown with the scripts: its "questions the
+scripts never answer" go to the author now, not after the render), the user's review, `pipeline-debt` (the
+pipeline items earlier builds' resolutions left open: land them in chalk or have the user defer them),
+`frames/sNN.py` (step 4, the chalk-frames agent per part), `grounding.md` again over the frame text
+(grounding-frames), then after delivery `learner.md` (chalk-learner), `notebook-review.md` (chalk-notebook-reviewer, with `--notebook`),
 `review.md` (chalk-reviewer), `resolution.md` (chalk-resolver, which settles where those disagree) and the
 user's watch. At each stop, do that step as described below, then run it again.
 
@@ -245,6 +249,10 @@ user.
 A failure the user has seen and chosen to keep goes in `video.json` as `"accepted": { "T6": "<their reason>" }`,
 only on the user's say-so. It still scores nothing, but it no longer fails the run, so the text gates pass and one
 part can be rebuilt with `--only NN`. The eval names any accepted criterion that now passes; remove it then.
+Then run `chalk eval <out> --pin` once. It records the evidence the waiver covers
+(`{ "reason": …, "evidence": [...] }`). A later failure the user never saw, such as a 130.5 s part grown to
+140 s, or another part over the limit, fails again rather than passing under the old reason. A waiver with a
+reason only still works, but the eval reports it as unpinned.
 
 ---
 

@@ -30,6 +30,21 @@ draw what the scene needs, say so in your reply rather than working around it.
 - **Components only.** `headline`, `cells`, `setbox`, `chip`, `node`, `arrow` (+ `svg`, `draw`), `table`,
   `bar`, `code_build`, `code_show`, `code_trace`, `code_run` (for `visual: code run`: `F.code_run("examples/run_x.py", [(call, cue), ...])`), `plan_card`, `roadmap`, `example_output`, and the tweens
   `rise`, `fade`, `pop`, `wipe`, `mark`, `dim`, `to`. No hand-written HTML.
+- **No helpers copied from another build.** Before you write a helper function in a spec, check the
+  library. These three replace the ones earlier builds copied from video to video:
+  - `F.pointer_walk(values, x, y, {"read": ("above", 1), "write": ("below", 1)})` draws an array with
+    named pointers. Move them with `.walk([{"t": cue, "read": 2}, …])` or `.move(name, i, cue)`. A pointer
+    moves one step at a time, on the word that moves it. Never sweep it to the end and jump it back. Name
+    pointers as the code does, in words: `l` next to number cells reads as the digit 1, and the library
+    refuses it.
+  - `F.block_table("p045", x, y, widths, pick=["Two pointers"], cols=(0, 2))` draws a source table as
+    written. `F.table_rows("p045")` gives its cells for reading values. Never parse a markdown table in
+    a spec.
+  - `F.reject((x, y, w, h), (rx, ry, rw, rh), cue, sel=…)` is for a fact that is true but breaks a rule:
+    an O(n) cost against "only O(1) extra memory". The fact turns orange, and a ✗ and an arrow point into
+    the rule. **Never draw a line through a sourced fact**: it is still true, and a strike says it is false.
+  If a scene needs a helper the library lacks, write it in the spec. Then name it in your reply so it can
+  go into the library, rather than be copied into the next build.
 - **Code is verbatim:** pass the block id (`F.code_build("c036", …)`); never type code into a spec.
 - **Values look the way Python prints them:** `code_trace` shows a traced set as `set()` / `{1, 2}` when the
   trace script wrote it as `{"set": [...]}`. Never pass a hand-rolled `fmt=` that turns an empty set into `{}`.

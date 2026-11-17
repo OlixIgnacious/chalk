@@ -1,6 +1,6 @@
 {
   "name": "chalk",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Turn a source document into grounded teaching outputs: a YouTube video with its upload kit, an interactive lesson, and a notebook",
   "type": "module",
   "private": true,

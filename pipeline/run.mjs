@@ -171,6 +171,7 @@ const inputHash = (o, stage, nn) => {
 
 /** One stage (for one segment) → { status: done|stale|todo|waiting, why }. Pure: reads files and state. */
 export function check(o, stage, nn) {
+  if (stage.gate) return stage.gate(o, nn);
   const outs = stage.outputs ? stage.outputs(o, nn) : [];
   const missing = outs.filter((p) => !existsSync(abs(o, p)));
   if (stage.kind === "author") {
@@ -220,7 +221,7 @@ export function plan(o, format = "youtube", { only } = {}) {
   };
   for (const stage of stages) {
     const segs = stage.per === "segment" ? o.segments.filter((nn) => !only || only.includes(nn)) : [null];
-    const dependent = stage.kind !== "author" || stage.newerThan;
+    const dependent = !["author", "gate"].includes(stage.kind) || stage.newerThan;
     const writes = stage.kind === "run" && stage.outputs(o, segs[0]).length > 0;
     const cells = segs.map((nn) => {
       const c = check(o, stage, nn);

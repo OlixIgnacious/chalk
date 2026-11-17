@@ -40,7 +40,8 @@ def parse_agent(path: Path) -> dict:
             meta[k.strip()] = v.strip()
     tools = [t.strip() for t in meta.get("tools", "").split(",") if t.strip()]
     return {"name": meta["name"], "description": meta.get("description", ""), "tools": tools,
-            "model": meta.get("model", "inherit"), "prompt": body.strip()}
+            "model": meta.get("model", "inherit"), "network": meta.get("network", "").lower() == "true",
+            "prompt": body.strip()}
 
 
 def agents() -> dict[str, dict]:
@@ -121,8 +122,19 @@ def _skill_prompt(step: str, out: Path, cfg: dict) -> str:
     ])
 
 
-def _agent_prompt(agent: str, out: Path, cfg: dict, nn: str | None) -> str:
+STAGE_TASKS = {
+    "learner-scripts": "Script mode: nothing is rendered yet. Read this build through `npx chalk read-aloud` only, "
+                       "as its audience, and write learner-scripts.md.",
+    "grounding-frames": "The frame specs changed after grounding.md was written. Check the grounding again, the "
+                        "on-screen text in frames/sNN.py included, and rewrite grounding.md.",
+}
+
+
+def _agent_prompt(agent: str, out: Path, cfg: dict, nn: str | None, stage: str | None = None) -> str:
+    if stage in STAGE_TASKS:
+        return f"{_context(out, cfg)}\n\n{STAGE_TASKS[stage]}"
     task = {
+        "chalk-factcheck": "Check the source of this output dir (chapter.json) and write facts.md.",
         "chalk-grounding": "Check the grounding of this output dir and write grounding.md.",
         "chalk-frames": f"Draw segment {nn}: write frames/s{nn}.py, build it, and check the stills.",
         "chalk-learner": "Watch this build as its audience and write learner.md.",
@@ -139,7 +151,10 @@ LAUNCHERS = {
     "outline": {"kind": "skill", "label": "skill · step 2", "timeout_min": 45},
     "syllabus": {"kind": "skill", "label": "skill · step 2", "timeout_min": 45},
     "scripts": {"kind": "skill", "label": "skill · step 3", "timeout_min": 60},
+    "source-check": {"kind": "agent", "agent": "chalk-factcheck", "timeout_min": 45},
     "grounding": {"kind": "agent", "agent": "chalk-grounding", "timeout_min": 30},
+    "learner-scripts": {"kind": "agent", "agent": "chalk-learner", "timeout_min": 30},
+    "grounding-frames": {"kind": "agent", "agent": "chalk-grounding", "timeout_min": 30},
     "frame-spec": {"kind": "agent", "agent": "chalk-frames", "per_segment": True, "timeout_min": 20},
     "learner": {"kind": "agent", "agent": "chalk-learner", "timeout_min": 30},
     "notebook-review": {"kind": "agent", "agent": "chalk-notebook-reviewer", "timeout_min": 30},
@@ -147,9 +162,20 @@ LAUNCHERS = {
     "resolve": {"kind": "agent", "agent": "chalk-resolver", "timeout_min": 30},
 }
 
-# No agent fetches from the network or passes a gate. The approval rule is a second fence: every agent
-# process also runs with CHALK_NO_APPROVE=1, which `chalk pipeline approve` refuses (pipeline/run.mjs).
-DISALLOWED = ["Bash(curl:*)", "Bash(wget:*)", "Bash(*pipeline approve*)", "WebFetch", "WebSearch"]
+# No agent passes a gate, and no agent fetches from the network unless its definition says `network: true`
+# (only the ones that must check a source against the world: chalk-factcheck). Such an agent gets WebSearch and
+# WebFetch, never curl or wget. The approval rule is a second fence: every agent process also runs with
+# CHALK_NO_APPROVE=1, which `chalk pipeline approve` refuses (pipeline/run.mjs).
+NO_APPROVE = ["Bash(*pipeline approve*)"]
+NO_NETWORK = ["Bash(curl:*)", "Bash(wget:*)", "WebFetch", "WebSearch"]
+DISALLOWED = NO_NETWORK[:2] + NO_APPROVE + NO_NETWORK[2:]
+
+
+def disallowed(agent: dict | None) -> list[str]:
+    """The tools an agent may never use: the network unless its definition allows it, approval always."""
+    if agent and agent.get("network"):
+        return ["Bash(curl:*)", "Bash(wget:*)", *NO_APPROVE]
+    return DISALLOWED
 AGENT_ENV = {"CHALK_NO_APPROVE": "1", "CHALK_UI": "1"}
 
 
@@ -176,9 +202,10 @@ def command(stage: str, out: Path, cfg: dict, nn: str | None = None, *, resume: 
     with the person's message: what chat and "request changes" use."""
     l = LAUNCHERS[stage]
     out = Path(out)
+    a = None
     if l["kind"] == "agent":
         a = agents()[l["agent"]]
-        text, tools = _agent_prompt(l["agent"], out, cfg, nn), a["tools"]
+        text, tools = _agent_prompt(l["agent"], out, cfg, nn, stage), a["tools"]
         extra = ["--agents", agents_json(), "--agent", l["agent"]]
     else:
         text, tools, extra = _skill_prompt(stage, out, cfg), SKILL_TOOLS, []
@@ -186,7 +213,7 @@ def command(stage: str, out: Path, cfg: dict, nn: str | None = None, *, resume: 
         text = prompt
     argv = [*claude_bin(), "-p", text, "--output-format", "stream-json", "--verbose",
             "--permission-mode", "acceptEdits", "--allowedTools", ",".join(tools),
-            "--disallowedTools", ",".join(DISALLOWED), "--add-dir", str(REPO), *extra]
+            "--disallowedTools", ",".join(disallowed(a)), "--add-dir", str(REPO), *extra]
     if resume:
         argv += ["--resume", resume]
     if cfg.get("workspace"):

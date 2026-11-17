@@ -98,6 +98,36 @@ def show_value(v):
     return repr(v) if isinstance(v, str) else str(v)
 
 
+AMBIGUOUS_NAMES = {"l": "left", "I": "i", "O": "o", "o": "lo"}
+
+
+class PointerWalk:
+    """What pointer_walk drew: the cells, and named pointers to move along them."""
+
+    def __init__(self, frame, cells, idx, sels, starts, step):
+        self.F, self.cells, self.idx, self._sels, self._at, self._start, self._step = frame, cells, idx, sels, dict(starts), starts, step
+
+    def sel(self, name):
+        return self._sels[name]
+
+    def cell(self, i):
+        return self.cells[i]
+
+    def move(self, name, i, t, dur=0.35):
+        """Slide a pointer to cell i at t (a time or a cue)."""
+        if not 0 <= i < len(self.cells):
+            raise ValueError(f"pointer {name!r} moved to {i}, outside the {len(self.cells)} cells")
+        self.F.to(self._sels[name], t, f"x: {(i - self._start[name]) * self._step}", dur=dur)
+        self._at[name] = i
+
+    def walk(self, steps, dur=0.35):
+        """steps: [{"t": cue, name: index, ...}], in order: each named pointer moves to its index on its step."""
+        for st in steps:
+            for name, i in st.items():
+                if name != "t" and self._at.get(name) != i:
+                    self.move(name, i, st["t"], dur=dur)
+
+
 class Frame:
     """One storyboard frame. `cue(phrase)` returns the start of the phrase's first word in frame time.
 
@@ -507,22 +537,29 @@ class Frame:
         hand: the results come from the segment's example script (`script_rel`), which runs the source's code
         and prints {"calls": {"<call>": "<repr of its result>"}}. runs: [(call, cue)] or [(call, cue, out_cue)], top
         to bottom: the button lights on `cue`; "running…" stays at least RUN_BUSY seconds, until `out_cue` when the
-        narration names the result later, so `Out[n]` lands on the words that read it. `start` (the first cell's n) comes
-        from the notebook outline in video.json, so the panel matches the notebook the viewer runs; pass it only to
-        override. A statement (`nums = [...]`, printed as "") shows `In [n]` and no `Out`, as Jupyter does.
+        narration names the result later, so `Out[n]` lands on the words that read it. Each cell's n is that call's own
+        cell in the notebook outline in video.json (found in order, consecutive or not), so the panel matches the
+        notebook the viewer runs and follows it when the notebook is reordered: the frames rebuild, nobody edits a
+        spec. A call the notebook does not run is an error, not a guessed number. `start` overrides (cells start,
+        start+1, …). A statement (`nums = [...]`, printed as "") shows `In [n]` and no `Out`, as Jupyter does.
         ran=True shows cells the viewer already ran earlier in the video (a replay): `In [n]` and its `Out` at the
         cue, with no ▶ run and no "running…", since re-running would give a new, higher number.
         Returns the bottom y."""
         out = json.loads(self.example_output(script_rel))["calls"]
         runs = [r if len(r) > 2 else (r[0], r[1], None) for r in runs]
         missing = [r[0] for r in runs if r[0] not in out]
-        if start is None:
-            start = notebook_number(self.video["out_dir"], [r[0] for r in runs]) if "out_dir" in self.video else None
-            if start is None:
-                start = 1
-                self.video.setdefault("warnings", []).append(
-                    f"{self.id}: {[r[0] for r in runs]} are not consecutive run cells of one notebook section in video.json; "
-                    "the panel counts from In [1], which will not match the notebook")
+        calls = [r[0] for r in runs]
+        if start is not None:
+            nums = [start + k for k in range(len(runs))]
+        elif "out_dir" in self.video and notebook_cells(self.video["out_dir"]):
+            nums = notebook_numbers(self.video["out_dir"], calls)
+            lost = [c for c, n in zip(calls, nums) if n is None]
+            if lost:
+                raise ValueError(f"{self.id}: the notebook (video.json notebook.sections) never runs {lost} after the cells before "
+                                 "them in this panel — add the call to a section's run, or show what the notebook runs")
+        else:
+            nums = [1 + k for k in range(len(runs))]
+            self.video.setdefault("warnings", []).append(f"{self.id}: no notebook outline in video.json; the panel counts from In [1]")
         if missing:
             raise KeyError(f"{self.id}: {script_rel} prints no result for {missing} (it printed: {list(out)})")
         pid = self.uid("run")
@@ -531,7 +568,7 @@ class Frame:
         head = 64
         cells, cy = [], head
         for k, (call, cue, _) in enumerate(runs):
-            n, shows = start + k, out[call] != ""   # a statement prints nothing: no Out row, a one-row cell
+            n, shows = nums[k], out[call] != ""   # a statement prints nothing: no Out row, a one-row cell
             ch = cell_h if shows else row_h + 28
             out_html = (f'<div id="{pid}-busy{k}" style="position:absolute;left:170px;top:{row_h + 26}px;font-family:\'IBM Plex Mono\';'
                         f'font-size:{LABEL_FLOOR}px;color:{MUTED};opacity:0;">running…</div>'
@@ -562,7 +599,7 @@ class Frame:
             if ran:   # already run: the cell as it stands in the notebook
                 self.rise(f"#{pid}-c{k}", max(0.0, round(t - 0.8, 3)), dy=14, dur=0.3)
                 self.set(f"#{pid}-btn{k}", 0, "opacity: 0")
-                self.set(f"#{pid}-in{k}", 0, f'textContent: "In [{start + k}]:"')
+                self.set(f"#{pid}-in{k}", 0, f'textContent: "In [{nums[k]}]:"')
                 if shows:
                     self.rise(f"#{pid}-out{k}", round(self.at(out_cue) if out_cue else t, 3), dy=10, dur=0.25)
                 continue
@@ -574,7 +611,7 @@ class Frame:
             if shows:
                 self.tweens.append(f'tl.fromTo("#{pid}-busy{k}", {{opacity: 0}}, {{opacity: 1, duration: 0.1, immediateRender: false}}, {round(t + 0.05, 3)});')
                 self.set(f"#{pid}-busy{k}", done, "opacity: 0")
-            self.set(f"#{pid}-in{k}", done, f'textContent: "In [{start + k}]:"')
+            self.set(f"#{pid}-in{k}", done, f'textContent: "In [{nums[k]}]:"')
             if shows:
                 self.rise(f"#{pid}-out{k}", done, dy=10, dur=0.25)
             self.to(f"#{pid}-btn{k}", round(done + 0.15, 3), f'borderColor: "{HINT}", color: "{MUTED}"', dur=0.3)
@@ -634,6 +671,59 @@ class Frame:
                  f"font-family:'{DISPLAY}';font-weight:800;font-size:{font_size}px;color:{color};\">{esc(str(v))}</div>")
         return f"#{cid}"
 
+    def pointer_walk(self, values, x, y, pointers, size=120, gap=18, font_size=60, label_idx=True, chip_w=160, chip_h=68,
+                     at=0.0, eid=None):
+        """An array with named pointers: each a chip (above or below the cells) with a caret into its cell, moved
+        one step at a time, so a pointer never sweeps ahead and jumps back. pointers: {name: (side, start)}, side
+        "above" or "below". Returns a PointerWalk: .move(name, i, t), .walk(steps), .cell(i), .sel(name).
+
+        Names are words or two letters: "l" beside number cells reads as the digit 1 (dsa-03), so a one-letter
+        name that looks like a digit is refused."""
+        for name in pointers:
+            if name in AMBIGUOUS_NAMES:
+                raise ValueError(f"pointer name {name!r} reads as a digit next to number cells: call it "
+                                 f"{AMBIGUOUS_NAMES[name]!r}, or name it as the code does in a longer word")
+        base = eid or self.uid("walk")
+        out = self.cells(values, x, y, size=size, gap=gap, font_size=font_size, label_idx=label_idx, eid=f"{base}-a")
+        cells, idx = out if label_idx else (out, [])
+        below_y = y + size + (12 + LABEL_FLOOR + 30 if label_idx else 40)
+        above_y = y - 40 - chip_h
+        sels, starts = {}, {}
+        for k, (name, (side, start)) in enumerate(pointers.items()):
+            if side not in ("above", "below"):
+                raise ValueError(f"pointer {name!r}: side is 'above' or 'below', not {side!r}")
+            if not 0 <= start < len(values):
+                raise ValueError(f"pointer {name!r} starts at {start}, outside the {len(values)} cells")
+            cx = x + start * (size + gap) + size // 2
+            cy = above_y if side == "above" else below_y
+            pid = f"{base}-p{k}"
+            self.node(name, cx - chip_w // 2, cy, chip_w, h=chip_h, size=round(chip_h * 0.6), accent=True, eid=pid)
+            y1, y2 = (cy + chip_h + 4, y - 10) if side == "above" else (cy - 4, y + size + (12 + LABEL_FLOOR + 4 if label_idx else 10))
+            self.svg(self.arrow(cx, y1, cx, y2, f"{pid}-ar", color=ORANGE, width=4), eid=f"{pid}-sv")
+            sels[name], starts[name] = f"#{pid}, #{pid}-sv", start
+        if at is not None:
+            self.fade(",".join(cells + idx + list(sels.values())), at, dur=0.4)
+        return PointerWalk(self, cells, idx, sels, starts, size + gap)
+
+    def reject(self, box, against, t, sel=None, mark="\u2717"):
+        """A fact that is true but breaks a rule (O(n) extra memory against "only O(1)"): the fact turns the
+        accent colour, a cross pops beside it, and an arrow runs from it into the rule it breaks. Never a line
+        through it: a sourced fact stays true, and a strike says it is false. box, against: (x, y, w, h) of the
+        fact and of the rule; sel: the fact's element(s) to colour. Returns the cross and the arrow selectors."""
+        x, y, w, h = box
+        ax, ay, aw, ah = against
+        rid = self.uid("rej")
+        if sel:
+            self.to(sel, t, f'color: "{ORANGE}"', dur=0.3)
+        self.text(mark, x + w + 16, y + h // 2 - 40, size=64, weight=900, color=ORANGE, eid=f"{rid}-x")
+        # from the fact's edge nearest the rule to the rule's nearest edge
+        x1, y1 = x + w // 2, (y + h + 8 if ay >= y + h else y - 8)
+        x2, y2 = ax + aw // 2, (ay - 8 if ay >= y + h else ay + ah + 8)
+        self.svg(self.arrow(x1, y1, x2, y2, f"{rid}-ar", color=ORANGE, width=5, curve=-10), eid=f"{rid}-sv")
+        self.pop(f"#{rid}-x", t, dur=0.4)
+        self.draw(f"#{rid}-ar", self.at(t) + 0.1, dur=0.4)
+        return f"#{rid}-x", f"#{rid}-sv"
+
     def table(self, header, rows, x, y, widths, size=30, row_h=64, mono_cols=(), header_at=0.0, wrap=()):
         """header_at: the time or cue the header fades in on (default: the frame's start).
         wrap: columns whose text may break onto more lines (give row_h room for them); other cells stay on one line."""
@@ -656,6 +746,12 @@ class Frame:
                 if c not in wrap and est > room:
                     raise ValueError(f"table cell ({r},{c}) {str(val)[:40]!r} needs ~{est:.0f}px, has {room}px: "
                                      f"widen the column, lower size, or pass wrap=({c},) with a taller row_h")
+                # a wrapped cell is measured too: more lines than its row holds spill into the next row
+                if c in wrap and room > 0:
+                    lines = -(-(est * 0.9) // room)  # the one-line estimate is deliberately wide; wrapped text runs closer
+                    if lines * size * 1.15 > row_h + 1:
+                        raise ValueError(f"table cell ({r},{c}) {str(val)[:40]!r} wraps to ~{lines:.0f} lines "
+                                         f"({lines * size * 1.15:.0f}px) in a {row_h}px row: raise row_h, widen the column, or shorten the cell")
                 inner.append(f'<div id="{rid}-c{c}" style="position:absolute;left:{cx + pad}px;top:0;width:{w - 16 - pad}px;height:{row_h}px;'
                              f"display:flex;align-items:center;font-family:'{fam}';font-size:{size}px;font-weight:{500 if fam != DISPLAY else 600};"
                              f'color:{CREAM};{"white-space:normal;line-height:1.15;" if c in wrap else "white-space:nowrap;"}">{esc(str(val))}</div>')
@@ -667,6 +763,30 @@ class Frame:
             out.append(f"#{rid}")
         self.fade(f"[id^={tid}-h]", header_at, dur=0.4)
         return out, cells
+
+    def table_rows(self, bid):
+        """A markdown table block of the source as (header, rows): cells stripped, backticks dropped. Values for
+        the screen are read from here, never typed."""
+        b = self.block(bid)
+        text = b if isinstance(b, str) else b["text"]
+        lines = [l for l in text.splitlines() if l.strip().startswith("|")]
+        if len(lines) < 2:
+            raise ValueError(f"{bid} is not a markdown table")
+        split = lambda l: [c.strip().strip("`").strip() for c in l.strip().strip("|").split("|")]
+        return split(lines[0]), [split(l) for l in lines[2:]]
+
+    def block_table(self, bid, x, y, widths, pick=None, cols=None, **kw):
+        """table() filled from a markdown table block. pick: which rows, as first-cell prefixes or a predicate
+        (default: all); cols: which columns, by index (default: all). Every other argument is table()'s."""
+        header, rows = self.table_rows(bid)
+        if pick is not None:
+            keep = pick if callable(pick) else (lambda r: any(r[0].startswith(p) for p in pick))
+            rows = [r for r in rows if keep(r)]
+            if not rows:
+                raise ValueError(f"{bid}: no row matches {pick!r}")
+        if cols is not None:
+            header, rows = [header[c] for c in cols], [[r[c] for c in cols] for r in rows]
+        return self.table(header, rows, x, y, widths, **kw)
 
     def node(self, s, x, y, w, h=120, size=40, accent=False, eid=None):
         nid = eid or self.uid("node")
@@ -959,6 +1079,20 @@ def notebook_number(out_dir, calls):
         if [c[2] for c in cells[i:i + len(calls)]] == list(calls) and all(c[1] == "run" for c in cells[i:i + len(calls)]):
             return i + 1
     return None
+
+
+def notebook_numbers(out_dir, calls):
+    """In [n] of each of `calls`: a consecutive run of them if the notebook has one (as notebook_number finds),
+    else each call's next run cell after the one before it. None for a call the notebook never runs there."""
+    first = notebook_number(out_dir, calls)
+    if first is not None:
+        return [first + k for k in range(len(calls))]
+    cells, nums, i = notebook_cells(out_dir), [], 0
+    for call in calls:
+        j = next((j for j in range(i, len(cells)) if cells[j][1] == "run" and cells[j][2] == call), None)
+        nums.append(None if j is None else j + 1)
+        i = i if j is None else j + 1
+    return nums
 
 
 def chapter_block(out_dir, bid):

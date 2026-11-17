@@ -10,7 +10,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync, mkdirSync, rmSync, existsSync, appendFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FORMATS } from "../pipeline/stages.mjs";
+import { FORMATS, SOURCE_CHECK_SINCE } from "../pipeline/stages.mjs";
+import { sourceHash, blockHash } from "../core/scripts/facts.mjs";
 import { run, approve, status, statusJson, context, plan, hashPath, hashStats } from "../pipeline/run.mjs";
 
 const tmp = mkdtempSync(join(tmpdir(), "chalk-pipeline-"));
@@ -179,6 +180,96 @@ test("an agent's report waits again once anything it read is newer than it", asy
   ran();
 });
 
+test("pipeline-debt: an earlier build's open items hold a new build's frame specs until each names a real commit or a deferral", async () => {
+  const { REPO } = await import("../pipeline/stages.mjs");
+  const { spawnSync } = await import("node:child_process");
+  const head = spawnSync("git", ["-C", REPO, "rev-parse", "--short=10", "HEAD"], { encoding: "utf8" }).stdout.trim();
+  const ws = mkdtempSync(join(tmpdir(), "chalk-debt-"));
+  writeFileSync(join(ws, "channel.json"), "{}");
+  const old = join(ws, "youtube-output/old"), now = join(ws, "youtube-output/new");
+  for (const d of [old, now]) { mkdirSync(join(d, "segments/00"), { recursive: true }); writeFileSync(join(d, "segments/00/script.md"), "# x\n"); }
+  const gate = FORMATS.youtube.find((s) => s.name === "pipeline-debt");
+  const res = (lines) => writeFileSync(join(old, "resolution.md"), `# Resolution\n\n## Do next\n- [ ] not a pipeline item\n\n## Pipeline\n${lines.join("\n")}\n`);
+
+  res(["- [ ] F.pointer_walk in framelib", "- [x] N3 — deferred: needs a fixture first"]);
+  let c = gate.gate(context(now));
+  assert.equal(c.status, "waiting");
+  assert.match(c.why, /1 pipeline item.*F\.pointer_walk/s);
+  assert.doesNotMatch(c.why, /not a pipeline item|N3/, "only the Pipeline section, and a deferral is closed");
+  assert.equal(gate.gate(context(old)).status, "done", "a build's own items are for the next one");
+
+  res(["- [x] F.pointer_walk in framelib"]);
+  assert.match(gate.gate(context(now)).why, /names no commit/, "a tick alone does not close it");
+  res(["- [x] F.pointer_walk in framelib — abc1234def"]);
+  assert.match(gate.gate(context(now)).why, /not a commit in chalk/, "nor does a made-up sha");
+  res([`- [x] F.pointer_walk in framelib — ${head}`]);
+  assert.equal(gate.gate(context(now)).status, "done", "a commit that exists closes it");
+
+  res(["- [ ] F.pointer_walk in framelib"]);
+  mkdirSync(join(now, "frames"), { recursive: true });
+  writeFileSync(join(now, "frames/s00.py"), "# spec\n");
+  assert.equal(gate.gate(context(now)).status, "done", "a build whose frame specs are written is past the gate");
+  rmSync(ws, { recursive: true, force: true });
+});
+
+test("a frame spec edited after grounding.md makes grounding wait again, without taking back the scripts' approval", async () => {
+  const { check } = await import("../pipeline/run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "chalk-gframes-"));
+  mkdirSync(join(dir, "segments/00"), { recursive: true });
+  mkdirSync(join(dir, "frames"), { recursive: true });
+  for (const f of ["segments/00/script.md", "outline.md", "chapter.json", "frames/s00.py"]) writeFileSync(join(dir, f), "x\n");
+  writeFileSync(join(dir, "grounding.md"), "r1\n");
+  const st = (name) => FORMATS.youtube.find((s) => s.name === name);
+  const later = new Date(Date.now() + 5000);
+  utimesSync(join(dir, "grounding.md"), later, later);
+  approve(dir, "scripts");
+  assert.equal(check(context(dir), st("grounding-frames")).status, "done");
+  const evenLater = new Date(Date.now() + 10000);
+  utimesSync(join(dir, "frames/s00.py"), evenLater, evenLater);
+  const c = check(context(dir), st("grounding-frames"));
+  assert.equal(c.status, "waiting");
+  assert.match(c.why, /older than frames\/s00\.py/);
+  writeFileSync(join(dir, "grounding.md"), "r2, frames too\n");
+  assert.equal(check(context(dir), st("scripts-approved")).status, "done", "a new grounding report does not undo the approval");
+
+  for (const f of ["eval.json", "learner.md", "review.md"]) writeFileSync(join(dir, f), "x\n");
+  assert.equal(check(context(dir), st("review")).status, "done");
+  writeFileSync(join(dir, "notebook-review.md"), "x\n");
+  utimesSync(join(dir, "notebook-review.md"), evenLater, evenLater);
+  assert.match(check(context(dir), st("review")).why, /older than notebook-review\.md/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("learner-scripts: read-aloud gives the viewer's view only, and the stage waits until a learner has read these scripts", async () => {
+  const { readAloud } = await import("../pipeline/read-aloud.mjs");
+  const { check } = await import("../pipeline/run.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "chalk-lscripts-"));
+  mkdirSync(join(dir, "segments/00"), { recursive: true });
+  writeFileSync(join(dir, "chapter.json"), JSON.stringify({ blocks: [{ id: "c001", kind: "code", text: "x = 1" }] }));
+  writeFileSync(join(dir, "segments/00/script.md"), "# 00 — Start\n\n## Scene 1 — one\nvisual: code build (tier 1)\nstage: insight\ncode: c001\n" +
+    "on-screen: x is one\n\n- spoken: \"Set x {pause} to one.\"\n  display: \"Set x to one.\"\n  source: [c001]\n");
+  const text = readAloud(dir);
+  assert.match(text, /## Part 00 — Start/);
+  assert.match(text, /\[on screen: x is one\]/);
+  assert.match(text, /x = 1/, "the code on screen");
+  assert.match(text, /Set x to one\./);
+  assert.doesNotMatch(text, /c001\]|source|insight|code build|\{pause\}/, "no citations, stages, visual notes or markers");
+
+  const st = FORMATS.youtube.find((s) => s.name === "learner-scripts");
+  assert.equal(check(context(dir), st).status, "waiting");
+  const later = new Date(Date.now() + 5000);
+  writeFileSync(join(dir, "learner-scripts.md"), "x\n");
+  utimesSync(join(dir, "learner-scripts.md"), later, later);
+  assert.equal(check(context(dir), st).status, "done");
+  const evenLater = new Date(Date.now() + 10000);
+  utimesSync(join(dir, "segments/00/script.md"), evenLater, evenLater);
+  assert.match(check(context(dir), st).why, /older than a script/);
+  writeFileSync(join(dir, "learner.md"), "watched the render of these scripts\n");
+  utimesSync(join(dir, "learner.md"), new Date(Date.now() + 15000), new Date(Date.now() + 15000));
+  assert.equal(check(context(dir), st).status, "done", "a learner who watched these scripts rendered has read them");
+  rmSync(dir, { recursive: true, force: true });
+});
+
 let failed = 0;
 test("youtube frames depend on the part list and every listed part's stage, so cutting a part redoes them all", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-frames-in-"));
@@ -219,6 +310,47 @@ test("adopt leaves a stage stale when its output is older than an input (a rende
   adopt(dir);
   const state = JSON.parse(readFileSync(join(dir, ".chalk/pipeline.json"), "utf8"));
   assert.equal((state.stages ?? state)["render:00"], undefined, "the old render is not adopted");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("source-check: it waits for facts.md, for one that checked this version of the source, and on a contradiction until it is waived", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-facts-"));
+  const blocks = [{ id: "p001", kind: "paragraph", text: "The bridge opened in 1937." }, { id: "p002", kind: "paragraph", text: "Walk on." }];
+  writeFileSync(join(dir, "chapter.json"), JSON.stringify({ source: "t.md", blocks }));
+  const gate = () => FORMATS.youtube.find((s) => s.name === "source-check").gate(context(dir));
+  for (const f of ["youtube", "lesson", "short"]) {
+    const names = FORMATS[f].map((s) => s.name);
+    assert.equal(names[names.indexOf("ingest") + 1], "source-check", `${f}: the source is checked right after ingest`);
+  }
+  assert.equal(gate().status, "waiting");
+  assert.match(gate().why, /chalk-factcheck/);
+  const facts = (h, verdict) => `# Facts\n\nsource: ${h}\n\n| id | block | claim | verdict | evidence |\n|---|---|---|---|---|\n| F1 | p001 | opened 1937 | ${verdict} | x |\n`;
+  writeFileSync(join(dir, "facts.md"), facts("0123456789abcdef", "supported"));
+  assert.equal(gate().status, "waiting", "facts.md for another version of the source");
+  writeFileSync(join(dir, "facts.md"), facts(sourceHash({ blocks }), "contradicted"));
+  assert.match(gate().why, /F1 is contradicted/);
+  writeFileSync(join(dir, "facts-accepted.md"), `| id | block | block-hash | reason |\n|---|---|---|---|\n| F1 | p001 | ${blockHash(blocks[0])} | course figure |\n`);
+  assert.equal(gate().status, "done");
+  // a rewrite of chapter.json with the same text (ingest's own code changed) does not re-run the check
+  writeFileSync(join(dir, "chapter.json"), JSON.stringify({ source: "t.md", ingested: "again", blocks }));
+  assert.equal(gate().status, "done");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("source-check: a build ingested before the check existed, or already watched, is not held for a facts.md it never had", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-facts-old-"));
+  writeFileSync(join(dir, "chapter.json"), JSON.stringify({ blocks: [{ id: "p001", kind: "paragraph", text: "In 1937." }] }));
+  const gate = () => FORMATS.youtube.find((s) => s.name === "source-check").gate(context(dir));
+  const state = (s) => { mkdirSync(join(dir, ".chalk"), { recursive: true }); writeFileSync(join(dir, ".chalk/pipeline.json"), JSON.stringify(s)); };
+  state({ stages: { ingest: { hash: "x", at: "2026-01-01T00:00:00Z" } } });
+  assert.equal(gate().status, "done", "ingested before " + SOURCE_CHECK_SINCE);
+  state({ stages: { ingest: { hash: "x", at: "2099-01-01T00:00:00Z" } } });
+  assert.equal(gate().status, "waiting", "a new build is checked");
+  state({ stages: { ingest: { hash: "x", at: "2099-01-01T00:00:00Z" } }, approvals: { watched: "h" } });
+  assert.equal(gate().status, "done", "an approved, watched build");
+  state({ stages: { ingest: { hash: "x", at: "2026-01-01T00:00:00Z" } } });
+  writeFileSync(join(dir, "facts.md"), "# Facts\n");
+  assert.equal(gate().status, "waiting", "writing facts.md opts an old build in");
   rmSync(dir, { recursive: true, force: true });
 });
 

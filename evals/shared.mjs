@@ -10,6 +10,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { stripMarkers } from "./lib/load.mjs";
 import { pass, fail, skip, scenesOf, mainSegments, at } from "./lib/kit.mjs";
+import { checkFacts, unsupportedQuotes } from "../core/scripts/facts.mjs";
 
 // ── grounding ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -144,6 +145,36 @@ const grounding = [
         }
       }
       return ev.length ? fail(ev) : pass();
+    },
+  },
+  {
+    id: "G7",
+    group: "grounding",
+    title: "The source itself was checked: facts.md covers this version of the source, every block with a number, superlative or quotation has a row, and no claim is contradicted without a waiver",
+    weight: 3,
+    run(ctx) {
+      if (!ctx.chapter) return skip("no chapter.json");
+      // a build ingested before the source check existed has no facts.md, and the pipeline does not ask it for one
+      if (!ctx.files.facts) return skip("no facts.md (a build from before the source check)");
+      const r = checkFacts(ctx.dir);
+      if (r.status === "done") return pass([Object.entries(r.counts).filter(([, n]) => n).map(([v, n]) => `${n} ${v}`).join(", ")]);
+      return fail(r.problems.length ? r.problems.slice(0, 10) : [r.why]);
+    },
+  },
+  {
+    id: "G8",
+    group: "grounding",
+    title: "Every quotation shown or spoken sits in a source block whose claim facts.md marks supported",
+    weight: 3,
+    run(ctx) {
+      const texts = [];
+      for (const { seg, sc } of scenesOf(ctx)) {
+        if (sc.onScreen) texts.push({ at: at(seg, sc.line), text: sc.onScreen });
+        for (const e of sc.entries) texts.push({ at: at(seg, e.line), text: e.display });
+      }
+      if (!texts.length) return skip("no scripts");
+      const bad = unsupportedQuotes(texts, ctx.chapter, ctx.files.facts);
+      return bad.length ? fail(bad) : pass();
     },
   },
 ];
@@ -471,6 +502,32 @@ const notebook = [
           && !prose.some((t) => t.includes(norm(src)))) bad.push(`${at}: text that is not in the source`);
       }
       return bad.length ? fail(bad) : pass([`${nb.cells.length} cell(s): source code, source text and example calls only`]);
+    },
+  },
+  {
+    id: "N3",
+    group: "notebook",
+    title: "The notebook never re-runs itself: no two code cells in a row repeat, in the same order, further down",
+    weight: 1,
+    run(ctx) {
+      const nb = ctx.files.notebook;
+      if (!nb) return skip("no notebook.ipynb");
+      const code = nb.cells.map((c, i) => ({ i: i + 1, src: (Array.isArray(c.source) ? c.source.join("") : c.source).trim(), kind: c.cell_type }))
+        .filter((c) => c.kind === "code");
+      // a bare name (`nums`, `k`) shows a value and may be shown twice; a reset on its own (`nums = [...]` before a
+      // different call) lets a section stand alone. Two cells that do something, repeated in order, are a re-run.
+      const acts = (src) => !/^[A-Za-z_]\w*$/.test(src);
+      const bad = [];
+      for (let a = 0; a + 1 < code.length; a++) {
+        if (!acts(code[a].src) || !acts(code[a + 1].src)) continue;
+        for (let b = a + 2; b + 1 < code.length; b++) {
+          if (code[b].src === code[a].src && code[b + 1].src === code[a + 1].src) {
+            bad.push(`cells ${code[a].i}–${code[a + 1].i} run again as cells ${code[b].i}–${code[b + 1].i}: \`${code[a].src.split("\n")[0].slice(0, 40)}\`, \`${code[a + 1].src.split("\n")[0].slice(0, 40)}\` — show the new result from the cells already run`);
+            break;
+          }
+        }
+      }
+      return bad.length ? fail(bad) : pass([`${code.length} code cell(s), no re-run`]);
     },
   },
 ];
