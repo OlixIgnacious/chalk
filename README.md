@@ -59,11 +59,11 @@ scripts before anything is rendered, and once to watch the finished video.
 flowchart LR
     subgraph P1 ["1 · Plan"]
         direction TB
-        A1[Ingest] --> A0([Fact-check agent]) --> A2[Outline] --> A3[Scripts] --> A4[Text gates] --> A5([Grounding agent])
+        A1[Ingest] --> A0([Fact-check agent]) --> A2[Outline] --> A3[Scripts] --> A4[Text gates] --> A5([Grounding agent]) --> A6([Learner agent<br/>reads the scripts])
     end
     subgraph P2 ["2 · Build"]
         direction TB
-        B1[Narrate] --> B2[Align] --> B3([Frames agents]) --> B4[Render] --> B5[Deliver]
+        B1[Narrate] --> B2[Align] --> B0{{Open pipeline<br/>items closed}} --> B3([Frames agents]) --> B6([Grounding agent<br/>on the frames]) --> B4[Render] --> B5[Deliver]
     end
     subgraph P3 ["3 · Check"]
         direction TB
@@ -75,11 +75,13 @@ flowchart LR
 
     classDef agent fill:#fdf1ec,stroke:#d97757,color:#000
     classDef gate fill:#fff4cc,stroke:#c9a400,color:#000
-    class A0,A5,B3,C2,C3,C4 agent
+    class A0,A5,A6,B3,B6,C2,C3,C4 agent
     class G1,G2 gate
+    classDef debt fill:#eef2f7,stroke:#6b7a90,color:#000
+    class B0 debt
 ```
 
-<sub>Square boxes run by themselves. Orange boxes are agents. Yellow boxes are you.</sub>
+<sub>Square boxes run by themselves. Orange boxes are agents. Yellow boxes are you. The grey box waits on earlier builds.</sub>
 
 ### Step by step
 
@@ -91,10 +93,13 @@ flowchart LR
 | 3 | Scripts | skill | `segments/NN/script.md`: what is said and shown, each line citing a block |
 | 4 | Text gates | pipeline | pass or fail on readability, spoken style and the text eval |
 | 5 | Grounding | **chalk-grounding** agent | `grounding.md`: claims the source does not support |
+| 5b | Learner on the scripts | **chalk-learner** agent in script mode, reading `chalk read-aloud` | `learner-scripts.md`: questions the scripts never answer, while a fix is still a script edit |
 | ✋ | **Approve scripts** | **you** | `chalk pipeline approve <out> --scripts` |
 | 6 | Narrate | pipeline | the voice-over and its word timings, per segment |
 | 7 | Align | pipeline | captions matched to the script |
+| 7b | Pipeline debt | pipeline | waits until every open item in earlier builds' `resolution.md` `## Pipeline` checklists is closed |
 | 8 | Frame specs | **chalk-frames** agents, one per segment, in parallel | `frames/sNN.py` |
+| 8b | Grounding on the frames | **chalk-grounding** agent again | `grounding.md`, re-run whenever a frame spec, script or the source is newer than it |
 | 9 | Frames and render | pipeline | `segments/NN/segment.mp4` |
 | 10 | Deliver | pipeline | the final video and upload kit, lesson page or Short |
 | 11 | Eval | pipeline | `eval.md`: the automatic checks |
@@ -105,10 +110,16 @@ flowchart LR
 | ✋ | **Watch** | **you** | `chalk pipeline approve <out> --watched` |
 
 Run `chalk status <out>` at any point to see what is done, what is stale, and what is waiting. When an input
-changes, only the stages after it run again.
+changes, only the stages after it run again. A report goes stale too when what it read changes: grounding
+when a frame spec changes, the review when the notebook review changes.
+
+**Pipeline debt.** The resolver ends `resolution.md` with a `## Pipeline` checklist: what this repo must change
+so the next build does not repeat the last one's mistakes. An item closes only when it names a commit that
+exists in chalk (`- [x] … — 3f2c1ab`) or says `deferred: <why>`. A tick alone does not close it. Until every
+item across the workspace is closed, a new build waits before its frames are written.
 
 **Lesson and Short.** A lesson writes `syllabus.md` and `lesson.json` instead of an outline, and builds
-`lesson.html` before delivery. A Short skips the outline, the learner and the resolver, and you watch it on a
+`lesson.html` before delivery. A Short skips the outline, both learner passes and the resolver, and you watch it on a
 phone against `review.md`.
 
 ### The source check
@@ -146,12 +157,12 @@ findings stay independent. Each one sees only what its role needs.
 | Agent | Runs after | Sees | Writes | Job |
 |---|---|---|---|---|
 | [chalk-factcheck](agents/chalk-factcheck.md) | ingest, once per version of the source | **only** `chapter.json`, and the web | `facts.md` | Checks whether the source is right: numbers, dates, names, superlatives and quotations against the source's other blocks, a computation, an attached reference or primary sources on the web. A quotation needs the primary text or two independent sources. |
-| [chalk-grounding](agents/chalk-grounding.md) | text gates, and again before delivery | source, scripts, example scripts, frame specs | `grounding.md` | Checks every claim against the block it cites, every number against the script that printed it, and the source against itself. |
+| [chalk-grounding](agents/chalk-grounding.md) | text gates, and again after the frame specs | source, scripts, example scripts, frame specs | `grounding.md` | Checks every claim against the block it cites, every number against the script that printed it, and the source against itself. On-screen text is a claim too. |
 | [chalk-frames](agents/chalk-frames.md) | align | one segment's script and word timings, the frame library | `frames/sNN.py` | Draws one segment from frame-library components only, with each reveal cued on a spoken phrase. One agent per segment, run in parallel. |
-| [chalk-learner](agents/chalk-learner.md) | render / eval | **only** captions, chapter list and stills | `learner.md` | Watches as the target audience would: where they get lost, what they would ask, and whether they could write the solution afterwards. |
+| [chalk-learner](agents/chalk-learner.md) | grounding (script mode), then render / eval | **only** `chalk read-aloud`; later captions, chapter list and stills | `learner-scripts.md`, then `learner.md` | Reads or watches as the target audience would: where they get lost, what they would ask, and whether they could write the solution afterwards. The script pass catches it before anything is voiced. |
 | [chalk-notebook-reviewer](agents/chalk-notebook-reviewer.md) | deliver (when `--notebook`) | **only** `notebook.ipynb` | `notebook-review.md` | Runs every cell cold and judges whether the notebook teaches the problem on its own. |
 | [chalk-reviewer](agents/chalk-reviewer.md) | eval, learner | the build, the eval, the chalk repo | `review.md` | Judges what the eval cannot, and traces each weakness to the file in this repo that let it through, with a fix and the criterion that would catch it next time. |
-| [chalk-resolver](agents/chalk-resolver.md) | reviewer | every report, source, example scripts | `resolution.md` | Settles disagreements between the reports, contradictions in the source, and fixes that pull opposite ways. Produces one ranked list, each item with an owner. |
+| [chalk-resolver](agents/chalk-resolver.md) | reviewer | every report, source, example scripts | `resolution.md` | Settles disagreements between the reports, contradictions in the source, and fixes that pull opposite ways. Produces one ranked list, each item with an owner, and a `## Pipeline` checklist of what this repo must change. |
 
 ### Inside step 4: the audio is the clock
 
@@ -212,7 +223,7 @@ human gate, saying exactly what it needs:
 ```bash
 npx chalk pipeline youtube-output/my-chapter --doc docs/my-chapter.md --notebook
 npx chalk status youtube-output/my-chapter
-npx chalk pipeline approve youtube-output/my-chapter --scripts    # after reviewing outline and scripts
+npx chalk pipeline approve youtube-output/my-chapter --scripts    # after reading outline, scripts, grounding.md, learner-scripts.md
 npx chalk pipeline youtube-output/my-chapter                      # continue: voice, frames, render, deliver, eval
 npx chalk pipeline approve youtube-output/my-chapter --watched    # after watching against resolution.md
 ```
@@ -228,7 +239,8 @@ An output's `video.json` holds what belongs to one video:
 | `theme` | the frame palette (`broadside` by default, or `apple`, `midnight`, `yellow`, `sketch`) and its captions from [frames/themes/](frames/themes/). A Short or lesson sets it in `short.json` or `lesson.json`. |
 | `stage_names` | renames a stage on the progress strip for this video only, e.g. `{"bug": "Careful"}` |
 | `notebook.sections` | the notebook outline: each section's text, code, `run` calls and `end` text about their results. On-screen run panels number their `In [n]` cells from it, so they match the notebook the viewer runs. |
-| `accepted` | eval failures kept on purpose, each with a reason |
+| `thesis_source` | the block ids the title and thesis rest on, which the grounding agent checks them against (G6) |
+| `accepted` | eval failures kept on purpose, each with a reason and, with `chalk eval --pin`, the evidence it covered |
 
 ### Or use the UI
 
@@ -278,6 +290,8 @@ each agent limited to the tools its definition lists. No agent reaches the netwo
 | [ui/orchestrate.py](ui/orchestrate.py) | the driver: pipeline → agent → pipeline until a gate; lock, timeouts, budget, notifications |
 | [ui/launchers.py](ui/launchers.py) | which skill step or agent writes each author stage, and its `claude -p` command |
 | [ui/chat.py](ui/chat.py) | chat replies and "request changes", run detached |
+| [ui/claude_run.py](ui/claude_run.py) | runs one `claude -p` process and keeps what it said, for the driver and chat |
+| [ui/serve.py](ui/serve.py) | serves an output dir on localhost so `lesson.html` plays with its segment videos |
 | [ui/chalk_api.py](ui/chalk_api.py) | the only door into `bin/chalk.mjs`, plus the UI's own state under `<out>/.chalk/ui/` |
 
 ## CLI reference
@@ -287,13 +301,14 @@ chalk pipeline <out> [--doc <source>] [--only NN,..] [--from <stage>] [--jobs 3]
 chalk pipeline approve <out> --scripts|--watched
 chalk pipeline adopt <out>             record a hand-made build as up to date
 chalk status <out> [--json]            what is done, stale or waiting, and why (--json for programs)
+chalk read-aloud <out>                 the scripts as a viewer gets them: screen, code, captions, no sources
 
 chalk <core command> [args...]         ingest, check-readability, check-spoken, narrate, align-captions, …
 chalk assets                           stage fonts and GSAP once per machine
 chalk voice|narrate|align|frames|render NN   step 4 for one segment, run from the output dir
 chalk stills NN [--every 5]            contact sheet of a segment → work/stills/NN.png
 
-chalk eval <out> [--format f] [--deep] [--channel channel.json]
+chalk eval <out> [--format f] [--deep] [--pin] [--channel channel.json]
 chalk deliver <out> [--format f]       the format's deliver script
 chalk notebook <out>                   build notebook.ipynb (YouTube)
 chalk lesson-page <lesson.json>        build lesson.html (lesson)
@@ -320,22 +335,24 @@ weighted criteria and writes `eval.json` and `eval.md`.
 | | E1–E4 | plain spoken language, one running example, pacing |
 | | V1–V3 | the channel's voice, captions match the display layer, no stray silences |
 | | R1, R3–R5 | resolution, `hyperframes check`, readability on a phone |
-| | N1–N2 | notebook runs top to bottom and stands alone |
-| [YouTube](formats/youtube/eval/criteria.mjs) | O1–O6, T1–T9, B1, R2 | never naming the source, the hook, the teaching arc, code built line by line and traced, chapter rules |
+| | N1–N3 | notebook runs top to bottom, stands alone, and never re-runs itself |
+| [YouTube](formats/youtube/eval/criteria.mjs) | O1–O6, T1–T10, G6, B1, R2 | never naming the source, the hook, the teaching arc, code built line by line and traced, every branch of narrated code said, the thesis citing its blocks, chapter rules |
 | [Lesson](formats/lesson/eval/criteria.mjs) | L1–L4 | one objective and a grounded checkpoint per segment, prerequisite order |
 | [Short](formats/short/eval/criteria.mjs) | S1–S6 | one idea, 15–60 s, payoff first, platform safe zones |
 
 The eval and the reviewer have different jobs. When the reviewer finds a gap the eval passed, the fix is a new
 criterion plus a fixture that fails it. A failure the user chooses to keep is recorded in `video.json` under
-`accepted`, with a reason; it is reported as accepted and no longer fails the run.
+`accepted`, with a reason; it is reported as accepted and no longer fails the run. `chalk eval <out> --pin` also
+records the evidence the failure had, so a new evidence line, or a number that grows more than 2%, fails again.
+A reason-only waiver still works and is reported as unpinned.
 
 ## Repository layout
 
 ```
 bin/chalk.mjs        the CLI: pipeline, step 4, eval, deliver, doctor
-pipeline/            stages.mjs (the stages per format) and run.mjs (the resumable runner)
-agents/              chalk-grounding, -frames, -learner, -notebook-reviewer, -reviewer, -resolver
-core/                ingest, the grounding and spoken-style gates, narrate, caption alignment, Manim
+pipeline/            stages.mjs (the stages per format), run.mjs (the resumable runner), debt.mjs, read-aloud.mjs
+agents/              chalk-factcheck, -grounding, -frames, -learner, -notebook-reviewer, -reviewer, -resolver
+core/                ingest, the grounding and spoken-style gates, the source check, narrate, caption alignment, Manim
   references/        the shared references every skill reads through a references/core symlink
 frames/              framelib.py components, gen.py, seg.mjs, build.sh, slice-cast.py, themes/
 evals/               the runner, shared criteria, fixtures per format
@@ -345,13 +362,14 @@ formats/short/       /chalk-short skill, deliver, eval pack
 test/                CLI, pipeline, frames, publish and eval-fixture suites
 ui/                  the Streamlit UI: app, orchestrator, agent launchers
 publish/             chalk publish: YouTube upload, scheduling and playlists
-docs/                research notes
+docs/                research notes and plans: anywhere-plan.md (long and short form, publish anywhere, themes)
 ```
 
 ## Contributing
 
 Read [CLAUDE.md](CLAUDE.md) first, and the `CLAUDE.md` in any directory you change (`core/`,
-`formats/youtube/`, `formats/lesson/`). The invariants:
+`formats/youtube/`, `formats/lesson/`). What changed in each release, and how to upgrade a finished build, is in
+[CHANGELOG.md](CHANGELOG.md). The invariants:
 
 - **One copy of everything shared.** A fix to a gate, the aligner or the frame library goes in `core/` or
   `frames/` once, and every format gets it. Never copy a reference into a skill.
