@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How chalk works</title>
+<meta name="description" content="Plan, build, check: the pipeline, the grounding and source checks, the agents and the eval.">
+<meta name="theme-color" content="#ece7fb">
+<meta property="og:title" content="How chalk works">
+<meta property="og:description" content="Plan, build, check: the pipeline, the grounding and source checks, the agents and the eval.">
+<meta property="og:image" content="assets/img/themes/chalkboard.webp">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232a1745'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4f76a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-duration="110" data-next="outputs.html">
+<header class="nav">
+  <div class="nav-bar"></div>
+  <nav class="wrap nav-in" aria-label="Main">
+    <a class="logo" href="index.html" aria-label="chalk home">chalk<i></i></a>
+    <ul class="nav-links" id="nav-links"><li><a href="index.html">Product</a></li><li><a href="how-it-works.html" aria-current=page>How it works</a></li><li><a href="outputs.html">What it makes</a></li><li><a href="get-started.html">Get started</a></li></ul>
+    <div style="display:flex;align-items:center;gap:6px;position:relative">
+      <a class="nav-gh" href="https://github.com/OlixIgnacious/chalk" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+  </nav>
+</header>
+<main>
+
+<section class="wrap phero" data-chapter="Plan, build, check" data-caption="A build runs in three phases.">
+  <span class="eyebrow">How it works</span>
+  <h1 class="h1">Plan. Build. <span class="mark">Check.</span></h1>
+  <p class="lede">A build runs in three phases. The pipeline stops for you twice: once to approve the scripts before anything is rendered, and once to watch the finished video.</p>
+</section>
+
+<section class="hscroll" data-hscroll data-cinema data-chapter="The pipeline" data-caption="Three phases, and two gates only you can open.">
+  <div class="hs-pin" data-pin>
+    <div class="wrap hs-head"><span class="eyebrow">The pipeline</span><h2 class="h2">Scroll through a build.</h2>
+      <div class="legend" style="margin-top:20px"><span><i></i>Stage</span><span><i class="a"></i>Agent</span><span><i class="g"></i>You</span></div><div class="hs-progress" aria-hidden="true"><i></i></div></div>
+    <div class="hs-track" data-track>
+      <div class="phase"><span class="n">PHASE 1</span><h3 class="h3">Plan</h3><p>Read the source, check it, order its ideas, write the scripts.</p><div class="nodes"><div class="node is-agent"><i></i>Research agent<small>topic builds only</small></div><div class="node"><i></i>Ingest</div><div class="node is-agent"><i></i>Fact-check agent</div><div class="node"><i></i>Outline</div><div class="node"><i></i>Scripts</div><div class="node"><i></i>Text gates</div><div class="node is-agent"><i></i>Grounding agent</div><div class="node is-agent"><i></i>Learner agent<small>reads the scripts</small></div></div></div>
+      <div class="gate"><span class="n">GATE</span><h3 class="h3">You approve the scripts.</h3><p>Read the outline, the scripts, the grounding report and the learner's notes. Agents run with approval switched off; only you can pass this gate.</p></div>
+      <div class="phase"><span class="n">PHASE 2</span><h3 class="h3">Build</h3><p>Voice, captions, frames and render. The audio is the clock, so captions and cuts never drift.</p><div class="nodes"><div class="node"><i></i>Narrate</div><div class="node"><i></i>Align captions</div><div class="node"><i></i>Open pipeline items closed</div><div class="node is-agent"><i></i>Frames agents<small>one per segment</small></div><div class="node is-agent"><i></i>Grounding agent<small>on the frames</small></div><div class="node is-agent"><i></i>Frames reviewer<small>stills at every cue</small></div><div class="node"><i></i>Render</div><div class="node"><i></i>Deliver</div></div></div>
+      <div class="phase"><span class="n">PHASE 3</span><h3 class="h3">Check</h3><p>A mechanical eval, then agents that watch, review and resolve.</p><div class="nodes"><div class="node"><i></i>Eval</div><div class="node is-agent"><i></i>Learner agent<small>watches</small></div><div class="node is-agent"><i></i>Reviewer agent</div><div class="node is-agent"><i></i>Resolver agent</div></div></div>
+      <div class="gate"><span class="n">GATE</span><h3 class="h3">You watch the finished video.</h3><p>Against the resolver's checklist, before anything is published.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section wrap" data-chapter="Grounding" data-caption="Every line says only what its source block says.">
+  <div class="split">
+    <div><span class="eyebrow">Grounding</span><h2 class="h2">Every line cites its paragraph.</h2><p class="lede">On every run, the grounding agent asks one question of each narrated line and each claim on screen: does it say only what its source block says?</p></div>
+    <div class="ground">
+      <svg class="link" aria-hidden="true"><path d=""/></svg>
+      <div class="ground-line"><span class="lbl">Narration · segment 02</span><q>From December, the library stays open until nine on weekdays.</q></div>
+      <span class="pill plum verdict">Supported · ¶ 3</span>
+      <div class="ground-src"><span class="lbl">Source · ¶ 3</span>Beginning 1 December, weekday opening hours will extend to 9 pm.</div>
+    </div>
+  </div>
+</section>
+
+<section class="section wrap" style="padding-top:0" data-chapter="Source check" data-caption="The source is checked once per version of it.">
+  <div class="split">
+    <div class="clip-frame" data-reveal><div class="clip" data-clip="check"></div></div>
+    <div><span class="eyebrow">Checked at the source</span><h2 class="h2">And the source is checked too.</h2>
+      <p class="lede" style="margin-bottom:24px">A separate check asks whether the source is right, once per version of it. A contradicted claim stops the build until the source is fixed or you waive it. Waivers are yours; no agent writes them.</p>
+      <div class="verdicts"><div class="viz-row"><span>Weekday hours extend to 9 pm</span><span class="pill">supported</span></div><div class="viz-row"><span>The most requested change in ten years</span><span class="pill bad">contradicted</span></div><div class="viz-row"><span>Starts on 1 December</span><span class="pill">supported</span></div></div>
+      <p class="muted" style="font-size:13px;margin-top:12px">Example claims, for illustration.</p></div>
+  </div>
+</section>
+
+<section class="section wrap" style="padding-top:0" data-chapter="The gate" data-caption="Gates are not advisory.">
+  <div class="split">
+    <div><span class="eyebrow">Reviewed before rendered</span><h2 class="h2">Gates are not advisory.</h2><p class="lede">Rendering before the teaching has been reviewed is the expensive mistake. Every stage hashes its inputs, so a changed script redoes only that segment's voice onward.</p></div>
+    <div class="clip-frame" data-reveal><div class="clip" data-clip="approve"></div></div>
+  </div>
+</section>
+
+<section class="section wrap" style="padding-top:0" data-chapter="The agents" data-caption="Separate agents, each with one report.">
+  <span class="eyebrow">The agents</span>
+  <h2 class="h2" style="margin-top:14px;max-width:18ch">Nine agents. None sees what it doesn't need.</h2>
+  <p class="lede" style="margin-top:20px">No agent reaches the network unless its definition says so. Two do.</p>
+  <div class="agents"><div class="agent" data-reveal="0.00"><b>chalk-research</b><p>Writes a research brief for a topic with no source document: short paragraphs, each attributed to one fetched page, its date and the sentence it rests on.</p><span class=pill>network: true</span></div><div class="agent" data-reveal="0.08"><b>chalk-factcheck</b><p>Checks the source itself, once per version: numbers, dates, names, quotations, superlatives, cause and effect, each against evidence.</p><span class=pill>network: true</span></div><div class="agent" data-reveal="0.16"><b>chalk-grounding</b><p>Checks every narrated and on-screen claim against the block it cites, and every number against the script that produced it.</p></div><div class="agent" data-reveal="0.00"><b>chalk-learner</b><p>Reads the scripts before anything is voiced, then watches the build the way its audience would.</p></div><div class="agent" data-reveal="0.08"><b>chalk-frames</b><p>Writes one segment's frames from its approved script and narration timings. One agent per segment, in parallel.</p></div><div class="agent" data-reveal="0.16"><b>chalk-frames-reviewer</b><p>Looks at three stills at every reveal and reports clipping, overlap, small or fast text and low contrast.</p></div><div class="agent" data-reveal="0.00"><b>chalk-notebook-reviewer</b><p>Opens the notebook cold, runs every cell, tries its own inputs and says where it breaks.</p></div><div class="agent" data-reveal="0.08"><b>chalk-reviewer</b><p>Finds what makes a build weak for its genre, and which file in the repo let it through.</p></div><div class="agent" data-reveal="0.16"><b>chalk-resolver</b><p>Reads every report, finds where they disagree, and settles each conflict.</p></div></div>
+</section>
+
+<section class="section wrap" style="padding-top:0" data-chapter="The eval" data-caption="The eval is mechanical and deterministic.">
+  <div class="split">
+    <div><span class="eyebrow">The eval</span><h2 class="h2">Mechanical where it can be.</h2><p class="lede">The eval scores a build on its shape's criteria, its pack's and the shared ones. When the reviewer finds a gap the eval passed, the fix is a new criterion and a fixture that fails it.</p></div>
+    <div><div class="chips">
+      <span><b>G</b> grounding</span><span><b>E</b> spoken language</span><span><b>V</b> voice and loudness</span><span><b>R</b> readability</span><span><b>N</b> notebook</span><span><b>S</b> Short</span><span><b>L</b> lesson</span><span><b>O T B</b> coding lesson</span><span><b>Y</b> essay</span><span><b>W</b> news</span><span><b>K</b> skit</span><span><b>P</b> per platform</span>
+    </div></div>
+  </div>
+</section>
+<section class="wrap" data-chapter="Up next" data-caption="Up next: What it makes." style="padding-block:24px 120px">
+  <a class="upnext" href="outputs.html">
+    <div><span class="eyebrow">Up next</span><span class="h2">What it makes</span><p class="muted" style="margin:10px 0 0">Shapes, genre packs, 22 themes and where it publishes.</p>
+      <button class="upnext-cancel" type="button">Cancel autoplay</button></div>
+    <span class="ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="upnext-count">5</span></span>
+  </a>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="logo" href="index.html">chalk<i></i></a><p style="max-width:36ch;margin:16px 0 0">Turn a checked source into grounded videos of any length and genre. Open source under Apache-2.0.</p></div>
+      <div><h4>Product</h4><ul><li><a href="how-it-works.html">How it works</a></li><li><a href="outputs.html">What it makes</a></li><li><a href="get-started.html">Get started</a></li></ul></div>
+      <div><h4>Project</h4><ul><li><a href="https://github.com/OlixIgnacious/chalk">GitHub</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/README.md">README</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/CHANGELOG.md">Changelog</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/AGENTS.md">Agents</a></li></ul></div>
+      <div><h4>Built on</h4><ul><li><a href="https://claude.com/claude-code">Claude Code</a></li><li><a href="https://github.com/heygen-com/hyperframes">HyperFrames</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/CREDITS.md">Credits</a></li></ul></div>
+    </div>
+    <div class="foot-base"><span>Apache-2.0 · v0.9.0</span><span>Stick-figure clips on this site are illustrations. The theme clips are real chalk renders.</span></div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="assets/js/clips.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>

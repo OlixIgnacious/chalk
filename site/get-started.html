@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Get started with chalk</title>
+<meta name="description" content="Install chalk and make your first grounded video in Claude Code.">
+<meta name="theme-color" content="#ece7fb">
+<meta property="og:title" content="Get started with chalk">
+<meta property="og:description" content="Install chalk and make your first grounded video in Claude Code.">
+<meta property="og:image" content="assets/img/themes/chalkboard.webp">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232a1745'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4f76a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body data-duration="80" data-next="index.html">
+<header class="nav">
+  <div class="nav-bar"></div>
+  <nav class="wrap nav-in" aria-label="Main">
+    <a class="logo" href="index.html" aria-label="chalk home">chalk<i></i></a>
+    <ul class="nav-links" id="nav-links"><li><a href="index.html">Product</a></li><li><a href="how-it-works.html">How it works</a></li><li><a href="outputs.html">What it makes</a></li><li><a href="get-started.html" aria-current=page>Get started</a></li></ul>
+    <div style="display:flex;align-items:center;gap:6px;position:relative">
+      <a class="nav-gh" href="https://github.com/OlixIgnacious/chalk" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span>GitHub</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16M4 16h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+  </nav>
+</header>
+<main>
+
+<section class="wrap phero" data-chapter="Get started" data-caption="From clone to your first video.">
+  <span class="eyebrow">Get started</span>
+  <h1 class="h1">From clone to <span class="mark">first video.</span></h1>
+  <p class="lede">chalk is a set of Claude Code skills and agents on a deterministic Node and Python pipeline. Install it once, then open the repo in Claude Code.</p>
+</section>
+
+<section class="section wrap" style="padding-top:20px" data-chapter="Requirements" data-caption="What you need on the machine.">
+  <div class="split" style="align-items:start">
+    <div><span class="eyebrow">Requirements</span><h2 class="h2">What it needs.</h2></div>
+    <div class="reqs"><div class="req"><b>Node 22 or later</b><span>the CLI and pipeline</span></div><div class="req"><b>FFmpeg, ffprobe and Chrome</b><span>rendering and delivery</span></div><div class="req"><b>Python 3.10–3.13 with kokoro-onnx and soundfile</b><span>narration</span></div><div class="req"><b>HyperFrames and its skills</b><span>render and transcription</span></div><div class="req"><b>pdftotext and tesseract</b><span>PDF and scanned-PDF ingest (optional)</span></div><div class="req"><b>manim, plus TinyTeX or BasicTeX</b><span>maths scenes (optional)</span></div></div>
+  </div>
+</section>
+
+<section class="section wrap" style="padding-top:0">
+  <div class="steps-v">
+    <div class="stepv" data-chapter="Install" data-caption="Clone, install, and run the doctor."><div><span class="n">STEP 1</span><h3 class="h3">Install</h3><p>The doctor checks the whole toolchain and says what is missing.</p></div><div data-reveal><div class="term"><div class="term-bar"><i></i><i></i><i></i><span>install</span><button type="button" data-copy>Copy</button></div><pre><span class="p">$ </span>git clone https://github.com/OlixIgnacious/chalk.git
+<span class="p">$ </span>cd chalk
+<span class="p">$ </span>npm install
+<span class="c"># narration needs Python 3.10–3.13</span>
+<span class="p">$ </span>uv venv --python 3.12 .venv
+<span class="p">$ </span>uv pip install --python .venv/bin/python kokoro-onnx soundfile
+<span class="p">$ </span>export HYPERFRAMES_PYTHON="$PWD/.venv/bin/python"
+<span class="p">$ </span>npx hyperframes skills
+<span class="p">$ </span>npx chalk assets
+<span class="p">$ </span>npx chalk doctor</pre></div></div></div>
+    <div class="stepv" data-chapter="Make something" data-caption="Open the repo in Claude Code and name a source."><div><span class="n">STEP 2</span><h3 class="h3">Make something</h3><p>Open the repo in Claude Code; the skills are found automatically. Your own script is a source too.</p></div><div data-reveal><div class="term"><div class="term-bar"><i></i><i></i><i></i><span>claude code</span><button type="button" data-copy>Copy</button></div><pre>/chalk-long path/to/chapter.md --notebook
+/chalk-long my-script.md --pack essay
+/chalk book.epub --chapter 4 --segments 5
+/chalk-short docs/chapter01.md</pre></div></div></div>
+    <div class="stepv" data-chapter="Drive the pipeline" data-caption="Or run the pipeline yourself, gate by gate."><div><span class="n">STEP 3 · OPTIONAL</span><h3 class="h3">Or drive the pipeline</h3><p>It runs every stage whose inputs changed and stops at the next gate, saying exactly what it needs.</p></div><div data-reveal><div class="term"><div class="term-bar"><i></i><i></i><i></i><span>pipeline</span><button type="button" data-copy>Copy</button></div><pre><span class="p">$ </span>npx chalk pipeline long-output/my-chapter --doc docs/my-chapter.md --notebook
+<span class="p">$ </span>npx chalk status long-output/my-chapter
+<span class="c"># after reading the outline, scripts and grounding report</span>
+<span class="p">$ </span>npx chalk pipeline approve long-output/my-chapter --scripts
+<span class="p">$ </span>npx chalk pipeline long-output/my-chapter</pre></div></div></div>
+    <div class="stepv" data-chapter="The control panel" data-caption="Or watch the whole build in the control panel."><div><span class="n">STEP 4 · OPTIONAL</span><h3 class="h3">Or use the control panel</h3><p>A local panel for the whole build: a Plan, Build, Check stepper, a console per agent, and the gates where only you can approve.</p></div><div data-reveal><div class="term"><div class="term-bar"><i></i><i></i><i></i><span>control panel</span><button type="button" data-copy>Copy</button></div><pre><span class="p">$ </span>uv pip install --python .venv/bin/python -r ui/requirements.txt
+<span class="p">$ </span>npm run ui</pre></div></div></div>
+  </div>
+</section>
+
+<section class="section wrap" style="padding-top:0" data-chapter="Read more" data-caption="The README has the rest.">
+  <div class="cta">
+    <h2 class="h2">The README has the rest.</h2>
+    <p>The CLI reference, every theme, the eval criteria, publishing and the repository layout.</p>
+    <div class="btns"><a class="btn btn-lime" href="https://github.com/OlixIgnacious/chalk/blob/main/README.md">Read the README <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn btn-sec" style="color:var(--on-plum);border-color:var(--line-plum);background:transparent" href="https://github.com/OlixIgnacious/chalk"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> Star on GitHub</a></div>
+  </div>
+</section>
+<section class="wrap" data-chapter="Up next" data-caption="Up next: Back to the start." style="padding-block:24px 120px">
+  <a class="upnext" href="index.html">
+    <div><span class="eyebrow">Up next</span><span class="h2">Back to the start</span><p class="muted" style="margin:10px 0 0">Watch the product page again from the top.</p>
+      <button class="upnext-cancel" type="button">Cancel autoplay</button></div>
+    <span class="ring"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="upnext-count">5</span></span>
+  </a>
+</section>
+</main>
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="logo" href="index.html">chalk<i></i></a><p style="max-width:36ch;margin:16px 0 0">Turn a checked source into grounded videos of any length and genre. Open source under Apache-2.0.</p></div>
+      <div><h4>Product</h4><ul><li><a href="how-it-works.html">How it works</a></li><li><a href="outputs.html">What it makes</a></li><li><a href="get-started.html">Get started</a></li></ul></div>
+      <div><h4>Project</h4><ul><li><a href="https://github.com/OlixIgnacious/chalk">GitHub</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/README.md">README</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/CHANGELOG.md">Changelog</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/AGENTS.md">Agents</a></li></ul></div>
+      <div><h4>Built on</h4><ul><li><a href="https://claude.com/claude-code">Claude Code</a></li><li><a href="https://github.com/heygen-com/hyperframes">HyperFrames</a></li><li><a href="https://github.com/OlixIgnacious/chalk/blob/main/CREDITS.md">Credits</a></li></ul></div>
+    </div>
+    <div class="foot-base"><span>Apache-2.0 · v0.9.0</span><span>Stick-figure clips on this site are illustrations. The theme clips are real chalk renders.</span></div>
+  </div>
+</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="assets/js/clips.js"></script>
+<script src="assets/js/site.js"></script>
+</body>
+</html>
