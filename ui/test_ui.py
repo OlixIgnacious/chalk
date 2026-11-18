@@ -134,7 +134,7 @@ def test_every_stage_has_a_phase():
 
 
 @pytest.mark.parametrize("fmt,stage,expect", [
-    ("youtube", "outline", "step 2 (Outline)"), ("lesson", "syllabus", "step 2 (Syllabus)"),
+    ("long", "outline", "step 2 (Outline)"), ("lesson", "syllabus", "step 2 (Syllabus)"),
     ("lesson", "scripts", "lesson.json"), ("short", "scripts", "short.json"),
 ])
 def test_skill_prompts_name_their_step(tmp_path, fmt, stage, expect):
@@ -145,18 +145,18 @@ def test_skill_prompts_name_their_step(tmp_path, fmt, stage, expect):
 
 
 def test_agent_command_tools_guards_and_resume(tmp_path):
-    argv = launchers.command("frame-spec", tmp_path, {"format": "youtube"}, "03")
+    argv = launchers.command("frame-spec", tmp_path, {"format": "long"}, "03")
     assert argv[argv.index("--agent") + 1] == "chalk-frames"
     assert "Draw segment 03" in argv[argv.index("-p") + 1]
     assert argv[argv.index("--allowedTools") + 1].split(",") == launchers.agents()["chalk-frames"]["tools"]
     assert "Bash(*pipeline approve*)" in argv[argv.index("--disallowedTools") + 1]
-    again = launchers.command("frame-spec", tmp_path, {"format": "youtube"}, "03", resume="sess-1", prompt="use a table")
+    again = launchers.command("frame-spec", tmp_path, {"format": "long"}, "03", resume="sess-1", prompt="use a table")
     assert again[again.index("--resume") + 1] == "sess-1" and again[again.index("-p") + 1] == "use a table"
 
 
 def test_only_agents_that_say_network_true_reach_the_web(tmp_path):
     netted = sorted(n for n, a in launchers.agents().items() if a["network"])
-    assert netted == ["chalk-factcheck"], netted
+    assert netted == ["chalk-factcheck", "chalk-research"], netted
     check = launchers.command("source-check", tmp_path, {"format": "youtube"})
     denied = check[check.index("--disallowedTools") + 1].split(",")
     assert "WebFetch" not in denied and "WebSearch" not in denied
@@ -317,9 +317,9 @@ def test_accept_writes_where_the_eval_reads(fakes, tmp_path):
     assert "accepted" not in json.loads((fakes / "short.json").read_text())
     yt = tmp_path / "yt"
     yt.mkdir()
-    assert api.accept(yt, "youtube", "T6", "kept").name == "video.json"
+    assert api.accept(yt, "long", "T6", "kept").name == "video.json"
     with pytest.raises(ValueError):
-        api.accept(yt, "youtube", "T6", "  ")
+        api.accept(yt, "long", "T6", "  ")
 
 
 def test_upload_never_overwrites_a_different_file(tmp_path):
@@ -364,12 +364,12 @@ def test_landing_shows_inputs_only_after_a_format(fakes, tmp_path, monkeypatch):
     assert not at.exception, at.exception
     keys = {t.key for t in at.text_input}
     assert {"doc", "slug", "channel", "audience", "idea"} <= keys
-    at.button(key="fmt_youtube").click().run()
+    at.button(key="fmt_long").click().run()
     assert "idea" not in {t.key for t in at.text_input}
     assert [c for c in at.checkbox if c.key == "notebook"]
 
 
-@pytest.mark.parametrize("fmt", ["youtube", "lesson", "short"])
+@pytest.mark.parametrize("fmt", ["long", "lesson", "short"])
 def test_each_format_at_its_scripts_gate_with_scripts_renders(fakes, fmt):
     """The bug that crashed the first version: a gate with scripts present (duplicate widget keys)."""
     api.save_config(fakes, {**api.config(fakes), "format": fmt})
@@ -470,3 +470,15 @@ def test_failure_panel_offers_caption_and_eval_fixes(fakes):
     keys = {b.key for b in at.button}
     assert {"cf_check", "ef_b_E3", "fail_retry"} <= keys
     assert {t.key for t in at.text_input} >= {"cf_d_0", "cf_h_0", "ef_E3"}
+
+
+def test_a_build_recorded_as_youtube_is_a_long_build(tmp_path):
+    """The long shape was called youtube: an old build's config and pipeline record still open it."""
+    out = tmp_path / "youtube-output" / "old"
+    (out / ".chalk" / "ui").mkdir(parents=True)
+    (out / ".chalk" / "pipeline.json").write_text(json.dumps({"opts": {"format": "youtube"}}))
+    assert api.format_of(out) == "long"
+    (out / ".chalk" / "ui" / "config.json").write_text(json.dumps({"format": "youtube"}))
+    assert api.config(out)["format"] == "long"
+    assert "chalk-long" in " ".join(launchers.command("outline", out, {"format": "youtube"}))
+    assert out.resolve() in [Path(b["out"]).resolve() for b in api.builds(tmp_path)]

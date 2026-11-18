@@ -28,12 +28,26 @@ test("core commands go to core/", () => {
   assert.equal(chalk("check-readability").status, 2, "core's own usage error comes through");
 });
 
-test("eval scores a fixture with the format's pack plus the shared criteria", () => {
-  const r = chalk("eval", join(root, "evals/fixtures/youtube/good"), "--no-write", "--json");
+test("eval scores a fixture with its shape, its pack and the shared criteria", () => {
+  const r = chalk("eval", join(root, "evals/fixtures/long/good"), "--no-write", "--json");
   assert.equal(r.status, 0, r.stderr);
   const report = JSON.parse(r.stdout);
-  assert.equal(report.format, "youtube");
-  for (const g of ["orientation", "teaching", "grounding", "voice"]) assert.ok(g in report.groups, g);
+  assert.equal(report.format, "long");
+  assert.equal(report.pack, "coding-lesson", "the long shape's default pack");
+  for (const g of ["orientation", "teaching", "grounding", "voice", "render"]) assert.ok(g in report.groups, g);
+});
+
+test("--format youtube is the long shape under its old name", () => {
+  const r = chalk("eval", join(root, "evals/fixtures/long/good"), "--format", "youtube", "--no-write", "--json");
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).format, "long");
+  assert.equal(chalk("eval", join(root, "evals/fixtures/long/good"), "--format", "vimeo", "--no-write").status, 2);
+});
+
+test("chalk pack names the build's pack: the shape's default, then channel.json, then the manifest", () => {
+  const out = chalk("pack", join(root, "evals/fixtures/long/good"));
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(out.stdout, /^coding-lesson\n.*packs\/coding-lesson\/references/);
 });
 
 let failed = 0;

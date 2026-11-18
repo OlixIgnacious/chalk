@@ -186,9 +186,9 @@ test("pipeline-debt: an earlier build's open items hold a new build's frame spec
   const head = spawnSync("git", ["-C", REPO, "rev-parse", "--short=10", "HEAD"], { encoding: "utf8" }).stdout.trim();
   const ws = mkdtempSync(join(tmpdir(), "chalk-debt-"));
   writeFileSync(join(ws, "channel.json"), "{}");
-  const old = join(ws, "youtube-output/old"), now = join(ws, "youtube-output/new");
+  const old = join(ws, "long-output/old"), now = join(ws, "long-output/new");
   for (const d of [old, now]) { mkdirSync(join(d, "segments/00"), { recursive: true }); writeFileSync(join(d, "segments/00/script.md"), "# x\n"); }
-  const gate = FORMATS.youtube.find((s) => s.name === "pipeline-debt");
+  const gate = FORMATS.long.find((s) => s.name === "pipeline-debt");
   const res = (lines) => writeFileSync(join(old, "resolution.md"), `# Resolution\n\n## Do next\n- [ ] not a pipeline item\n\n## Pipeline\n${lines.join("\n")}\n`);
 
   res(["- [ ] F.pointer_walk in framelib", "- [x] N3 — deferred: needs a fixture first"]);
@@ -219,7 +219,7 @@ test("a frame spec edited after grounding.md makes grounding wait again, without
   mkdirSync(join(dir, "frames"), { recursive: true });
   for (const f of ["segments/00/script.md", "outline.md", "chapter.json", "frames/s00.py"]) writeFileSync(join(dir, f), "x\n");
   writeFileSync(join(dir, "grounding.md"), "r1\n");
-  const st = (name) => FORMATS.youtube.find((s) => s.name === name);
+  const st = (name) => FORMATS.long.find((s) => s.name === name);
   const later = new Date(Date.now() + 5000);
   utimesSync(join(dir, "grounding.md"), later, later);
   approve(dir, "scripts");
@@ -255,7 +255,7 @@ test("learner-scripts: read-aloud gives the viewer's view only, and the stage wa
   assert.match(text, /Set x to one\./);
   assert.doesNotMatch(text, /c001\]|source|insight|code build|\{pause\}/, "no citations, stages, visual notes or markers");
 
-  const st = FORMATS.youtube.find((s) => s.name === "learner-scripts");
+  const st = FORMATS.long.find((s) => s.name === "learner-scripts");
   assert.equal(check(context(dir), st).status, "waiting");
   const later = new Date(Date.now() + 5000);
   writeFileSync(join(dir, "learner-scripts.md"), "x\n");
@@ -270,11 +270,117 @@ test("learner-scripts: read-aloud gives the viewer's view only, and the stage wa
   rmSync(dir, { recursive: true, force: true });
 });
 
+test("a build recorded as youtube resumes as the long shape: same stages, same approvals, the new name stored", async () => {
+  const { main } = await import("../pipeline/run.mjs");
+  const dir = join(tmp, "youtube-output", "old-build");
+  mkdirSync(join(dir, ".chalk"), { recursive: true });
+  writeFileSync(join(dir, ".chalk", "pipeline.json"), JSON.stringify({ opts: { format: "youtube" }, stages: {}, approvals: { scripts: { hash: "x" } } }));
+  const j = statusJson(dir, { format: "youtube" });
+  assert.equal(j.format, "long");
+  assert.deepEqual(j.stages.map((s) => s.name), FORMATS.long.map((s) => s.name));
+  assert.deepEqual(j.approvals, ["scripts"], "the approval survives the rename");
+  const logged = [];
+  const log = console.log;
+  console.log = (...a) => logged.push(a.join(" "));
+  try { assert.equal(await main(["status", dir]), 0); } finally { console.log = log; }
+  assert.match(logged.join("\n"), /ingest/);
+});
+
+test("frames-review: the render waits for a review of the built frames; FIXES holds it, PASS lets it through, a rebuild asks again", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-frev-"));
+  mkdirSync(join(dir, "segments/01/video"), { recursive: true });
+  writeFileSync(join(dir, ".chalk-ingested"), "");
+  const st = { stages: { ingest: { at: new Date().toISOString() } }, approvals: {} };
+  const o = { ...context(dir), state: st };
+  const gate = () => FORMATS.long.find((s) => s.name === "frames-review").gate(o, "01");
+  for (const f of ["long", "lesson", "short"]) {
+    const names = FORMATS[f].map((s) => s.name);
+    assert.ok(names.indexOf("frames") < names.indexOf("frames-review") && names.indexOf("frames-review") < names.indexOf("render"),
+      `${f}: reviewed after the frames are built, before the render`);
+  }
+  assert.match(gate().why, /index\.html is not built/);
+  const past = new Date(Date.now() - 60_000);
+  writeFileSync(join(dir, "segments/01/video/index.html"), "<frames/>");
+  utimesSync(join(dir, "segments/01/video/index.html"), past, past);
+  assert.match(gate().why, /chalk-frames-reviewer/);
+  const review = join(dir, "segments/01/frames-review.md");
+  writeFileSync(review, "# Frames review\n\n- [01, f02 at 3.1 s] label runs past its box\n  fix: frames/s01.py line 12\n\nVERDICT: FIXES: 1\n");
+  assert.equal(gate().status, "waiting");
+  assert.match(gate().why, /FIXES: 1/);
+  writeFileSync(review, "# Frames review\n\nNothing to fix.\n");
+  assert.match(gate().why, /no "VERDICT/);
+  writeFileSync(review, "# Frames review\n\nNothing to fix.\n\nVERDICT: PASS\n");
+  assert.equal(gate().status, "done");
+  writeFileSync(join(dir, "segments/01/video/index.html"), "<rebuilt/>");
+  utimesSync(review, past, past);
+  assert.match(gate().why, /older than the frames/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("frames-review: a build ingested before the reviewer existed, or already watched, is not held", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-frev-old-"));
+  mkdirSync(join(dir, "segments/01/video"), { recursive: true });
+  writeFileSync(join(dir, "segments/01/video/index.html"), "<frames/>");
+  const gate = (state) => FORMATS.long.find((s) => s.name === "frames-review").gate({ ...context(dir), state }, "01");
+  assert.equal(gate({ stages: { ingest: { at: "2026-11-01T00:00:00Z" } }, approvals: {} }).status, "done");
+  assert.equal(gate({ stages: { ingest: { at: new Date().toISOString() } }, approvals: { watched: {} } }).status, "done");
+  assert.equal(gate({ stages: { ingest: { at: new Date().toISOString() } }, approvals: {} }).status, "waiting");
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("shorts-plan lists the parts that fit a Short and the ones that need a new script, with why; recut refuses what will not fit", async () => {
+  const { shortsPlan, recut } = await import("../pipeline/recut.mjs");
+  const dir = mkdtempSync(join(tmpdir(), "chalk-plan-"));
+  const part = (nn, secs, first, stage = "spot") => {
+    mkdirSync(join(dir, "segments", nn, "video"), { recursive: true });
+    const words = first.split(" ").map((text, i) => ({ text, start: 0.6 + i * 0.3, end: 0.6 + i * 0.3 + 0.25 }));
+    writeFileSync(join(dir, "segments", nn, "video", "audio_meta.json"), JSON.stringify({ voices: secs.map((s, i) => ({ frame: i + 1, duration_s: s, words: i ? [] : words })) }));
+    writeFileSync(join(dir, "segments", nn, "script.md"), `# ${nn} — t\n\n` + secs.map((_, i) => `## Scene ${i + 1} — s\nvisual: title card (tier 1)\nstage: ${stage}\n\n- spoken: "${i ? "More." : first}"\n  display: "x"\n  source: [p001]\n`).join("\n"));
+  };
+  part("01", [20, 20], "Does any number show up twice?");
+  part("02", [20, 20], "So today we look at sets.");
+  part("03", [30, 30, 30], "Here it is.");
+  part("04", [29, 29], "What you just did has a name.");
+  writeFileSync(join(dir, "video.json"), JSON.stringify({ title: "T", segments: ["01", "02", "03", "04"].map((id) => ({ id, title: `p${id}` })) }));
+  const rows = shortsPlan(dir);
+  const of = (nn) => rows.filter((r) => r.nn === nn);
+  assert.match(of("01")[0].how, /^chalk recut .* 01$/);
+  assert.deepEqual(of("02")[0].hook, ["weak opener"]);
+  assert.ok(of("03").every((r) => r.scenesRange && /rewrite/.test(r.how)), "a 90 s part offers scene ranges to rewrite");
+  assert.match(of("04")[0].how, /pointer hold is over 60 s/, "58 s plus the 3 s pointer hold does not fit");
+  assert.throws(() => recut(dir, "04"), /must be 15–57 s/);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test("research: a topic build waits for research.md, then for the person's approval, then ingests the brief as a research source", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-research-"));
+  for (const f of ["long", "lesson", "short"]) {
+    const names = FORMATS[f].map((s) => s.name);
+    assert.deepEqual(names.slice(0, 3), ["research", "research-approved", "ingest"], f);
+  }
+  const doc = mkdtempSync(join(tmpdir(), "chalk-doc-"));
+  const plain = context(doc, { doc: join(doc, "x.md") });
+  for (const s of ["research", "research-approved"]) assert.equal(plan(plain, "long")[["research", "research-approved"].indexOf(s)].cells[0].status, "done", `${s} skips a document build`);
+  const o = () => context(dir, { topic: "the library's evening hours" });
+  assert.equal(plan(o(), "long")[0].cells[0].status, "waiting");
+  assert.match(plan(o(), "long")[0].cells[0].why, /chalk-research/);
+  writeFileSync(join(dir, "research.md"), "# Library hours\n\nThe library opens late. [ref: https://example.org | retrieved 2026-11-18 | \"opens late\"]\n");
+  assert.equal(plan(o(), "long")[0].cells[0].status, "done");
+  assert.equal(plan(o(), "long")[1].cells[0].status, "waiting", "the person reads the brief first");
+  assert.equal(o().doc, undefined, "nothing to ingest before the approval");
+  approve(dir, "research-approved", { topic: "the library's evening hours" });
+  assert.equal(o().doc, join(o().out, "research.md"), "the approved brief is the document");
+  assert.equal(o().kind, "research");
+  const ingest = FORMATS.long.find((s) => s.name === "ingest");
+  assert.deepEqual(ingest.cmd(o()).slice(-2), ["--kind", "research"]);
+  rmSync(dir, { recursive: true, force: true });
+});
+
 let failed = 0;
-test("youtube frames depend on the part list and every listed part's stage, so cutting a part redoes them all", () => {
+test("long frames depend on the part list and every listed part's stage, so cutting a part redoes them all", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-frames-in-"));
   writeFileSync(join(dir, "video.json"), JSON.stringify({ segments: [{ id: "00" }, { id: "02" }], accepted: { E3: "x" } }));
-  const frames = FORMATS.youtube.find((st) => st.name === "frames");
+  const frames = FORMATS.long.find((st) => st.name === "frames");
   const ins = frames.inputs({ out: dir }, "00");
   const vj = ins.find((p) => typeof p === "object" && p.path === "video.json");
   assert.ok(vj, "video.json is an input");
@@ -317,8 +423,8 @@ test("source-check: it waits for facts.md, for one that checked this version of 
   const dir = mkdtempSync(join(tmpdir(), "chalk-facts-"));
   const blocks = [{ id: "p001", kind: "paragraph", text: "The bridge opened in 1937." }, { id: "p002", kind: "paragraph", text: "Walk on." }];
   writeFileSync(join(dir, "chapter.json"), JSON.stringify({ source: "t.md", blocks }));
-  const gate = () => FORMATS.youtube.find((s) => s.name === "source-check").gate(context(dir));
-  for (const f of ["youtube", "lesson", "short"]) {
+  const gate = () => FORMATS.long.find((s) => s.name === "source-check").gate(context(dir));
+  for (const f of ["long", "lesson", "short"]) {
     const names = FORMATS[f].map((s) => s.name);
     assert.equal(names[names.indexOf("ingest") + 1], "source-check", `${f}: the source is checked right after ingest`);
   }
@@ -340,7 +446,7 @@ test("source-check: it waits for facts.md, for one that checked this version of 
 test("source-check: a build ingested before the check existed, or already watched, is not held for a facts.md it never had", () => {
   const dir = mkdtempSync(join(tmpdir(), "chalk-facts-old-"));
   writeFileSync(join(dir, "chapter.json"), JSON.stringify({ blocks: [{ id: "p001", kind: "paragraph", text: "In 1937." }] }));
-  const gate = () => FORMATS.youtube.find((s) => s.name === "source-check").gate(context(dir));
+  const gate = () => FORMATS.long.find((s) => s.name === "source-check").gate(context(dir));
   const state = (s) => { mkdirSync(join(dir, ".chalk"), { recursive: true }); writeFileSync(join(dir, ".chalk/pipeline.json"), JSON.stringify(s)); };
   state({ stages: { ingest: { hash: "x", at: "2026-01-01T00:00:00Z" } } });
   assert.equal(gate().status, "done", "ingested before " + SOURCE_CHECK_SINCE);

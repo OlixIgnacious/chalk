@@ -12,7 +12,10 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { mergeCaptions, notebookLinks } from "../../../../youtube/skills/chalk-youtube/scripts/kit.mjs";
+import { master } from "chalk-core/scripts/loudness.mjs";
+import { shortKit, describe, citedRefs, refSources, refsSection } from "../../../../../publish/lib/kit.mjs";
+import { packOf } from "../../../../index.mjs";
+import { mergeCaptions, notebookLinks } from "../../../../long/skills/chalk-long/scripts/kit.mjs";
 
 const CORE = fileURLToPath(new URL("../../../../../core/bin/chalk-core.mjs", import.meta.url));
 const WIDTH = 1080;
@@ -107,16 +110,13 @@ function resolveHits(phrases) {
 
 // ── the kit ───────────────────────────────────────────────────────────────────────────────────────
 const links = notebookLinks(channel, short);
-const lines = [short.title, ""];
-if (short.thesis) lines.push(short.thesis, "");
-if (short.full_video?.title) lines.push(`Full walkthrough: ${short.full_video.title}`, ...(short.full_video.url ? [short.full_video.url] : []), "");
-if (links) lines.push("Run the code in your browser:", links.colab, "");
-// a news Short points to what it reports from: every source, by name and link
-if (short.sources?.length) lines.push("Sources:", ...short.sources.map((s) => `${s.name}: ${s.url}`), "");
-// a music bed is credited by name: good practice with Pixabay tracks, and it explains a Content ID claim
-if (short.music_credit) lines.push(short.music_credit, "");
-if (short.hashtags?.length) lines.push(short.hashtags.join(" "), "");
-const description = lines.join("\n");
+// the neutral kit (publish/lib/kit.mjs): sources for a news Short, the music credit (good practice with Pixabay
+// tracks, and it explains a Content ID claim), and YouTube's description from it, as it has always read
+const chapterFile = join(outDir, "chapter.json");
+const refs = citedRefs(existsSync(chapterFile) ? readJson(chapterFile) : null, [readFileSync(script, "utf8")]);
+const kit = shortKit({ short: { ...short, sources: short.sources ?? refSources(refs) }, links, duration, width, height,
+  pack: packOf("short", { manifest: short, channel }) });
+const description = describe(kit);
 
 const md = readFileSync(script, "utf8");
 const plan = [`# ${short.title}`, "", `Rendered ${duration.toFixed(1)}s, ${width}x${height}.`, ""];
@@ -166,16 +166,26 @@ if (music) {
     `afade=t=out:st=${Math.max(0, duration - 1.5).toFixed(2)}:d=1.5[m]`);
   mixIn.push("[m]");
 }
-parts.push(`${mixIn.join("")}amix=inputs=${mixIn.length}:normalize=0:duration=first,loudnorm=I=-14:TP=-1:LRA=11,aresample=48000[a]`);
+// the mix only; loudness is mastered in two passes after, like every deliver (core/scripts/loudness.mjs)
+parts.push(`${mixIn.join("")}amix=inputs=${mixIn.length}:normalize=0:duration=first,aresample=48000[a]`);
 // a render with no audio track (a silent test clip) has nothing to mix: copy it as it is
 const hasAudio = spawnSync("ffprobe", ["-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", mp4], { encoding: "utf8" }).stdout.trim() !== "";
 const args = hasAudio
   ? [...ins, "-filter_complex", parts.join(";"), "-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k"]
   : ["-i", mp4, "-c", "copy"];
-const copy = spawnSync("ffmpeg", ["-v", "error", "-y", ...args, "-movflags", "+faststart", join(outDir, "short.mp4")], { encoding: "utf8" });
+mkdirSync(join(outDir, "work"), { recursive: true });
+const mixed = join(outDir, "work", "short.mix.mp4");
+const copy = spawnSync("ffmpeg", ["-v", "error", "-y", ...args, mixed], { encoding: "utf8" });
 if (copy.status !== 0) die(`ffmpeg could not write short.mp4: ${copy.stderr}`);
+try {
+  master(mixed, join(outDir, "short.mp4"));
+} catch (e) {
+  die(e.message);
+}
 if (hits.length) console.log(`deliver: ${hits.length} hit(s): ${hits.map((h) => `${h.kind} ${h.t.toFixed(2)}s`).join(", ")}`);
 writeFileSync(join(outDir, "captions.srt"), mergeCaptions([readFileSync(vtt, "utf8")], [0], [duration]));
 writeFileSync(join(outDir, "description.txt"), description);
+writeFileSync(join(outDir, "kit.json"), JSON.stringify(kit, null, 2) + "\n");
+if (refs.length) plan.push("", ...refsSection(refs));
 writeFileSync(join(outDir, "plan.md"), plan.join("\n") + "\n");
 console.log(`deliver: short.mp4 (${duration.toFixed(1)}s), captions.srt, description.txt, plan.md in ${outDir}`);

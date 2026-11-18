@@ -25,12 +25,14 @@ REPO = Path(__file__).resolve().parent.parent
 # What each format makes, and what a person reads at each gate. A gate pane is (label, file); a file
 # that does not exist yet is shown as "not written yet", so the panes are the same at every build.
 FORMATS = {
-    "youtube": {
-        "label": "YouTube video", "root": "youtube-output", "final": "video.mp4", "glyph": "▶",
+    "long": {
+        "label": "Long video", "root": "long-output", "roots": ["long-output", "youtube-output"], "final": "video.mp4", "glyph": "▶",
         "blurb": "One chaptered 1080p video with captions, chapters, description and thumbnail, plus an optional notebook.",
         "plan": "outline.md",
         "gates": {
-            "scripts-approved": [("Outline", "outline.md"), ("Scripts", "@scripts"), ("Grounding", "grounding.md")],
+            "research-approved": [("Research brief", "research.md")],
+            "scripts-approved": [("Outline", "outline.md"), ("Scripts", "@scripts"), ("Grounding", "grounding.md"),
+                                 ("Source check", "facts.md")],
             "watched": [("Video", "@final"), ("Resolution", "resolution.md"), ("Review", "review.md")],
         },
     },
@@ -39,6 +41,7 @@ FORMATS = {
         "blurb": "Short narrated segments in a lesson page, with a checkpoint question between each.",
         "plan": "syllabus.md",
         "gates": {
+            "research-approved": [("Research brief", "research.md")],
             "scripts-approved": [("Syllabus", "syllabus.md"), ("Checkpoints", "lesson.json"), ("Scripts", "@scripts"),
                                  ("Grounding", "grounding.md")],
             "watched": [("Lesson page", "@lesson"), ("Resolution", "resolution.md"), ("Review", "review.md")],
@@ -49,13 +52,22 @@ FORMATS = {
         "blurb": "One idea as a 30–60 s vertical video for Shorts and Reels, captions burned in.",
         "plan": "short.json",
         "gates": {
+            "research-approved": [("Research brief", "research.md")],
             "scripts-approved": [("short.json", "short.json"), ("Script", "@scripts"), ("Grounding", "grounding.md")],
             "watched": [("Short", "@final"), ("Review", "review.md")],
         },
     },
 }
 INGESTS = ["md", "txt", "epub", "pdf"]  # core/scripts/ingest.mjs
-GATE_TITLES = {"scripts-approved": "Approve the scripts", "watched": "Approve the final watch"}
+# the long shape's old name: a build or a config that says "youtube" is a long build (formats/index.mjs)
+ALIASES = {"youtube": "long"}
+
+
+def shape(fmt):
+    """A format name as the pipeline knows it: "youtube" is "long"."""
+    return ALIASES.get(fmt, fmt)
+GATE_FLAG = {"research-approved": "research", "scripts-approved": "scripts", "watched": "watched"}
+GATE_TITLES = {"research-approved": "Approve the research brief", "scripts-approved": "Approve the scripts", "watched": "Approve the final watch"}
 
 
 # --- the CLI -------------------------------------------------------------------------------------------
@@ -75,8 +87,8 @@ def status(out: str | Path, fmt: str) -> dict:
 
 
 def approve(out: str | Path, fmt: str, what: str) -> str:
-    """Record a human gate: what is "scripts" or "watched"."""
-    if what not in ("scripts", "watched"):
+    """Record a human gate: what is "research", "scripts" or "watched"."""
+    if what not in ("research", "scripts", "watched"):
         raise ValueError(what)
     p = subprocess.run([*chalk_bin(), "pipeline", "approve", str(out), "--format", fmt, f"--{what}"],
                        capture_output=True, text=True, timeout=120)
@@ -91,6 +103,10 @@ def pipeline_cmd(out: str | Path, cfg: dict, first: dict | None = None) -> list[
     argv = [*chalk_bin(), "pipeline", str(out), "--format", cfg["format"]]
     if cfg.get("doc"):
         argv += ["--doc", str(cfg["doc"])]
+        if cfg.get("kind"):
+            argv += ["--kind", cfg["kind"]]
+    elif cfg.get("topic"):
+        argv += ["--topic", cfg["topic"]]  # no document: the research agent writes the brief, the person approves it
     if cfg.get("channel"):
         argv += ["--channel", str(cfg["channel"])]
     if cfg.get("notebook"):
@@ -179,7 +195,10 @@ def write_text(path: Path, text: str) -> None:
 
 
 def config(out) -> dict:
-    return read_json(ui_dir(out) / "config.json", {})
+    cfg = read_json(ui_dir(out) / "config.json", {})
+    if cfg.get("format"):
+        cfg["format"] = shape(cfg["format"])
+    return cfg
 
 
 def save_config(out, cfg: dict) -> None:
@@ -228,12 +247,12 @@ def format_of(out) -> str | None:
     out = Path(out)
     fmt = config(out).get("format") or read_json(out / ".chalk" / "pipeline.json", {}).get("opts", {}).get("format")
     if fmt:
-        return fmt
+        return shape(fmt)
     if (out / "short.json").exists():
         return "short"
     if (out / "lesson.json").exists() or (out / "syllabus.md").exists():
         return "lesson"
-    return "youtube" if (out / "chapter.json").exists() else None
+    return "long" if (out / "chapter.json").exists() else None
 
 
 # --- money and time ----------------------------------------------------------------------------------
@@ -417,7 +436,7 @@ def approve_gate(out, fmt: str, gate: str) -> str:
     live = open_gate(status(out, fmt))
     if live != gate:
         raise RuntimeError(f"the build is no longer at {gate} (now: {live or 'not at a gate'}); look again")
-    msg = approve(out, fmt, "scripts" if gate == "scripts-approved" else "watched")
+    msg = approve(out, fmt, GATE_FLAG[gate])
     snapshot(out, fmt, gate)
     return msg
 
@@ -442,7 +461,8 @@ def builds(workspace: str | Path | None) -> list[dict]:
     if workspace:
         ws = Path(workspace).expanduser()
         for f in FORMATS.values():
-            cands += [p.parent for p in (ws / f["root"]).glob("*/.chalk")]
+            for root in f.get("roots", [f["root"]]):
+                cands += [p.parent for p in (ws / root).glob("*/.chalk")]
     cands += [Path(p) for p in read_json(RECENT, [])]
     for out in cands:
         out = out.resolve()

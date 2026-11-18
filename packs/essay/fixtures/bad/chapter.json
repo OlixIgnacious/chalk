@@ -1,0 +1,39 @@
+{
+  "title": "Coming Back",
+  "source": "fixture",
+  "lang": "en",
+  "quality": "clean",
+  "has_code": false,
+  "blocks": [
+    {
+      "id": "h001",
+      "kind": "heading",
+      "text": "Coming Back"
+    },
+    {
+      "id": "p002",
+      "kind": "para",
+      "text": "The desk is quiet before the day begins. Morning light reaches it first."
+    },
+    {
+      "id": "p003",
+      "kind": "para",
+      "text": "Focus is not a feeling you wait for. It is a place you return to, one small task at a time."
+    },
+    {
+      "id": "p004",
+      "kind": "para",
+      "text": "Benjamin Franklin wrote in Poor Richard's Almanack of 1748: \"Lost time is never found again.\""
+    },
+    {
+      "id": "p005",
+      "kind": "para",
+      "text": "So begin with one thing. When your mind wanders, notice it, and come back."
+    },
+    {
+      "id": "p006",
+      "kind": "para",
+      "text": "The light moves across the desk as the hours pass. You are still here, still working."
+    }
+  ]
+}

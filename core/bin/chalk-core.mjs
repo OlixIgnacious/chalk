@@ -26,6 +26,7 @@ const COMMANDS = {
   "fix-index": "fix-index.mjs",
   "manim-render": "manim-render.mjs",
   facts: "facts.mjs",
+  loudness: "loudness.mjs",
 };
 
 const [cmd, ...args] = process.argv.slice(2);

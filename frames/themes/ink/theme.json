@@ -1,0 +1,21 @@
+{
+  "name": "ink",
+  "for": [
+    "focus"
+  ],
+  "palette": {
+    "ink": "#F5F0E6",
+    "ink_alt": "#FBF8F1",
+    "orange": "#B3261E",
+    "cream": "#1A1A1A",
+    "muted": "#5C5850",
+    "hint": "#C9C1B1",
+    "border": "#E2DACB"
+  },
+  "display": "Caveat",
+  "gradient": null,
+  "mark_fill": "rgba(179,38,30,0.18)",
+  "reveal": "draw",
+  "finish": "paper",
+  "captions": "captions.css"
+}

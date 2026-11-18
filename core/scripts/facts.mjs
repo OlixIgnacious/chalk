@@ -74,7 +74,7 @@ const norm = (s) => s.toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9'
 const sha = (s, n) => createHash("sha1").update(s).digest("hex").slice(0, n);
 
 /** The version of the source facts.md checked: every block's id and text, nothing else. */
-export const sourceHash = (chapter) => sha(JSON.stringify((chapter?.blocks ?? []).map((b) => [b.id, b.text])), 16);
+export const sourceHash = (chapter) => sha(JSON.stringify((chapter?.blocks ?? []).map((b) => (b.ref ? [b.id, b.text, b.ref] : [b.id, b.text]))), 16);
 export const blockHash = (block) => sha(block?.text ?? "", 8);
 
 /** Every block that carries a checkable claim, with the classes it matched: the agent's worklist. */

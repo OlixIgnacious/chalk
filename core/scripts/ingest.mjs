@@ -23,7 +23,7 @@ const die = (m) => {
   process.exit(2);
 };
 
-const FLAGS = ["out", "chapter", "assets"];
+const FLAGS = ["out", "chapter", "assets", "kind"];
 const flag = (n, d) => {
   const i = argv.indexOf("--" + n);
   if (i < 0) return d;
@@ -45,6 +45,11 @@ if (!input) die("usage: ingest.mjs <input> [--out chapter.json]");
 
 const outFile = flag("out", "chapter.json");
 const chapterWanted = flag("chapter", null);
+// what the source is: a document (a chapter, notes), a script (the user's own narration, its lines its blocks) or
+// a research brief (chalk-research wrote it, a reference per paragraph). The source check reads it.
+const KINDS = ["document", "script", "research"];
+const sourceKind = flag("kind", "document");
+if (!KINDS.includes(sourceKind)) die(`--kind is one of ${KINDS.join(", ")}`);
 const assetsDir = flag("assets", join(dirname(outFile), "work"));
 const listOnly = argv.includes("--list");
 const ext = extname(input).toLowerCase();
@@ -162,8 +167,32 @@ function ingestProse(text, blocks) {
     else if (/^#{1,6}\s/.test(t)) kind = "heading";
     else if (/^>/.test(t)) kind = "quote";
     else if (/^([-*+]|\d+\.)\s/m.test(t)) kind = "list";
-    blocks.push({ kind, text: t.replace(/^#{1,6}\s*/, "").replace(/^>\s?/gm, "") });
+    const { text: plain, ref } = takeRefs(t.replace(/^#{1,6}\s*/, "").replace(/^>\s?/gm, ""));
+    blocks.push({ kind, text: plain, ...(ref.length ? { ref } : {}) });
   }
+}
+
+/**
+ * A paragraph's references, written in the source as [ref: <url or title> | retrieved YYYY-MM-DD | "quoted
+ * sentence"], come off its text onto the block: a URL is evidence, not something to say or show. The fact check
+ * reads them; deliver lists them as sources.
+ */
+function takeRefs(t) {
+  const ref = [];
+  const text = t.replace(/\s*\[ref:\s*([^\]]+)\]/gi, (_, body) => {
+    const r = {};
+    for (const part of body.split(/\s+\|\s+/).map((x) => x.trim()).filter(Boolean)) {
+      const quoted = part.match(/^["“](.+)["”]$/);
+      const date = part.match(/^retrieved\s+(\d{4}-\d{2}-\d{2})$/i);
+      if (quoted) r.quote = quoted[1];
+      else if (date) r.retrieved = date[1];
+      else if (/^https?:\/\//.test(part)) r.url = part;
+      else r.title = part;
+    }
+    ref.push(r);
+    return "";
+  }).trim();
+  return { text, ref };
 }
 
 // ── HTML, shared by EPUB and anything else tag-shaped ──────────────────────────────────────────────
@@ -607,6 +636,8 @@ if (shaky && quality === "clean") quality = "needs-review";
 const chapter = {
   title: title || blocks.find((b) => b.kind === "heading")?.text || basename(input, ext),
   source: sourceRef,
+  // a document is the default and is not written, so a chapter ingested before kinds existed is unchanged
+  ...(sourceKind !== "document" ? { kind: sourceKind } : {}),
   lang,
   quality,
   has_code: blocks.some((b) => b.kind === "code"),

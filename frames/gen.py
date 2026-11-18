@@ -117,13 +117,25 @@ def short_context(out, nn):
     }
 
 
+def channel_theme(out):
+    """channel.json's theme: $CHALK_CHANNEL, else the first channel.json walking up from the output dir."""
+    import os
+    env = os.environ.get("CHALK_CHANNEL")
+    paths = [Path(env)] if env else [d / "channel.json" for d in [out, *out.parents]]
+    for p in paths:
+        if p.exists():
+            return json.loads(p.read_text()).get("theme")
+    return None
+
+
 def main():
     nn = sys.argv[1]
     out = Path.cwd()
     spec_path = out / "frames" / f"s{nn}.py"
     # theme and canvas before the spec is loaded: its `from framelib import *` copies the colours and sizes
+    # the manifest's theme, else the channel's, else the fallback (frames/themes.mjs themeFor)
     manifest = next((json.loads((out / m).read_text()) for m in ("short.json", "video.json", "lesson.json") if (out / m).exists()), {})
-    framelib.set_theme(manifest.get("theme"))
+    framelib.set_theme(manifest.get("theme") or channel_theme(out))
     if (out / "short.json").exists():
         framelib.set_canvas("portrait")
     spec = importlib.util.spec_from_file_location(f"s{nn}", spec_path)

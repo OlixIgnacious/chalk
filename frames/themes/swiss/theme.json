@@ -1,0 +1,21 @@
+{
+  "name": "swiss",
+  "for": [
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#F4F1EA",
+    "ink_alt": "#FFFFFF",
+    "orange": "#E30613",
+    "cream": "#111111",
+    "muted": "#5A5A5A",
+    "hint": "#B5B0A6",
+    "border": "#D8D3C8"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(227,6,19,0.18)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

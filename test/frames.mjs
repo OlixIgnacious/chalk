@@ -3,7 +3,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, existsSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -220,6 +220,138 @@ F.code_run("examples/run_seq.py", [("x = 2", "Again"), ("f(x)", "here")], ran=Tr
 F.html.extend(F.tweens)`);
   assert.match(replay, /In \[4\]:/, "a replay keeps the notebook's number");
   assert.doesNotMatch(replay, /In \[\*\]:|running…<\/div>/.source ? /In \[\*\]:/ : /x/, "a replay is not running again");
+});
+
+test("write() leaves a cues.json per frame: each reveal on the segment's clock, its duration and the text it shows", async () => {
+  const proj = join(tmp, "cues-proj");
+  spawnSync("mkdir", ["-p", proj]);
+  const ws = "One two three four five six".split(" ").map((text, i) => ({ text, start: i * 0.5, end: i * 0.5 + 0.4 }));
+  writeFileSync(join(proj, "audio_meta.json"), JSON.stringify({ voices: [{ frame: 1, words: ws }, { frame: 2, words: ws }] }));
+  writeFileSync(join(proj, "STORYBOARD.md"), "# x\n\n## Frame 1 — a\n\n- duration: 4.0s\n\n## Frame 2 — b\n\n- duration: 3.0s\n");
+  const code = `import sys; sys.path.insert(0, ${JSON.stringify(join(root, "frames"))})
+from framelib import Frame
+F = Frame(${JSON.stringify(proj)}, 2, "f02-b", {"stage": "hook"})
+a = F.text("too big", 100, 100, eid="lbl")
+F.fade(a, "three")
+b = F.text("left", 100, 300, eid="l2")
+F.rise(b, "five", dur=0.6)
+F._no_chrome = True  # no series label in this bare video dict
+F.write()`;
+  const r = spawnSync(py, ["-I", "-c", code], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const meta = JSON.parse(readFileSync(join(proj, "compositions", "frames", "f02-b.cues.json"), "utf8"));
+  assert.equal(meta.start, 4, "frame 2 starts after frame 1's 4 s");
+  assert.equal(meta.end, 7);
+  const cues = meta.cues.filter((c) => ["#lbl", "#l2"].includes(c.sel));
+  assert.deepEqual(cues.map((c) => c.t), [5, 6], "cued on 'three' (1.0 s) and 'five' (2.0 s), plus the frame's start");
+  assert.equal(cues[1].dur, 0.6);
+  assert.match(cues[0].text, /too big/);
+  const texts = JSON.parse(readFileSync(join(proj, "compositions", "frames", "f02-b.texts.json"), "utf8")).texts;
+  const lbl = texts.find((x) => x.id === "lbl");
+  assert.deepEqual([lbl.from, lbl.to, lbl.pass], [5, 7, false], "up from its cue to the frame's end, and timed");
+
+  const { reveals, stillTimes } = await import(join(root, "frames/cues.mjs"));
+  const rows = stillTimes(reveals([meta]));
+  const first = rows.find((x) => x.t === 5);
+  assert.deepEqual(first.at, [5.1, 5.5, 5.9], "entry, settled (0.5 s fade), end of hold before the next reveal at 6");
+  assert.deepEqual(rows.find((x) => x.t === 6).at, [6.1, 6.6, 6.9], "the last reveal holds to the frame's end");
+});
+
+test("cues: reveals that start together are one moment, and a hold never comes before its entry", async () => {
+  const { reveals, stillTimes } = await import(join(root, "frames/cues.mjs"));
+  const frames = [{ frame: "f01", no: 1, start: 0, end: 2, cues: [
+    { t: 1.0, dur: 0.5, text: "a" }, { t: 1.02, dur: 0.8, text: "b" }, { t: 1.95, dur: 0.6, text: "c" }] }];
+  const rows = stillTimes(reveals(frames));
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].text, "a / b");
+  assert.equal(rows[0].dur, 0.82, "the moment settles when its last part does");
+  assert.ok(rows[1].at[2] >= rows[1].at[0], "a reveal 50 ms before the frame ends still has its hold after its entry");
+});
+
+test("COMPONENTS.md is what framelib's docstrings say, and every component says what it is for and what to avoid", () => {
+  const r = spawnSync("python3", ["-I", join(root, "frames/index.py"), "--check"], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const md = readFileSync(join(root, "frames/COMPONENTS.md"), "utf8");
+  const rows = md.split("\n").filter((l) => /^\| `\w+\(/.test(l));
+  assert.ok(rows.length >= 40, `${rows.length} components`);
+  for (const row of rows) {
+    const cells = row.split(" | ");
+    assert.ok(cells.length >= 5 && cells[2] !== "—" && cells[3] !== "—", `no Use for / Avoid for: ${row.slice(0, 60)}`);
+  }
+});
+
+test("the frames agent reads the index, the defect log and the theme before it draws; the reviewer the theme's pitfalls", () => {
+  const frames = readFileSync(join(root, "agents/chalk-frames.md"), "utf8");
+  for (const f of ["COMPONENTS.md", "LESSONS.md", "THEME.md"]) assert.match(frames, new RegExp(f.replace(".", "\\.")));
+  assert.match(readFileSync(join(root, "agents/chalk-frames-reviewer.md"), "utf8"), /Pitfalls/);
+  const lessons = readFileSync(join(root, "frames/LESSONS.md"), "utf8");
+  assert.ok((lessons.match(/^## /gm) ?? []).length >= 3, "the first three defect classes");
+});
+
+// ── themes: folders the channel picks from ──
+
+const lum = (hex) => {
+  const c = hex.replace("#", "").match(/../g).map((x) => parseInt(x, 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+test("every theme is a folder with theme.json (every slot), THEME.md (every section), captions.css and a poster", async () => {
+  const { listThemes } = await import(join(root, "frames/themes.mjs"));
+  const themes = listThemes().filter((t) => !t.own);
+  assert.ok(themes.length >= 20, `${themes.length} themes`);
+  for (const t of themes) {
+    for (const f of ["theme.json", "THEME.md", "captions.css", "poster.png"]) assert.ok(existsSync(join(t.dir, f)), `${t.name}/${f}`);
+    for (const k of ["ink", "ink_alt", "orange", "cream", "muted", "hint", "border"]) assert.match(t.json.palette[k] ?? "", /^#[0-9A-Fa-f]{6}$/, `${t.name} palette.${k}`);
+    const md = readFileSync(join(t.dir, "THEME.md"), "utf8");
+    for (const sec of ["Essence", "What it is not", "Colour", "Type", "Motion", "Pitfalls"]) assert.match(md, new RegExp(`^## ${sec}`, "m"), `${t.name} THEME.md § ${sec}`);
+  }
+});
+
+test("every theme's text is readable on its ground: text 4.5:1, the accent and secondary text 3:1", async () => {
+  const { listThemes } = await import(join(root, "frames/themes.mjs"));
+  const bad = [];
+  for (const t of listThemes().filter((x) => !x.own)) {
+    const p = t.json.palette;
+    if (contrast(p.cream, p.ink) < 4.5) bad.push(`${t.name}: text ${contrast(p.cream, p.ink).toFixed(2)}`);
+    if (contrast(p.orange, p.ink) < 3) bad.push(`${t.name}: accent ${contrast(p.orange, p.ink).toFixed(2)}`);
+    if (contrast(p.muted, p.ink) < 3) bad.push(`${t.name}: secondary ${contrast(p.muted, p.ink).toFixed(2)}`);
+  }
+  assert.deepEqual(bad, []);
+});
+
+test("every theme draws a fixture frame, and its finish never moves the layout", async () => {
+  const { sampleFrame } = await import(join(root, "frames/poster.mjs"));
+  const { listThemes } = await import(join(root, "frames/themes.mjs"));
+  const boxes = (html) => [...html.matchAll(/id="(f01-sample-(?!field|noise|flicker)[^"]+)"[^>]*?left:(\d+)px;top:(\d+)px/g)].map((m) => m.slice(1).join(":"));
+  const base = boxes(sampleFrame("broadside").html);
+  assert.ok(base.length >= 4);
+  for (const t of listThemes().filter((x) => !x.own && x.json.finish)) {
+    const { html } = sampleFrame(t.name);
+    assert.deepEqual(boxes(html), base, `${t.name}'s finish moved something`);
+  }
+});
+
+test("a build's theme is the manifest's, else the channel's, else broadside; an unknown theme is an error; your own theme shadows chalk's", async () => {
+  const { themeFor } = await import(join(root, "frames/themes.mjs") + `?t=${Date.now()}`);
+  const ws = join(tmp, "theme-ws");
+  const out = join(ws, "long-output", "x");
+  spawnSync("mkdir", ["-p", out]);
+  writeFileSync(join(out, "video.json"), JSON.stringify({ title: "x" }));
+  assert.equal(themeFor(out).name, "broadside");
+  assert.equal(themeFor(out).from, "fallback");
+  writeFileSync(join(ws, "channel.json"), JSON.stringify({ theme: "dusk" }));
+  assert.deepEqual([themeFor(out).name, themeFor(out).from], ["dusk", "channel"]);
+  writeFileSync(join(out, "video.json"), JSON.stringify({ title: "x", theme: "crt" }));
+  assert.deepEqual([themeFor(out).name, themeFor(out).from], ["crt", "manifest"]);
+  writeFileSync(join(out, "video.json"), JSON.stringify({ title: "x", theme: "nope" }));
+  assert.throws(() => themeFor(out), /theme "nope"/);
+  const own = join(tmp, "own-themes", "dusk");
+  spawnSync("mkdir", ["-p", own]);
+  writeFileSync(join(own, "theme.json"), JSON.stringify({ name: "dusk", palette: { ink: "#000000" } }));
+  const r = spawnSync(process.execPath, ["-e", `import(${JSON.stringify(join(root, "frames/themes.mjs"))}).then(m => console.log(m.listThemes().find(t => t.name === "dusk").own))`],
+    { encoding: "utf8", env: { ...process.env, CHALK_THEMES: join(tmp, "own-themes") } });
+  assert.equal(r.stdout.trim(), "true");
 });
 
 let failed = 0;

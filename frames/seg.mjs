@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// seg.mjs — per-segment plumbing for chalk-youtube step 4, run from the output dir (chalk/frames).
+// seg.mjs — per-segment plumbing for chalk step 4, run from the output dir (chalk/frames).
 //
 //   node seg.mjs setup NN    BRIEF.md, capture/, frame.md, staged fonts + GSAP, SCRIPT.md, STORYBOARD.md
 //   node seg.mjs sync NN     real take lengths → STORYBOARD.md durations (+1.8s hold on the last frame)
@@ -15,9 +15,10 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readd
 import { join, resolve, dirname } from "node:path";
 import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
+import { assetsDir } from "../formats/index.mjs";
 
 const OUT = resolve(".");
-const ASSETS = process.env.CHALK_ASSETS ?? join(homedir(), ".cache/chalk-youtube/assets");
+const ASSETS = assetsDir(homedir());
 const findChannel = () => {
   if (process.env.CHALK_CHANNEL) return process.env.CHALK_CHANNEL;
   for (let d = OUT; ; d = dirname(d)) {
@@ -123,7 +124,7 @@ workflow: faceless-explainer
 flow: automation
 storyboard: no
 message: "${title}"
-destination: ${SHORT ? "youtube-shorts" : "youtube"}
+destination: ${SHORT ? "short (9:16)" : "long (16:9)"}
 aspect: ${FORMAT}
 fps: 30
 language: en
@@ -133,7 +134,7 @@ style_preset: broadside
 
 ## Intent
 
-${SHORT ? `The chalk Short "${video.title ?? ""}"` : `Segment ${nn} of the chalk-youtube video "${video.title ?? ""}" — one YouTube chapter, "${title}"`}. Driven by chalk step 4; the two-layer script in
+${SHORT ? `The chalk Short "${video.title ?? ""}"` : `Segment ${nn} of the chalk long video "${video.title ?? ""}" — one chapter, "${title}"`}. Driven by chalk step 4; the two-layer script in
 \`segments/${nn}/script.md\` is locked. Format pinned: ${SHORT ? "portrait" : "landscape"} ${FORMAT} at 30fps.
 
 ## Notes

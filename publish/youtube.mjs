@@ -1,7 +1,10 @@
-// publish/youtube.mjs — upload a finished output dir to YouTube through the Data API v3.
+// publish/youtube.mjs — the YouTube destination: upload a finished output dir through the Data API v3.
 //
 //   chalk publish auth [--client <client_secret.json>]   one-time sign-in; stores a refresh token
-//   chalk publish <out> [--at "YYYY-MM-DD HH:MM"] [--dry-run] [--made-for-kids yes|no] [--ai yes|no]
+//   chalk publish <out> --to youtube [--at "YYYY-MM-DD HH:MM"] [--dry-run] [--made-for-kids yes|no] [--ai yes|no]
+//
+// It keeps the destination contract (publish/lib/destination.mjs): plan(), dryRun(), publish(). Its settings are
+// channel.json destinations.youtube (the old top-level "youtube" block is still read).
 //
 // A video dir (video.json) uploads video.mp4; a Short dir (short.json) uploads short.mp4. Both send the title, the
 // delivered description.txt, tags, category and language, then set thumbnail.png, upload captions.srt and add the
@@ -16,7 +19,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, chmodSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { Usage, channelOf } from "./lib/destination.mjs";
+import { destinationOf } from "./lib/shape.mjs";
 
+export const name = "youtube";
 const CONFIG = process.env.CHALK_CONFIG ?? join(homedir(), ".config/chalk");
 const CLIENT = join(CONFIG, "youtube-client.json");
 const TOKEN = join(CONFIG, "youtube-token.json");
@@ -24,21 +30,11 @@ const SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.g
 const API = "https://www.googleapis.com/youtube/v3";
 const UPLOAD = "https://www.googleapis.com/upload/youtube/v3";
 
-class Usage extends Error {}
-
 const readJson = (f) => JSON.parse(readFileSync(f, "utf8"));
 const flag = (argv, name) => {
   const i = argv.indexOf(name);
   return i === -1 ? null : argv[i + 1];
 };
-
-/** The channel config beside the output dirs: the first channel.json found walking up from `out`. */
-function channelOf(out) {
-  for (let d = resolve(out); d !== dirname(d); d = dirname(d)) {
-    if (existsSync(join(d, "channel.json"))) return readJson(join(d, "channel.json"));
-  }
-  return {};
-}
 
 /** "2026-11-06 10:30" in this machine's time zone → an ISO time YouTube accepts; refuses the past. */
 export function publishTime(at, now = new Date()) {
@@ -63,7 +59,7 @@ export function plan(out, argv = []) {
   out = resolve(out);
   const short = existsSync(join(out, "short.json"));
   const manifest = readJson(join(out, short ? "short.json" : "video.json"));
-  const yt = channelOf(out).youtube ?? {};
+  const yt = destinationOf(channelOf(out), "youtube");
   const need = (f) => {
     const p = join(out, f);
     if (!existsSync(p)) throw new Usage(`${f} is not in ${out}: deliver it first (chalk pipeline ${out})`);
@@ -237,44 +233,44 @@ async function addToPlaylist(token, id, name) {
   });
 }
 
-async function publish(argv) {
-  const out = argv.find((a, i) => !a.startsWith("-") && !String(argv[i - 1]).startsWith("--"));
-  if (!out) throw new Usage('usage: chalk publish <out> [--at "YYYY-MM-DD HH:MM"] [--dry-run] [--made-for-kids yes|no] [--ai yes|no]');
+/** What --dry-run says for this destination. */
+export function dryRun(p, record) {
+  const steps = [["thumbnail", p.thumbnail], ["captions", p.captions], ["playlist", p.playlist]];
+  return `would upload ${p.kind} "${p.snippet.title}" ${p.status.publishAt ? `scheduled for ${p.status.publishAt}` : "as Private"}` +
+    (record?.videoId ? ` — already uploaded as ${record.videoId}; would retry: ${steps.filter(([n, have]) => have && record.steps?.[n] !== "ok").map(([n]) => n).join(", ") || "nothing"}` : "");
+}
+
+/** Upload once, then finish the follow-up steps; `record` is this platform's entry in published.json. */
+export async function publish(out, argv, record, save) {
   const p = plan(out, argv);
-  const recordPath = join(p.out, "published.json");
-  const record = existsSync(recordPath) ? readJson(recordPath) : { steps: {} };
+  record.steps ??= {};
+  if (!channelOf(out).destinations?.youtube && channelOf(out).youtube) {
+    console.log('publish: channel.json\'s top-level "youtube" block is read as destinations.youtube; move it there when convenient');
+  }
   const steps = [
     ["thumbnail", p.thumbnail, (t, id) => setThumbnail(t, id, p.thumbnail)],
     ["captions", p.captions, (t, id) => addCaptions(t, id, p.captions, p.snippet.defaultLanguage)],
     ["playlist", p.playlist, (t, id) => addToPlaylist(t, id, p.playlist)],
   ];
-  if (argv.includes("--dry-run")) {
-    console.log(JSON.stringify({ ...p, description: `${p.snippet.description.length} characters`, already: record.videoId ?? null }, null, 2));
-    console.log(`publish: dry run — ${record.videoId ? `already uploaded as ${record.videoId}; would retry: ` +
-      steps.filter(([n, have]) => have && record.steps[n] !== "ok").map(([n]) => n).join(", ") || "nothing"
-      : `would upload ${p.kind} "${p.snippet.title}" ${p.status.publishAt ? `scheduled for ${p.status.publishAt}` : "as Private"}`}`);
-    return 0;
-  }
   const token = await accessToken();
-  const save = () => writeFileSync(recordPath, JSON.stringify(record, null, 2) + "\n");
   if (!record.videoId) {
     record.videoId = await uploadVideo(token, p);
     Object.assign(record, { url: `https://youtu.be/${record.videoId}`, uploadedAt: new Date().toISOString(),
       title: p.snippet.title, privacy: p.status.privacyStatus, publishAt: p.status.publishAt ?? null });
     save();
-    console.log(`publish: uploaded ${record.url}`);
-  } else console.log(`publish: already uploaded as ${record.url}; finishing the remaining steps`);
+    console.log(`publish: youtube: uploaded ${record.url}`);
+  } else console.log(`publish: youtube: already uploaded as ${record.url}; finishing the remaining steps`);
   let failed = 0;
-  for (const [name, have, step] of steps) {
-    if (!have || record.steps[name] === "ok") continue;
+  for (const [step, have, fn] of steps) {
+    if (!have || record.steps[step] === "ok") continue;
     try {
-      await step(token, record.videoId);
-      record.steps[name] = "ok";
-      console.log(`publish: ${name} ✓`);
+      await fn(token, record.videoId);
+      record.steps[step] = "ok";
+      console.log(`publish: youtube: ${step} ✓`);
     } catch (e) {
-      record.steps[name] = e.message;
+      record.steps[step] = e.message;
       failed++;
-      console.error(`publish: ${name} failed — ${e.message}`);
+      console.error(`publish: youtube: ${step} failed — ${e.message}`);
     }
     save();
   }
@@ -284,15 +280,5 @@ async function publish(argv) {
   return failed ? 1 : 0;
 }
 
-export async function main(argv) {
-  try {
-    if (argv[0] === "auth") {
-      await auth(argv.slice(1));
-      return 0;
-    }
-    return await publish(argv);
-  } catch (e) {
-    console.error(`publish: ${e.message}`);
-    return e instanceof Usage ? 2 : 1;
-  }
-}
+export { auth };
+

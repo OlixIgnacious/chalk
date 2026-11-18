@@ -1,0 +1,21 @@
+{
+  "name": "ticker",
+  "for": [
+    "news"
+  ],
+  "palette": {
+    "ink": "#0B0B0B",
+    "ink_alt": "#151515",
+    "orange": "#FFB000",
+    "cream": "#F5F5F5",
+    "muted": "#A3A3A3",
+    "hint": "#3A3A3A",
+    "border": "#262626"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(255,176,0,0.18)",
+  "reveal": "typed",
+  "finish": null,
+  "captions": "captions.css"
+}

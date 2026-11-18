@@ -56,8 +56,30 @@ chapter headings, because poppler exposes no bookmark listing.
 
 See [edge-cases.md](edge-cases.md) for the handling each of these needs.
 
+## Three kinds of source
+
+What produces the blocks can vary; everything after ingest sees `chapter.json` the same way.
+
+| Kind | How it starts | What a block is | Its evidence |
+|---|---|---|---|
+| **document** (the default) | `--doc chapter.md` (md, txt, epub, pdf) | a paragraph, code block, equation… | the document and its position |
+| **script** | `--doc my-script.md --kind script` | a line or paragraph of the user's own narration | the user's `[ref: …]` on the line, if any |
+| **research** | `--topic "…"`: the chalk-research agent writes `research.md`, the user approves it | one paragraph, one claim | its `[ref: url | retrieved date | "quote"]` |
+
+A **reference** is written at the end of a paragraph: `[ref: <url or title> | retrieved YYYY-MM-DD | "the
+sentence it rests on"]`, any part optional, several allowed. Ingest takes it off the text (a URL is evidence,
+never something said or shown) and keeps it on the block as `ref`. The source check reads it first; deliver lists
+the references of every cited block in `plan.md` and, with a URL, in the description's sources.
+
+**A script source** is ingested first, so its lines get block ids, then rewritten into the two-layer form
+(step 3) citing those ids. Grounding is then easy (the script is the source) and the weight moves to the source
+check, which is right: a script has had no editor, and that is where the mistakes are. Say in `plan.md` that the
+source was the user's script.
+
 ## Gate
 
 - `chapter.json` exists and blocks are in reading order
 - `quality` is classified; anything not `clean` gets a human skim before step 2
 - You can state the chapter's thesis in one sentence
+- A script or research source: every block that states a fact you will use has a `ref`, or the source check will
+  have to find its evidence

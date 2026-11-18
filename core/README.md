@@ -9,7 +9,8 @@ It is not a skill and has no output of its own. Build on it:
 | Skill | Output |
 |---|---|
 | [chalk](../chalk) | short animated lessons with an interactive page and checkpoints |
-| chalk-youtube | one chaptered video plus an upload kit, with examples and hands-on notebooks |
+| chalk-long | one chaptered long video plus an upload kit, with examples and hands-on notebooks (formerly chalk-youtube) |
+| chalk-short | one idea as a vertical video |
 
 ## Use
 

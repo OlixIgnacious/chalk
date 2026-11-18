@@ -1,0 +1,21 @@
+{
+  "name": "oscilloscope",
+  "for": [
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#06100D",
+    "ink_alt": "#0B1A15",
+    "orange": "#39FF9F",
+    "cream": "#D8FFEE",
+    "muted": "#6FBFA0",
+    "hint": "#1E4D3D",
+    "border": "#12352A"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(57,255,159,0.18)",
+  "reveal": "beam",
+  "finish": "grid",
+  "captions": "captions.css"
+}

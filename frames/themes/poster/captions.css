@@ -1,0 +1,7 @@
+  /* theme: poster — Barlow words, the word being said in the accent */
+  @font-face { font-family: 'Barlow'; font-weight: 800; src: url('assets/fonts/barlow-latin-800-normal.woff2') format('woff2'); }
+  .caption-pill { background: transparent !important; border: 0 !important; padding: 0 !important; max-width: 88% !important; }
+  .caption-line { font-family: 'Barlow', system-ui, sans-serif !important; font-weight: 800 !important; font-size: 64px !important; line-height: 1.1 !important; }
+  .caption-word { color: #1D2A3A !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-active { color: #E4572E !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-spoken { color: #1D2A3A !important; }

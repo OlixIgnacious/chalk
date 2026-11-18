@@ -1,0 +1,31 @@
+{
+  "name": "flow",
+  "for": [
+    "focus"
+  ],
+  "palette": {
+    "ink": "#0A0F14",
+    "ink_alt": "#111A22",
+    "orange": "#6FD3FF",
+    "cream": "#E6F2F8",
+    "muted": "#8DA3B1",
+    "hint": "#2C3E4C",
+    "border": "#1C2A35"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(111,211,255,0.18)",
+  "reveal": "fade",
+  "finish": null,
+  "captions": "captions.css",
+  "field": {
+    "kind": "flow",
+    "count": 28,
+    "color": "#6FD3FF",
+    "size": [
+      2,
+      5
+    ],
+    "opacity": 0.35
+  }
+}

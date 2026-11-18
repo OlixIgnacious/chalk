@@ -36,7 +36,10 @@ certain kind: it has had no editor.
    - *The source against itself*: does another block say otherwise? Quote both.
    - *Computation*: a number the source derives (a total, a complexity, a converted unit) — compute it with the
      pipeline's Python (`$HYPERFRAMES_PYTHON -I -c '…'`) and say what you ran. Verdict `computed`.
-   - *An attached reference*: a block or the manifest may name its source; read it.
+   - *An attached reference*: a block's `ref` (a script's or a research brief's `[ref: url | retrieved date |
+     "quote"]`) names its evidence: read that page first, check the quoted sentence is on it and says what the
+     block says. A reference with only a title is a lead, not evidence. `chapter.json` `kind` says whether the
+     source is a document, the user's script (check it hardest) or a research brief.
    - *The web*: prefer primary sources — the paper, the official documentation, the statute, the speech or
      interview transcript, the dataset — over summaries, and never settle a claim on one secondary page. Record
      the URL, the date you read it, and the sentence you rely on, quoted.

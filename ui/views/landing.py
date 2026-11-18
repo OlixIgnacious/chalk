@@ -65,7 +65,7 @@ def render() -> None:
     ws = st.sidebar.text_input("Workspace", key="ws", value=st.session_state.get("ws", str(Path.cwd())),
                                help="Where docs/, channel.json and the output folders live.")
     with st.sidebar.expander("Open a folder by path"):
-        path = st.text_input("Output dir", key="open_path", placeholder="…/youtube-output/my-chapter")
+        path = st.text_input("Output dir", key="open_path", placeholder="…/long-output/my-chapter")
         if st.button("Open", key="open_go", disabled=not path):
             out = Path(path).expanduser().resolve()
             if not out.is_dir():
@@ -144,9 +144,14 @@ def inputs(fmt: str, workspace: Path) -> None:
             st.warning(note)
         if doc:
             st.caption(f"Source: `{doc}`")
+            mine = st.checkbox("This is my own script", key="kind_script",
+                               help="Your narration, its lines its blocks: the source check reads it hardest. Add [ref: url | retrieved date | \"quote\"] after a line to attach its evidence.")
+        topic = None if doc else (st.text_input("…or a topic to research", key="topic",
+                                                placeholder="the city library's new evening hours",
+                                                help="No document: the research agent writes a brief from fetched pages, a reference per paragraph, and you approve it first.") or None)
         # a keyed widget ignores value= after its first render, so fill the name from the document here,
         # until the person types one of their own
-        auto = slugify(doc.stem) if doc else ""
+        auto = slugify(doc.stem) if doc else slugify(topic) if topic else ""
         if st.session_state.get("slug_auto", "") == st.session_state.get("slug", ""):
             st.session_state["slug"] = auto
         st.session_state["slug_auto"] = auto
@@ -160,11 +165,12 @@ def inputs(fmt: str, workspace: Path) -> None:
                                 help="Voice, series and banned terms. Optional for a lesson.")
         audience = st.text_input("Audience", key="audience",
                                  placeholder="people preparing for coding interviews who know basic Python")
-        cfg = {"format": fmt, "workspace": str(workspace), "doc": str(doc) if doc else None,
+        cfg = {"format": fmt, "workspace": str(workspace), "doc": str(doc) if doc else None, "topic": topic,
+               "kind": "script" if doc and st.session_state.get("kind_script") else None,
                "channel": channel or None, "audience": audience or None}
-        if fmt == "youtube":
+        if fmt == "long":
             cfg["notebook"] = st.checkbox("Follow-along notebook", key="notebook")
-        if fmt in ("youtube", "lesson"):
+        if fmt in ("long", "lesson"):
             cfg["segments"] = int(st.number_input("Parts (0 = let the outline decide)", 0, 20, 0, key="segments")) or None
         if fmt == "short":
             cfg["idea"] = st.text_input("The one idea", key="idea", placeholder="a set checks each value once") or None
@@ -178,7 +184,7 @@ def inputs(fmt: str, workspace: Path) -> None:
                                                    help=api.COST_NOTE)) or None
             cfg["model"] = st.text_input("Model for agents (blank = default)", key="model") or None
 
-    missing = [n for n, v in (("a source document", doc), ("a name", out)) if not v]
+    missing = [n for n, v in (("a source document or a topic", doc or topic), ("a name", out)) if not v]
     if not claude_ok():
         st.error("The `claude` CLI is not on PATH: every agent runs through it. Install Claude Code, then Check again.")
     if st.button("▶ Start the build", type="primary", disabled=bool(missing) or not claude_ok(), key="start_new"):

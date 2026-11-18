@@ -1,6 +1,37 @@
 # Plan: long and short form, published anywhere
 
-Status: draft, 2026-11-17. Companion to the README and the per-directory `CLAUDE.md` files.
+Status: carried out 2026-11-17/18 as release 0.9.0 (see `CHANGELOG.md`). Companion to the README and the
+per-directory `CLAUDE.md` files.
+
+## Where it stands
+
+| Item | State |
+|---|---|
+| S1 source check | landed; run by hand on a sample source, not yet by the agent on a real build |
+| S2 script sources | landed: `--kind script`, `[ref: …]` on blocks, references in `plan.md` and the description |
+| S3 research sources | landed: chalk-research (`network: true`), research and research-approved stages, UI topic start; the agent has not run yet |
+| S4 quotation rule | landed in the script reference, the frames agent and G8 |
+| C2 rename | landed; old builds resume under `long`, `/chalk-youtube` is an alias |
+| C3 shape × pack | landed: coding-lesson, essay, news, skit, with fixtures that pass and fail across genres |
+| A1 frames reviewer | landed; stills tested on a real Short; the agent has not run yet |
+| A2 R6 | landed; finds real flashes on a real Short |
+| A3, A4 | landed |
+| A5 loudness, V4 | landed; a real Short measures −14.2 LUFS |
+| B1 kit | landed; 17 of 17 current descriptions byte-identical |
+| B2–B4 contract, kit folder, P criteria | landed |
+| B5 safe box, S7 | landed, numbers from HyperFrames' safe areas, not this page's guesses |
+| B6 API destinations | LinkedIn, Instagram, Facebook, TikTok, X written and checked offline; **not run against the live APIs** (no accounts) |
+| C1 theme folders | landed: 22 themes with posters, reveal styles, finishes, fields, contrast checks |
+| C1a catalogue | 17 new themes landed; **spreadsheet, transit, sketchnote, pictogram, comic, silhouette not built** (each needs framelib components); dimension lines, ornate intertitles, an iris wipe, corner brackets, a brush face and sprites are later components too |
+| D1 recut, D2 shorts plan | landed; a real part recut passes every text gate at 100% with no new narration; frames and render of a recut not yet done |
+| Music clock (open question 7) | not built: focus videos still mix music in the focus-music project |
+| Square (1:1) | not planned (decision 5) |
+
+Decisions taken where this page left them open, as its recommendations said: packs `coding-lesson`, `essay`, `news`,
+`skit`, and the music step stays in focus-music (0c); platforms in the order YouTube, Instagram, LinkedIn, then
+TikTok, X and Facebook (1); no accounts assumed, so the kit folder is the path wherever an API is not set up (2);
+Instagram and Facebook take a host command the person names (3); the names `long`, `/chalk-long`, `long-output/`
+(4); no square (5).
 
 ## The goal
 

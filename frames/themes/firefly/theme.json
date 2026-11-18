@@ -1,0 +1,31 @@
+{
+  "name": "firefly",
+  "for": [
+    "focus"
+  ],
+  "palette": {
+    "ink": "#05060A",
+    "ink_alt": "#0C0E16",
+    "orange": "#FFD27A",
+    "cream": "#F4EEDC",
+    "muted": "#9A978C",
+    "hint": "#3A3A40",
+    "border": "#1E1F26"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(255,210,122,0.18)",
+  "reveal": "fade",
+  "finish": "vignette",
+  "captions": "captions.css",
+  "field": {
+    "kind": "firefly",
+    "count": 30,
+    "color": "#FFD27A",
+    "size": [
+      2,
+      6
+    ],
+    "opacity": 0.7
+  }
+}

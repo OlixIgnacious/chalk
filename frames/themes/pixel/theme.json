@@ -1,0 +1,21 @@
+{
+  "name": "pixel",
+  "for": [
+    "skits"
+  ],
+  "palette": {
+    "ink": "#1A1C2C",
+    "ink_alt": "#29366F",
+    "orange": "#FFCD75",
+    "cream": "#F4F4F4",
+    "muted": "#94B0C2",
+    "hint": "#566C86",
+    "border": "#333C57"
+  },
+  "display": "Press Start 2P",
+  "gradient": null,
+  "mark_fill": "rgba(255,205,117,0.18)",
+  "reveal": "step",
+  "finish": null,
+  "captions": "captions.css"
+}

@@ -2,8 +2,8 @@
 
 The shared core under the chalk skills. It turns a source text into **grounded blocks**, gates a
 **script** against them, and aligns **captions** to narration. It knows nothing about lessons,
-YouTube or any other output: the skills built on it ([chalk](../chalk) for interactive lessons,
-`chalk-youtube` for upload-ready video) own pedagogy, structure and delivery.
+YouTube or any other output: the skills built on it (`/chalk` for interactive lessons, `/chalk-long` and
+`/chalk-short` for video) and the genre packs (`packs/`) own pedagogy, structure and delivery.
 
 Read this before changing anything here. A change to core changes every skill that depends on it, so
 the bar is: *would every skill want this?* If only one would, it belongs in that skill.
@@ -11,7 +11,8 @@ the bar is: *would every skill want this?* If only one would, it belongs in that
 ## What lives here
 
 - `scripts/` — `ingest`, `check-readability`, `check-spoken`, `build-tokens`, `align-captions`,
-  `apply-display`, `narrate`, `emit-vtt`, `fix-index`, `manim-render`, `facts` (the source check's mechanical half). One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
+  `apply-display`, `narrate`, `emit-vtt`, `fix-index`, `manim-render`, `facts` (the source check's mechanical half),
+  `loudness` (every deliver masters to −14 LUFS, −1 dBTP through it). One entry point: `bin/chalk-core.mjs` (`npx chalk-core <command>`).
 - `references/` — the shared method: `fidelity`, `spoken-style`, `step-1-ingest`, `step-3-script`,
   `visual-registry`, `manim`, `captions-and-engine`, `edge-cases`. Skills receive these through `chalk-core sync`.
 - `templates/manim/` — the Tier 2 base scene and the worked example.

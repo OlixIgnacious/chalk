@@ -13,7 +13,7 @@ The step-4 plumbing: deterministic frames from a Python spec per segment, the vo
 ## Run a video
 
 ```bash
-cd <workspace>/youtube-output/<slug>          # chapter.json, video.json, lexicon.json, segments/NN/script.md, frames/sNN.py
+cd <workspace>/long-output/<slug>          # chapter.json, video.json, lexicon.json, segments/NN/script.md, frames/sNN.py
 chalk assets
 for n in 00 01 …; do chalk voice $n; done
 for n in 00 01 …; do chalk frames $n; done      # then look at `npx hyperframes snapshot` stills

@@ -1,0 +1,21 @@
+{
+  "name": "sketch",
+  "for": [
+    "skits"
+  ],
+  "palette": {
+    "ink": "#FFFFFF",
+    "ink_alt": "#F4F4F4",
+    "orange": "#111111",
+    "cream": "#111111",
+    "muted": "#777777",
+    "hint": "#BBBBBB",
+    "border": "#DDDDDD"
+  },
+  "display": "Barlow",
+  "gradient": null,
+  "mark_fill": "rgba(0,0,0,0.08)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

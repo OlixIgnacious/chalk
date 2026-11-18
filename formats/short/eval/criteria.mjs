@@ -2,10 +2,14 @@
 // enough to hold a phone viewer, a payoff in the first seconds, nothing under the platform's own buttons and
 // captions, nothing that names the source, and a way to the full walkthrough.
 
+import { readFileSync } from "node:fs";
 import { stripMarkers } from "../../../evals/lib/load.mjs";
 import { pass, fail, skip, scenesOf } from "../../../evals/lib/kit.mjs";
 
-const SAFE_BOTTOM = 1320; // framelib.KEEP_OUT in portrait: captions below it, then the platform's zone
+// the safe box framelib draws in, from one file (frames/safe.json): content inside the platforms' clear bands
+const SAFE = JSON.parse(readFileSync(new URL("../../../frames/safe.json", import.meta.url), "utf8")).portrait;
+const BANDS = SAFE.content; // [[top, bottom, left, right], …] top to bottom
+const TOP = BANDS[0][0], BOTTOM = BANDS.at(-1)[1];
 const BANNED = ["chapter", "chapters", "book", "section", "the author"];
 const CHROME = /-(kicker|hair|ground|layer|stage)\b/;
 
@@ -73,18 +77,24 @@ const short = [
   {
     id: "S4",
     group: "short",
-    title: `Nothing drawn where the platform puts its captions, title and buttons (content above y=${SAFE_BOTTOM})`,
+    title: `Nothing drawn where TikTok, Reels or Shorts put their title, buttons or captions (content in y ${TOP}–${BOTTOM}, x ${BANDS.map((b) => `${b[2]}–${b[3]}`).join(" / ")}; frames/safe.json)`,
     weight: 2,
     run(ctx) {
       const frames = ctx.segments.flatMap((s) => s.frames);
       if (!frames.length) return skip("no frames");
       const ev = [];
       for (const f of frames) {
+        const where = f.file.split("/segments/")[1];
+        if (/data-width="1920"/.test(f.html)) ev.push(`${where}: drawn landscape`);
         const stage = f.html.split(/<div id="[^"]+-stage"/)[1]?.split(/<script/)[0] ?? "";
-        for (const m of stage.matchAll(/id="([^"]+)"[^>]*?top:(\d+)px/g)) {
-          if (Number(m[2]) > SAFE_BOTTOM) ev.push(`${f.file.split("/segments/")[1]}: #${m[1]} at y=${m[2]}`);
+        // a top-level element on the stage: its id and its box (left, top and, when it has one, width)
+        for (const m of stage.matchAll(/<div id="([^"]+)"[^>]*?style="position:absolute;left:(-?\d+)px;top:(-?\d+)px;(?:width:(\d+)px;)?/g)) {
+          if (CHROME.test(m[1])) continue;
+          const [l, t, w] = [Number(m[2]), Number(m[3]), m[4] ? Number(m[4]) : 0];
+          const band = BANDS.find((b) => t >= b[0] && t < b[1]);
+          if (t < TOP || t >= BOTTOM) ev.push(`${where}: #${m[1]} at y=${t}, outside ${TOP}–${BOTTOM}`);
+          else if (l < band[2] || l + w > band[3]) ev.push(`${where}: #${m[1]} spans x ${l}–${l + w} at y=${t}; ${band[2]}–${band[3]} is clear there`);
         }
-        if (/data-width="1920"/.test(f.html)) ev.push(`${f.file.split("/segments/")[1]}: drawn landscape`);
       }
       return ev.length ? fail(ev.slice(0, 10)) : pass([`${frames.length} frame(s) inside the safe area`]);
     },
@@ -122,13 +132,41 @@ const short = [
       const sc = ctx.segments[0]?.script?.scenes.at(-1);
       if (!sc) return skip("no script");
       const last = sc.entries.at(-1);
+      // a recut keeps the long part's narration: its pointer is drawn in the last frame's hold, not spoken
+      if (ctx.short.recut) {
+        return ctx.short.full_video?.title ? pass([`a recut of ${ctx.short.recut.segment}: the pointer to "${ctx.short.full_video.title}" is drawn in the end hold`])
+          : fail(["a recut's short.json has no full_video.title to point to"]);
+      }
       const ev = [];
       if (!last?.source?.includes("pipeline")) ev.push(`the last line cites ${JSON.stringify(last?.source ?? [])}, not [pipeline]: it is not a pointer`);
       if (!ctx.short.full_video?.title && !ctx.short.sources?.length) ev.push("short.json has no full_video.title or sources for the description");
       return ev.length ? fail(ev) : pass([`"${last.display}"`]);
     },
   },
+  {
+    id: "S7",
+    group: "short",
+    title: "The first line is a hook: at most 12 words, its first sentence ends by 3 s, no weak opener (so, today, in this video, have you ever, this is…) and no greeting",
+    weight: 2,
+    run(ctx) {
+      const s = ctx.segments[0];
+      const first = s?.script?.scenes[0]?.entries[0];
+      if (!first) return skip("no script");
+      const line = stripMarkers(first.spoken || first.display);
+      const ev = [];
+      const n = line.split(/\s+/).filter(Boolean).length;
+      if (n > 12) ev.push(`${n} words: "${line.slice(0, 80)}"`);
+      if (WEAK.test(line)) ev.push(`opens weakly: "${line.slice(0, 40)}"`);
+      const words = s.audioMeta?.voices?.find((v) => Number(v.frame ?? v.id) === 1)?.words;
+      const firstSentence = line.split(/(?<=[.!?])\s/)[0];
+      const k = firstSentence.split(/\s+/).filter(Boolean).length;
+      if (words?.length >= k && !s.audioStale && words[k - 1].end > 3) ev.push(`its first sentence ends at ${words[k - 1].end.toFixed(2)} s`);
+      return ev.length ? fail(ev) : pass([`"${line}"`]);
+    },
+  },
 ];
+
+const WEAK = /^\s*(so\b|today\b|in this (video|short)\b|have you ever\b|this is\b|hey\b|hi\b|hello\b|welcome\b|what's up\b|let's talk\b|did you know\b)/i;
 
 export const CRITERIA = short;
 export const GROUPS = ["short"];

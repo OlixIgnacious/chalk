@@ -1,0 +1,21 @@
+{
+  "name": "bauhaus",
+  "for": [
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#F2EBDD",
+    "ink_alt": "#FFFFFF",
+    "orange": "#C62828",
+    "cream": "#1A1A1A",
+    "muted": "#4A4A4A",
+    "hint": "#2E5BBA",
+    "border": "#C99A06"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(198,40,40,0.18)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

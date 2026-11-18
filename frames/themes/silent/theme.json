@@ -1,0 +1,25 @@
+{
+  "name": "silent",
+  "for": [
+    "skits"
+  ],
+  "palette": {
+    "ink": "#0E0E0E",
+    "ink_alt": "#1B1B1B",
+    "orange": "#EDE6D6",
+    "cream": "#F2EEE4",
+    "muted": "#A39E93",
+    "hint": "#4A4740",
+    "border": "#3A3833"
+  },
+  "display": "Barlow",
+  "gradient": null,
+  "mark_fill": "rgba(237,230,214,0.18)",
+  "reveal": "step",
+  "finish": [
+    "grain",
+    "flicker",
+    "vignette"
+  ],
+  "captions": "captions.css"
+}

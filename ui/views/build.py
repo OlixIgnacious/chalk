@@ -442,7 +442,7 @@ def settings_panel(out: Path, fmt: str) -> None:
         new["max_usd"] = float(c2.number_input("Budget, est. $ (0 = none)", 0.0, 1000.0, float(cfg.get("max_usd") or 0),
                                                key="s_budget", help=api.COST_NOTE)) or None
         new["ntfy_topic"] = c3.text_input("ntfy topic (phone alerts, optional)", cfg.get("ntfy_topic") or "", key="s_ntfy") or None
-        if fmt == "youtube":
+        if fmt == "long":
             new["notebook"] = st.checkbox("Notebook", bool(cfg.get("notebook")), key="s_nb")
         with st.popover("Agent time limits"):
             tl = dict(cfg.get("timeouts") or {})

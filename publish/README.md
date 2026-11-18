@@ -5,7 +5,7 @@ category, language, thumbnail, captions and playlist. Private unless `--at` sche
 
 ```bash
 chalk publish auth --client ~/Downloads/client_secret_….json   # once per machine
-chalk publish youtube-output/<slug> --dry-run                   # what would be sent; needs no sign-in
+chalk publish long-output/<slug> --dry-run                   # what would be sent; needs no sign-in
 chalk publish shorts-output/<slug> --at "2026-11-06 10:30"      # upload, scheduled (local time)
 ```
 

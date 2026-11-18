@@ -1,0 +1,29 @@
+# local links and environments
+.venv/
+node_modules/
+npm-debug.log*
+
+# python / manim
+__pycache__/
+*.pyc
+media/
+
+# rendered media (source-controlled fixtures are text only)
+*.mp4
+*.mov
+*.webm
+*.wav
+*.mp3
+frames/
+
+# os / editor
+.DS_Store
+*.swp
+
+# output
+long-output/
+long-output-*/
+youtube-output/
+youtube-output-*/
+work/
+.venv

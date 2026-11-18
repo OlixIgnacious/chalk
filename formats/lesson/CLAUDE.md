@@ -52,9 +52,9 @@ inside a segment also cuts the continuous VO (above). Budget: 0s between scenes,
 Chosen once, in step 2, for the whole chapter. Picking per segment is how a course ends up looking
 like six unrelated videos.
 
-The house look is dark, high-contrast, low-chroma, one accent, generous negative space, line-drawn
-diagrams. **Not** chalk texture or a skeuomorphic blackboard — the reference is 3Blue1Brown's
-restraint, not a classroom prop.
+The look is the channel's: `channel.json` `theme` or `lesson.json` `theme` names one of `frames/themes/`
+(`chalk themes`), and `broadside` is only the fallback. Whatever the theme, a lesson keeps restraint: high
+contrast, one accent with one meaning, generous negative space, diagrams that show the mechanism.
 
 ### Gates are not advisory
 

@@ -1,0 +1,21 @@
+{
+  "name": "poster",
+  "for": [
+    "focus"
+  ],
+  "palette": {
+    "ink": "#F1E8D6",
+    "ink_alt": "#E9DDC4",
+    "orange": "#E4572E",
+    "cream": "#1D2A3A",
+    "muted": "#4E5B6B",
+    "hint": "#B9AE97",
+    "border": "#D6CAB0"
+  },
+  "display": "Barlow",
+  "gradient": null,
+  "mark_fill": "rgba(228,87,46,0.18)",
+  "reveal": "rise",
+  "finish": "grain",
+  "captions": "captions.css"
+}

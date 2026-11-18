@@ -1,4 +1,4 @@
-"""framelib — Broadside (dark register) frame builder for chalk-youtube series videos.
+"""framelib — the frame builder for chalk videos of every shape (long, short, lesson); Broadside is its default theme.
 
 Each frame is one bare <template> fragment: a #root carrying data-composition-id, a full-bleed ground on a
 class="clip" layer, content above the 83% caption keep-out (y <= 900), and one paused GSAP timeline
@@ -17,20 +17,24 @@ Code shown on screen is passed in verbatim from chapter.json; nothing here retyp
 
 import html
 import json
+from html import unescape as html_unescape
 import re
 from pathlib import Path
 
-W, H, KEEP_OUT = 1920, 1080, 900
+# the safe box both framelib and the Short criteria read (frames/safe.json): one copy of the numbers
+SAFE = json.loads((Path(__file__).resolve().parent / "safe.json").read_text())
+W, H, KEEP_OUT = SAFE["landscape"]["width"], SAFE["landscape"]["height"], SAFE["landscape"]["stage_bottom"]
 PORTRAIT = False
 
 
 def set_canvas(orientation):
-    """Landscape (a YouTube video, a lesson) or portrait (a Short or Reel, 1080x1920). In portrait, content
-    stays above y=1320: the burned-in captions sit just under it (1350-1550), and the bottom ~20% and the right
-    edge are where Shorts and Reels draw their own title and buttons."""
+    """Landscape (a long video, a lesson) or portrait (a Short or Reel, 1080x1920). In portrait the stage ends at
+    y=1320, over the burned-in captions (1350-1550), and content stays in the box every platform leaves clear
+    (frames/safe.json `content`: y 288-1248, x 120-888, narrowing to 780 below y=840 for TikTok's buttons)."""
     global W, H, KEEP_OUT, PORTRAIT
     PORTRAIT = orientation == "portrait"
-    W, H, KEEP_OUT = (1080, 1920, 1320) if PORTRAIT else (1920, 1080, 900)
+    side = SAFE["portrait" if PORTRAIT else "landscape"]
+    W, H, KEEP_OUT = side["width"], side["height"], side["stage_bottom"]
 INK, INK_ALT, ORANGE, CREAM = "#111111", "#1A1A18", "#E85D26", "#F0ECE5"
 MUTED, HINT, BORDER = "#888880", "#505048", "#282826"
 LABEL_FLOOR = 28  # px: what a phone can read at 1080p (hyperframes check text_below_floor)
@@ -43,34 +47,48 @@ MARK_FILL = "rgba(232,93,38,0.18)"  # the accent at low alpha: the fill of a mar
 # a blue-to-purple accent and Inter (the closest open face to SF Pro, which only Apple's platforms may use).
 # "midnight" is a newsroom look for tech and security news: deep navy, cool white type, an electric-cyan accent
 # and a cyan-to-violet gradient. (ORANGE is the name of the accent slot in every theme, whatever its colour.)
-THEMES = {
-    "broadside": dict(INK="#111111", INK_ALT="#1A1A18", ORANGE="#E85D26", CREAM="#F0ECE5", MUTED="#888880", HINT="#505048",
-                      BORDER="#282826", DISPLAY="Barlow", GRADIENT=None, MARK_FILL="rgba(232,93,38,0.18)"),
-    "apple": dict(INK="#000000", INK_ALT="#1D1D1F", ORANGE="#2997FF", CREAM="#F5F5F7", MUTED="#86868B", HINT="#424245",
-                  BORDER="#2D2D2F", DISPLAY="Inter", GRADIENT="linear-gradient(90deg, #2997FF 0%, #A970FF 55%, #FF6EB4 100%)",
-                  MARK_FILL="rgba(41,151,255,0.18)"),
-    "midnight": dict(INK="#0A1024", INK_ALT="#121B36", ORANGE="#22D3EE", CREAM="#EEF2FF", MUTED="#8B95B5", HINT="#4A5578",
-                     BORDER="#1F2A4A", DISPLAY="Inter", GRADIENT="linear-gradient(90deg, #22D3EE 0%, #818CF8 55%, #C084FC 100%)",
-                     MARK_FILL="rgba(34,211,238,0.18)"),
-    # sketch: black line on white paper, no accent colour (a cartoon skit's look; captions in frames/themes/sketch-captions.css)
-    "sketch": dict(INK="#FFFFFF", INK_ALT="#F4F4F4", ORANGE="#111111", CREAM="#111111", MUTED="#777777", HINT="#BBBBBB",
-                   BORDER="#DDDDDD", DISPLAY="Barlow", GRADIENT=None, MARK_FILL="rgba(0,0,0,0.08)"),
-    # the yellow template (formats/youtube/templates/yellow/README.md): white and #FFD60A on near-black, Barlow
-    "yellow": dict(INK="#0D0D0D", INK_ALT="#1D1D1D", ORANGE="#FFD60A", CREAM="#FFFFFF", MUTED="#8A8A8A", HINT="#3A3A3A",
-                   BORDER="#2A2A2A", DISPLAY="Barlow", GRADIENT=None, MARK_FILL="rgba(255,214,10,0.18)"),
-}
+def theme_dirs():
+    """Where themes live: the person's own first (~/.config/chalk/themes, or $CHALK_THEMES), then the repo's.
+    A theme is a folder: theme.json, THEME.md, captions.css, poster.png (frames/themes/README.md)."""
+    import os
+    own = Path(os.environ.get("CHALK_THEMES") or Path.home() / ".config/chalk/themes")
+    return [d for d in (own, Path(__file__).resolve().parent / "themes") if d.is_dir()]
+
+
+def load_themes():
+    """Every theme by name → its framelib globals. A theme of the person's own shadows a repo theme of that name."""
+    out = {}
+    for root in reversed(theme_dirs()):
+        for f in sorted(root.glob("*/theme.json")):
+            t = json.loads(f.read_text())
+            g = {k.upper(): v for k, v in t["palette"].items()}
+            g.update(DISPLAY=t.get("display", "Barlow"), GRADIENT=t.get("gradient"), MARK_FILL=t.get("mark_fill", "rgba(0,0,0,0.1)"),
+                     REVEAL=t.get("reveal", "rise"), FINISH=t.get("finish"), THEME_DIR=str(f.parent), GROUND=t.get("ground"),
+                     FIELD=t.get("field"))
+            out[t.get("name", f.parent.name)] = g
+    return out
+
+
+THEMES = load_themes()
+REVEAL, FINISH, THEME_DIR, GROUND, FIELD = "rise", None, None, None, None
 
 
 def set_theme(name):
-    """Colours, display face and accent of every component drawn after this call."""
+    """Colours, display face, accent, reveal style and finish of every component drawn after this call."""
+    name = name or "broadside"
+    if name not in THEMES:
+        raise ValueError(f"no theme {name!r}: there are {', '.join(sorted(THEMES))} (frames/themes/, ~/.config/chalk/themes/)")
     g = globals()
-    for k, v in THEMES[name or "broadside"].items():
+    for k, v in THEMES[name].items():
         g[k] = v
 
 
 FONTS = [("Barlow", w, f"barlow-latin-{w}-normal.woff2") for w in (400, 600, 700, 800, 900)] + [
     ("Inter", w, f"inter-latin-{w}-normal.woff2") for w in (400, 600, 700, 800, 900)] + [
-    ("IBM Plex Mono", w, f"ibm-plex-mono-latin-{w}-normal.woff2") for w in (400, 500, 600)
+    ("IBM Plex Mono", w, f"ibm-plex-mono-latin-{w}-normal.woff2") for w in (400, 500, 600)] + [
+    # the theme faces (OFL), staged by `chalk assets`: a hand for chalkboard, marker and ink; a terminal; a bitmap
+    ("Caveat", w, f"caveat-latin-{w}-normal.woff2") for w in (400, 700)] + [
+    ("VT323", 400, "vt323-latin-400-normal.woff2"), ("Press Start 2P", 400, "press-start-2p-latin-400-normal.woff2"),
 ]
 
 # viewer-facing names of the arc stages (step-2-outline.md § The teaching arc)
@@ -99,6 +117,51 @@ def show_value(v):
 
 
 AMBIGUOUS_NAMES = {"l": "left", "I": "i", "O": "o", "o": "lo"}
+
+
+def _svg_noise(F, opacity, freq, blend, tint=None):
+    fid = F.uid("noise")
+    tint_rect = f'<rect width="100%" height="100%" fill="{tint}" style="mix-blend-mode:multiply"/>' if tint else ""
+    return (f'<svg data-layout-ignore style="position:absolute;inset:0;pointer-events:none;opacity:{opacity};mix-blend-mode:{blend}" width="{W}" height="{H}">'
+            f'<filter id="{fid}"><feTurbulence type="fractalNoise" baseFrequency="{freq}" numOctaves="2" seed="3" stitchTiles="stitch"/>'
+            f'<feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#{fid})"/>{tint_rect}</svg>')
+
+
+def _flicker(F):
+    """A faint, seeded flicker of the whole picture: on the timeline, so a frame renders the same every time."""
+    import random
+    rnd = random.Random(F.id)
+    fid = F.uid("flicker")
+    t = 0.0
+    while t < F.duration:
+        F.tweens.append(f'tl.set("#{fid}", {{opacity: {round(rnd.uniform(0.0, 0.08), 3)}}}, {round(t, 2)});')
+        t += rnd.uniform(0.08, 0.3)
+    return f'<div id="{fid}" data-layout-ignore style="position:absolute;inset:0;pointer-events:none;background:#000;opacity:0;"></div>'
+
+
+# a finish never changes the layout: R5 and R6 read the text before it is applied
+FINISHES = {
+    "grain": lambda F: _svg_noise(F, 0.10, 0.9, "screen"),
+    "paper": lambda F: _svg_noise(F, 0.18, 0.04, "multiply"),
+    "scanlines": lambda F: (f'<div data-layout-ignore style="position:absolute;inset:0;pointer-events:none;'
+                            f'background:repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0px, rgba(0,0,0,0.28) 1px, transparent 2px, transparent 4px);"></div>'),
+    "halftone": lambda F: (f'<div data-layout-ignore style="position:absolute;inset:0;pointer-events:none;opacity:0.18;mix-blend-mode:multiply;'
+                           f'background-image:radial-gradient(#000 28%, transparent 30%);background-size:9px 9px;"></div>'),
+    "vignette": lambda F: ('<div data-layout-ignore style="position:absolute;inset:0;pointer-events:none;'
+                           'background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);"></div>'),
+    "riso": lambda F: (f'<style>#root [id$="-stage"] {{ text-shadow: 3px 2px 0 {MARK_FILL.replace("0.18", "0.55")}; }}</style>'
+                       + _svg_noise(F, 0.12, 0.7, "multiply")),
+    "dither": lambda F: (f'<svg width="0" height="0" style="position:absolute"><filter id="{F.id}-dither"><feComponentTransfer>'
+                         f'<feFuncR type="discrete" tableValues="0 1"/><feFuncG type="discrete" tableValues="0 1"/><feFuncB type="discrete" tableValues="0 1"/>'
+                         f'</feComponentTransfer></filter></svg><style>#{F.id}-stage {{ filter: url(#{F.id}-dither); }}</style>'),
+    "flicker": _flicker,
+    # neon tubes: every line of type glows in the accent
+    "glow": lambda F: f'<style>#{F.id}-stage {{ text-shadow: 0 0 6px {ORANGE}, 0 0 18px {ORANGE}; }}</style>',
+    # a drafting grid: blueprint, oscilloscope and hud lie on one
+    "grid": lambda F: (f'<div data-layout-ignore style="position:absolute;inset:0;pointer-events:none;opacity:0.22;'
+                       f'background-image:linear-gradient({HINT} 1px, transparent 1px), linear-gradient(90deg, {HINT} 1px, transparent 1px);'
+                       f'background-size:48px 48px;"></div>'),
+}
 
 
 class PointerWalk:
@@ -155,6 +218,12 @@ class Frame:
     # ── timing ────────────────────────────────────────────────────────────────────────────────
     def cue(self, phrase, offset=0.0, nth=1):
         # compare characters, not words: a lexicon phrase ("1, 2, 3, 1") is one caption word
+        """The time a phrase of the narration starts, in frame time.
+
+        Use for: every reveal: cue it on the words that say it.
+        Avoid for: typed times (they drift when the take changes).
+        Length: —.
+        """
         want = "".join(norm(p) for p in phrase.split())
         toks = [norm(w["text"]) for w in self.words]
         seen = 0
@@ -170,6 +239,12 @@ class Frame:
         raise KeyError(f"{self.id}: phrase not in narration: {phrase!r} (have: {' '.join(w['text'] for w in self.words)})")
 
     def at(self, t):
+        """A time, or the cue of a phrase.
+
+        Use for: taking either a number or a phrase.
+        Avoid for: —.
+        Length: —.
+        """
         return t if isinstance(t, (int, float)) else self.cue(t)
 
     def uid(self, kind):
@@ -192,30 +267,115 @@ class Frame:
 
     # ── motion ────────────────────────────────────────────────────────────────────────────────
     def rise(self, sel, t, dy=36, dur=0.6):
+        """Reveal an element rising into place.
+
+        Use for: a line of text or a panel arriving.
+        Avoid for: values that change in place (use to).
+        Length: 0.6 s.
+        """
+        if self._themed(sel, t):
+            return
         self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0, y: {dy}}}, {{opacity: 1, y: 0, duration: {dur}, ease: "power3.out"}}, {self.at(t)});')
 
     def fade(self, sel, t, dur=0.5, to=1):
+        """Reveal an element by fading it in.
+
+        Use for: quiet arrivals: attributions, secondary text.
+        Avoid for: the scene's subject (it deserves rise or pop).
+        Length: 0.5 s.
+        """
+        if to == 1 and self._themed(sel, t):
+            return
         self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0}}, {{opacity: {to}, duration: {dur}, ease: "power2.out"}}, {self.at(t)});')
 
     def pop(self, sel, t, dur=0.5):
+        """Reveal an element with a small overshoot.
+
+        Use for: a value or chip that arrives as a result.
+        Avoid for: text blocks (it reads as bouncing).
+        Length: 0.5 s.
+        """
+        if self._themed(sel, t):
+            return
         self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0, scale: 0.86}}, {{opacity: 1, scale: 1, duration: {dur}, ease: "back.out(1.6)"}}, {self.at(t)});')
 
+    def _themed(self, sel, t):
+        """Reveal the theme's way when it has one (theme.json "reveal"): draw-on, typed, beam or step. A chrome element
+        (series label, strip) keeps its fade. Returns False for the default, so rise, fade and pop do their own."""
+        if REVEAL in (None, "rise") or not isinstance(sel, str) or any(c in sel for c in ("-kicker", "-chap", "-hair", "-strip", "-stage")):
+            return False
+        at = self.at(t)
+        if REVEAL == "draw":   # written or drawn by hand: a left-to-right reveal at hand speed, a faint haze as it goes
+            self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0, clipPath: "inset(0 100% 0 0)", filter: "blur(1.5px)"}}, '
+                               f'{{opacity: 1, clipPath: "inset(0 0% 0 0)", filter: "blur(0px)", duration: 0.7, ease: "power1.inOut"}}, {at});')
+        elif REVEAL == "typed":  # glyph by glyph: the reveal steps once a character, as a terminal types
+            n = max(4, min(60, len(self._texts.get(sel, {}).get("text", "")) if hasattr(self, "_texts") else 12))
+            self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 1, clipPath: "inset(0 100% 0 0)"}}, '
+                               f'{{clipPath: "inset(0 0% 0 0)", duration: {round(n * 0.035, 2)}, ease: "steps({n})"}}, {at});')
+        elif REVEAL == "beam":   # traced by a beam: the reveal glows as it goes, then settles
+            self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0, clipPath: "inset(0 100% 0 0)", filter: "drop-shadow(0 0 14px {ORANGE})"}}, '
+                               f'{{opacity: 1, clipPath: "inset(0 0% 0 0)", filter: "drop-shadow(0 0 0px {ORANGE})", duration: 0.8, ease: "power2.out"}}, {at});')
+        elif REVEAL == "step":   # a hard cut, no easing: things are there or not
+            self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0}}, {{opacity: 1, duration: 0.01, ease: "none"}}, {at});')
+        elif REVEAL == "fade":   # slow and quiet, for focus pieces
+            self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0}}, {{opacity: 1, duration: 1.2, ease: "sine.inOut"}}, {at});')
+        else:
+            return False
+        return True
+
     def wipe(self, sel, t, dur=0.6):
+        """Reveal an element left to right.
+
+        Use for: bars, rules, a line under a word.
+        Avoid for: text (use rise, or chalk on a skit board).
+        Length: 0.6 s.
+        """
         self.tweens.append(f'tl.fromTo("{sel}", {{scaleX: 0, transformOrigin: "left center"}}, {{scaleX: 1, duration: {dur}, ease: "power3.inOut"}}, {self.at(t)});')
 
     def to(self, sel, t, props, dur=0.4):
+        """Tween an element's properties.
+
+        Use for: changing a value's colour or position as the narration moves on.
+        Avoid for: revealing (use rise/fade/pop).
+        Length: 0.4 s.
+        """
         self.tweens.append(f'tl.to("{sel}", {{{props}, duration: {dur}, ease: "power2.out"}}, {self.at(t)});')
 
     def set(self, sel, t, props):
+        """Change properties instantly.
+
+        Use for: hard swaps on a cue (a value replaced, an element hidden).
+        Avoid for: anything the viewer should see change (use to).
+        Length: instant.
+        """
         self.tweens.append(f'tl.set("{sel}", {{{props}}}, {self.at(t)});')
 
     def draw(self, sel, t, dur=0.8):
+        """Reveal an SVG path along its length (stroke-dashoffset).
+
+        Use for: lines, arrows and shapes that should be seen being drawn.
+        Avoid for: text (use rise/fade, or chalk for a skit).
+        Length: 0.8 s.
+        Themes: chalkboard, blueprint, marker, ink.
+        """
         self.tweens.append(f'tl.fromTo("{sel}", {{strokeDashoffset: 1, opacity: 0}}, {{strokeDashoffset: 0, opacity: 1, duration: {dur}, ease: "power2.inOut"}}, {self.at(t)});')
 
     def dim(self, sel, t, to=0.32):
+        """Fade an element back so the next one leads.
+
+        Use for: moving attention on.
+        Avoid for: hiding (set opacity 0, or let the frame end).
+        Length: 0.4 s.
+        """
         self.to(sel, t, f"opacity: {to}", dur=0.4)
 
     def mark(self, sel, t, color=None, fill=None):
+        """Light up an element: accent border and fill.
+
+        Use for: pointing at one cell, line or value as the narration names it.
+        Avoid for: several at once (the eye has nowhere to go).
+        Length: 0.3 s.
+        """
         color = color or ORANGE
         fill = fill or MARK_FILL
         self.to(sel, t, f'borderColor: "{color}", backgroundColor: "{fill}"', dur=0.3)
@@ -234,6 +394,12 @@ class Frame:
 
     def text(self, s, x, y, size=86, weight=700, color=None, font=None, w=None, align="left", tracking="-0.02em",
              lower=False, upper=False, lh=1.05, eid=None, raw=False, attrs="", gradient=False):
+        """Any text on the stage: the building block headline, label and the rest use.
+
+        Use for: a line no component draws (R5: 36 px or more for a reason; R6 times it).
+        Avoid for: a heading (use headline), a tag (use label).
+        Length: instant; reveal with rise or fade.
+        """
         color = color or CREAM
         font = font or DISPLAY
         # the theme's accent gradient painted through the letters (Apple's keynote look); flat accent without one
@@ -242,9 +408,21 @@ class Frame:
         st = (f"font-family:'{font}';font-size:{size}px;font-weight:{weight};{paint}line-height:{lh};"
               f"letter-spacing:{tracking};text-align:{align};white-space:pre-wrap;"
               + ("text-transform:lowercase;" if lower else "") + ("text-transform:uppercase;" if upper else ""))
-        return self.box(s if raw else esc(s), x, y, w=w, style=st, eid=eid, attrs=attrs)
+        sel = self.box(s if raw else esc(s), x, y, w=w, style=st, eid=eid, attrs=attrs)
+        # what R6 times: prose, headings, results. Not mono (labels, code), not chrome, not a mark of a few characters
+        plain = re.sub(r"<[^>]+>", "", s) if raw else s
+        self._texts = getattr(self, "_texts", {})
+        self._texts[sel] = {"text": html_unescape(plain).strip(), "size": size,
+                            "timed": font != "IBM Plex Mono" and "data-layout-ignore" not in attrs and len(plain.strip()) >= 4}
+        return sel
 
     def label(self, s, x, y, color=None, size=LABEL_FLOOR, w=None, align="left", eid=None, attrs=""):
+        """A small mono label (upper case, tracked): a tag, a column name, a caption on a diagram.
+
+        Use for: naming a thing on screen; not timed by R6.
+        Avoid for: a reason the narration gives (R5 wants 36 px+: use text or plan_card's why).
+        Length: fade 0.5 s.
+        """
         color = color or ORANGE
         size = size if "data-layout-ignore" in attrs else max(size, LABEL_FLOOR)
         eid = eid or self.uid("lbl")
@@ -253,13 +431,24 @@ class Frame:
                          upper=True, w=w, align=align, eid=eid, attrs=attrs)
 
     def headline(self, s, t, y=156, size=60, color=None, w=None):
-        """The scene's question or subject, on screen from the words that say it."""
+        """The scene's question or subject, on screen from the words that say it.
+
+        Use for: the scene's question or subject, from the words that say it.
+        Avoid for: body text or a list (use plan_card); a label (use label).
+        Length: 0.6 s rise.
+        """
         color = color or CREAM
         sel = self.text(s, 104, y, size=size, weight=800, color=color, w=w or W - 208, lh=1.0, eid=f"{self.id}-hd{self._n}")
         self.rise(sel, t, dy=20)
         return sel
 
     def rule(self, x, y, w=36, h=2, color=None, eid=None):
+        """A short accent rule: a divider or an underline.
+
+        Use for: separating two ideas on one screen.
+        Avoid for: emphasis on a word (use mark).
+        Length: wipe 0.6 s.
+        """
         color = color or ORANGE
         return self.box("", x, y, w=w, h=h, style=f"background:{color};", eid=eid)
 
@@ -321,7 +510,12 @@ class Frame:
         return lift
 
     def roadmap(self, stages, t, x=104, y=420, eid=None):
-        """This video's stages, left to right, landing in order from t."""
+        """This video's stages, left to right, landing in order from t.
+
+        Use for: the hook of a series part: this video's stages in order.
+        Avoid for: anything but the hook; a Short (no room).
+        Length: 0.3 s a stage.
+        """
         rid = eid or f"{self.id}-roadmap"
         gap = 16
         wcell = (W - 208 - gap * (len(stages) - 1)) / len(stages)
@@ -347,7 +541,12 @@ class Frame:
         lines mean the same thing either way; a line not shown has no selector.
         comments="above": a trailing comment (two or more spaces, then #) is drawn on its own row just above its
         code, at the code's indent, so a narrow portrait panel keeps code at the phone floor. Every character is
-        kept; the line still carries its whole text in data-codeline for the eval's verbatim check (G2)."""
+        kept; the line still carries its whole text in data-codeline for the eval's verbatim check (G2).
+
+        Use for: a custom code panel when code_show/code_build cannot say it.
+        Avoid for: teaching code (use code_build); showing a whole block (use code_show).
+        Length: instant; reveal with fade/rise.
+        """
         pid = self.uid("code")
         all_lines = src.split("\n")
         keep = [i for i in range(len(all_lines)) if only is None or i + 1 in only]
@@ -411,17 +610,34 @@ class Frame:
         return f"#{pid}", hl, ln, size
 
     def highlight(self, hl_sels, t):
+        """Light the code lines a code() panel returned.
+
+        Use for: custom code panels.
+        Avoid for: code_build/code_trace (they light their own lines).
+        Length: 0.3 s.
+        """
         t0 = self.at(t)
         for s in hl_sels:
             self.tweens.append(f'tl.to("{s}", {{opacity: 1, duration: 0.35, ease: "power2.out"}}, {t0});')
 
     def unhighlight(self, hl_sels, t):
+        """Settle code lines a code() panel lit.
+
+        Use for: custom code panels.
+        Avoid for: code_build/code_trace.
+        Length: 0.3 s.
+        """
         t0 = self.at(t)
         for s in hl_sels:
             self.tweens.append(f'tl.to("{s}", {{opacity: 0, duration: 0.3, ease: "power2.out"}}, {t0});')
 
     def code_show(self, block_id, x=104, y=170, w=1712, size=34, title=None, t=0.0, lh=1.5, only=None, comments="inline"):
-        """A whole block, for reference (not for teaching how to write it — use code_build)."""
+        """A whole block, for reference (not for teaching how to write it — use code_build).
+
+        Use for: a block shown for reference, read as a whole.
+        Avoid for: teaching how to write it (use code_build); more than ~14 lines in portrait.
+        Length: 0.5 s fade.
+        """
         p, hl, ln, _ = self.code(self.block(block_id), x, y, w, size=size, title=title, lh=lh, block_id=block_id, only=only,
                                  comments=comments)
         self.fade(p, t, dur=0.3)
@@ -435,6 +651,10 @@ class Frame:
         Lines appear on their cue, the newest lit, earlier ones settled; the tag (the plan step the lines
         serve) lands in the margin beside them. Lines not in any step never appear — check-readability
         --chapter already requires every line to be narrated.
+
+        Use for: teaching code: lines appear on their cue with the plan step beside them.
+        Avoid for: code the viewer has already been taught (use code_show).
+        Length: 0.4 s a step.
         """
         p, hl, ln, fs = self.code(self.block(block_id), x, y, w, size=size, lh=lh, block_id=block_id, only=only, comments=comments)
         self.fade(p, steps[0][1], dur=0.3)
@@ -472,6 +692,10 @@ class Frame:
         steps: [(trace step index, cue)] — the moments that teach; show_vars: variable names, in order.
         The variables sit beside the code, or in a row under it when the panel was widened for readability.
         Returns (trace, bottom y of what it drew).
+
+        Use for: running the code on the example: the line lit, variables updating.
+        Avoid for: a trace you typed by hand (it must come from examples/<trace>.py).
+        Length: one step per cue.
         """
         trace = json.loads(self.example_output(trace_rel))
         fmt = fmt or show_value
@@ -544,7 +768,12 @@ class Frame:
         start+1, …). A statement (`nums = [...]`, printed as "") shows `In [n]` and no `Out`, as Jupyter does.
         ran=True shows cells the viewer already ran earlier in the video (a replay): `In [n]` and its `Out` at the
         cue, with no ▶ run and no "running…", since re-running would give a new, higher number.
-        Returns the bottom y."""
+        Returns the bottom y.
+
+        Use for: a notebook-style call and its printed output.
+        Avoid for: a call the notebook never runs (the build fails); explaining logic (use code_trace).
+        Length: 0.6 s a run.
+        """
         out = json.loads(self.example_output(script_rel))["calls"]
         runs = [r if len(r) > 2 else (r[0], r[1], None) for r in runs]
         missing = [r[0] for r in runs if r[0] not in out]
@@ -623,7 +852,12 @@ class Frame:
     def plan_card(self, steps, x=104, y=170, size=58, why_size=40):
         """steps: [(text, cue)] or [(text, cue, why, why_cue)]. Numbered plain-word steps, one per clause.
         A step's `why` is the reason the narration gives for it, drawn under the step in cream at 40px —
-        the reason is what the viewer came for, so it is never chrome-sized (the eval's R5 checks it)."""
+        the reason is what the viewer came for, so it is never chrome-sized (the eval's R5 checks it).
+
+        Use for: the plan in plain words, a step per clause with its reason.
+        Avoid for: code; more than ~5 steps (split the scene).
+        Length: 0.5 s a step.
+        """
         gap = 150 + (why_size + 24 if any(len(s) > 2 for s in steps) else 0)
         for i, step in enumerate(steps):
             s, cue = step[0], step[1]
@@ -638,6 +872,12 @@ class Frame:
                 self.fade(f"#{self.id}-pw{i}", why_cue)
 
     def cells(self, values, x, y, size=120, gap=18, font_size=60, label_idx=False, color=None, eid=None):
+        """A row of value cells: an array or a list.
+
+        Use for: an array or list the narration walks.
+        Avoid for: a moving pointer (use pointer_walk); a table (use table).
+        Length: instant; reveal with fade/pop.
+        """
         color = color or CREAM
         base = eid or self.uid("arr")
         out, idx = [], []
@@ -658,12 +898,24 @@ class Frame:
         return (out, idx) if label_idx else out
 
     def setbox(self, x, y, w, h, title="seen", eid=None):
+        """A titled box that holds chips: a set or a map being filled.
+
+        Use for: a set or dict that fills as the narration adds to it.
+        Avoid for: a fixed list (use cells).
+        Length: instant; reveal with fade.
+        """
         sid = eid or self.uid("set")
         self.add(f'<div id="{sid}" style="position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;border:2px solid {HINT};box-sizing:border-box;"></div>')
         self.label(title, x, y - 46, color=MUTED, eid=f"{sid}-t")
         return f"#{sid}", f"#{sid}-t"
 
     def chip(self, v, x, y, size=96, font_size=52, color=None, eid=None):
+        """One value as a chip, to drop into a setbox or beside cells.
+
+        Use for: one value arriving in a set, or a result.
+        Avoid for: text (use text/label).
+        Length: pop 0.5 s.
+        """
         color = color or CREAM
         cid = eid or self.uid("chip")
         self.add(f'<div id="{cid}" style="position:absolute;left:{x}px;top:{y}px;width:{size}px;height:{size}px;'
@@ -678,7 +930,12 @@ class Frame:
         "above" or "below". Returns a PointerWalk: .move(name, i, t), .walk(steps), .cell(i), .sel(name).
 
         Names are words or two letters: "l" beside number cells reads as the digit 1 (dsa-03), so a one-letter
-        name that looks like a digit is refused."""
+        name that looks like a digit is refused.
+
+        Use for: two-pointer and sliding-window walks: named chips that move one step at a time.
+        Avoid for: names that read as digits (l, I, O, o: refused); a single index (use mark).
+        Length: 0.4 s a move.
+        """
         for name in pointers:
             if name in AMBIGUOUS_NAMES:
                 raise ValueError(f"pointer name {name!r} reads as a digit next to number cells: call it "
@@ -709,7 +966,12 @@ class Frame:
         """A fact that is true but breaks a rule (O(n) extra memory against "only O(1)"): the fact turns the
         accent colour, a cross pops beside it, and an arrow runs from it into the rule it breaks. Never a line
         through it: a sourced fact stays true, and a strike says it is false. box, against: (x, y, w, h) of the
-        fact and of the rule; sel: the fact's element(s) to colour. Returns the cross and the arrow selectors."""
+        fact and of the rule; sel: the fact's element(s) to colour. Returns the cross and the arrow selectors.
+
+        Use for: a true fact that breaks a rule: cross and arrow into the rule.
+        Avoid for: a fact that is false (fix the source, never draw it); striking anything through.
+        Length: 0.5 s.
+        """
         x, y, w, h = box
         ax, ay, aw, ah = against
         rid = self.uid("rej")
@@ -726,7 +988,13 @@ class Frame:
 
     def table(self, header, rows, x, y, widths, size=30, row_h=64, mono_cols=(), header_at=0.0, wrap=()):
         """header_at: the time or cue the header fades in on (default: the frame's start).
-        wrap: columns whose text may break onto more lines (give row_h room for them); other cells stay on one line."""
+        wrap: columns whose text may break onto more lines (give row_h room for them); other cells stay on one line.
+
+        Use for: comparisons and traces as rows; the trace-table look.
+        Avoid for: one-line cells that would overflow (wrap= them, or the build fails).
+        Length: 0.4 s a row.
+        Themes: spreadsheet suits it best.
+        """
         tid = self.uid("tab")
         cells, out, hx = {}, [], x
         for c, (hd, w) in enumerate(zip(header, widths)):
@@ -766,7 +1034,12 @@ class Frame:
 
     def table_rows(self, bid):
         """A markdown table block of the source as (header, rows): cells stripped, backticks dropped. Values for
-        the screen are read from here, never typed."""
+        the screen are read from here, never typed.
+
+        Use for: reading a source table's values for the screen.
+        Avoid for: values typed by hand.
+        Length: —.
+        """
         b = self.block(bid)
         text = b if isinstance(b, str) else b["text"]
         lines = [l for l in text.splitlines() if l.strip().startswith("|")]
@@ -777,7 +1050,12 @@ class Frame:
 
     def block_table(self, bid, x, y, widths, pick=None, cols=None, **kw):
         """table() filled from a markdown table block. pick: which rows, as first-cell prefixes or a predicate
-        (default: all); cols: which columns, by index (default: all). Every other argument is table()'s."""
+        (default: all); cols: which columns, by index (default: all). Every other argument is table()'s.
+
+        Use for: a source markdown table drawn as written, rows picked by first cell.
+        Avoid for: values typed by hand.
+        Length: 0.4 s a row.
+        """
         header, rows = self.table_rows(bid)
         if pick is not None:
             keep = pick if callable(pick) else (lambda r: any(r[0].startswith(p) for p in pick))
@@ -789,6 +1067,13 @@ class Frame:
         return self.table(header, rows, x, y, widths, **kw)
 
     def node(self, s, x, y, w, h=120, size=40, accent=False, eid=None):
+        """A labelled box: a tree or graph node, a step in a flow.
+
+        Use for: trees, graphs, flows (with arrow).
+        Avoid for: a list of values (use cells).
+        Length: instant; reveal with pop.
+        Themes: transit draws these as stations.
+        """
         nid = eid or self.uid("node")
         bc = ORANGE if accent else HINT
         self.add(f'<div id="{nid}" style="position:absolute;left:{x}px;top:{y}px;width:{w}px;height:{h}px;box-sizing:border-box;'
@@ -797,17 +1082,35 @@ class Frame:
         return f"#{nid}"
 
     def bar(self, x, y, w, h=56, color=None, eid=None):
+        """A plain filled bar: a quantity, a progress, a divider.
+
+        Use for: comparing sizes, a quantity.
+        Avoid for: decoration with no meaning.
+        Length: wipe 0.6 s.
+        """
         color = color or ORANGE
         bid = eid or self.uid("bar")
         self.box("", x, y, w=w, h=h, style=f"background:{color};", eid=bid)
         return f"#{bid}"
 
     def svg(self, inner, eid=None):
+        """Raw SVG markup on the stage.
+
+        Use for: a shape no component draws (then say so: it may belong in the library).
+        Avoid for: anything a component draws.
+        Length: instant.
+        """
         sid = eid or self.uid("svg")
         self.add(f'<svg id="{sid}" width="{W}" height="{KEEP_OUT}" viewBox="0 0 {W} {KEEP_OUT}" style="position:absolute;left:0;top:0;overflow:visible;">{inner}</svg>')
         return f"#{sid}"
 
     def arrow(self, x1, y1, x2, y2, eid, color=None, width=3, curve=0):
+        """An arrow from one point to another, straight or curved.
+
+        Use for: a relation the narration says (points to, becomes, goes to).
+        Avoid for: decoration; more than ~4 on one screen.
+        Length: draw 0.8 s.
+        """
         color = color or MUTED
         mx, my = (x1 + x2) / 2, (y1 + y2) / 2 - curve
         mid = f"{eid}-m"
@@ -818,7 +1121,7 @@ class Frame:
 
     def ground(self):
         return (f'<div id="{self.id}-ground" class="clip" data-start="0" data-duration="{self.duration}" data-track-index="0" '
-                f'style="position:absolute;inset:0;background:{getattr(self, "_board", INK)};"></div>')
+                f'style="position:absolute;inset:0;background:{getattr(self, "_board", None) or GROUND or INK};"></div>')
 
     # ── the skit stage (two characters on one chalkboard) ─────────────────────────────────────
     # The stage bible, enforced here so no skit can break it:
@@ -834,7 +1137,13 @@ class Frame:
     def stage(self, cast=("penguin", "bear"), poses=None, heights=None, board=None):
         """Draw the set and both characters in their first pose. `poses` is {char: [pose, …]}: every pose the
         scene uses (the first is the opening pose). Images come from <workspace>/cast/<char>/<pose>.png
-        (frames/slice-cast.py). Turns come from the take's turns.json (narrate --cast)."""
+        (frames/slice-cast.py). Turns come from the take's turns.json (narrate --cast).
+
+        Use for: skits: the set and the cast in their opening poses.
+        Avoid for: anything but a skit.
+        Length: instant.
+        Themes: chalkboard (the skit stage lives here).
+        """
         import shutil
         src = next((d / "cast" for d in [Path(self.video["out_dir"]), *Path(self.video["out_dir"]).parents]
                     if (d / "cast" / "cast-meta.json").exists()), None)
@@ -918,12 +1227,22 @@ class Frame:
                                f'yoyo: true, repeat: {2 * n - 1}}}, {t["start"]:.3f});')
 
     def line_start(self, speaker, nth=1):
-        """When the nth line of a speaker starts, in frame time."""
+        """When the nth line of a speaker starts, in frame time.
+
+        Use for: skits: cueing a pose or shot on a speaker's line.
+        Avoid for: narration (use cue).
+        Length: —.
+        """
         ts = [t for t in self._turns() if t.get("speaker") == speaker]
         return round(ts[nth - 1]["start"], 3)
 
     def pose(self, ch, name, t):
-        """Swap a character's pose: a 0.12 s crossfade and a small squash, standing on the same spot."""
+        """Swap a character's pose: a 0.12 s crossfade and a small squash, standing on the same spot.
+
+        Use for: a character's reaction, on the line that earns it.
+        Avoid for: every line (it reads as twitching).
+        Length: 0.12 s.
+        """
         a = self.actor[ch]
         t = self.at(t)
         old, a["pose"] = a["pose"], name
@@ -945,7 +1264,12 @@ class Frame:
         return s, round(x, 1), round(y, 1)
 
     def shot(self, name, t, push=False):
-        """Change shot: "two", or a cast member's name for their close-up. A cut unless push=True (0.5 s ease)."""
+        """Change shot: "two", or a cast member's name for their close-up. A cut unless push=True (0.5 s ease).
+
+        Use for: skits: a cut or push to a close-up or the two-shot.
+        Avoid for: more than one change every ~3 s.
+        Length: cut, or 0.5 s push.
+        """
         if name != "two" and name not in self.actor:
             raise KeyError(f"shot: {name!r} is not a shot (two, {', '.join(self.cast)})")
         s, x, y = self._shot_props(name)
@@ -958,7 +1282,13 @@ class Frame:
                 self.set(el, t, props)
 
     def chalk(self, s, x, y, t, size=72, color=None, w=None, align="center", eid=None):
-        """Chalk writing on the board behind the cast, in board px (the two-shot shows it as placed)."""
+        """Chalk writing on the board behind the cast, in board px (the two-shot shows it as placed).
+
+        Use for: writing on the skit's board behind the cast.
+        Avoid for: anything but a skit.
+        Length: 0.6 s hand wipe.
+        Themes: chalkboard.
+        """
         eid = eid or self.uid("chalk")
         st = (f"position:absolute;left:{x}px;top:{y}px;{f'width:{w}px;' if w else ''}font-family:'{DISPLAY}';"
               f"font-size:{size}px;font-weight:800;color:{color or CREAM};text-align:{align};line-height:1.05;"
@@ -970,6 +1300,9 @@ class Frame:
 
     # ── output ────────────────────────────────────────────────────────────────────────────────
     def write(self, drift=True):
+        if FIELD and not getattr(self, "_field_done", False):  # a theme with a field puts one under every frame
+            self._field_done = True
+            self.field(**(FIELD if isinstance(FIELD, dict) else {"kind": FIELD}))
         if not getattr(self, "_no_chrome", False):  # a skit is the whole picture: no series label
             self.chrome()
         self.card_html = ""
@@ -1019,6 +1352,7 @@ class Frame:
       </div>
       {self.card_html}
       {getattr(self, "_lens", "")}
+      {self._finish_layer()}
     </div>
   </div>
   <script src="assets/gsap.min.js"></script>
@@ -1036,7 +1370,110 @@ class Frame:
         dest = self.project / "compositions" / "frames" / f"{self.id}.html"
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(out)
+        self._write_cues(dest, chrome_ids, substantive)
         return dest
+
+    # ── finishes and fields: what a theme adds over and under the components ──────────────────────
+    def _finish_layer(self):
+        """The theme's finish (theme.json "finish", or video.json "finish"): one CSS/SVG layer over the stage that never
+        changes the layout. Static except flicker, which is on the timeline (seeded), never a CSS animation."""
+        finish = self.video.get("finish") or FINISH
+        if not finish:
+            return ""
+        layers = []
+        for f in ([finish] if isinstance(finish, str) else finish):
+            layers.append(FINISHES[f](self))
+        return "".join(layers)
+
+    def field(self, kind="drift", count=24, color=None, seed=7, size=(2, 6), opacity=0.5):
+        """A seeded layer behind the components: points of light that drift (kind "drift"), gather and glow ("firefly")
+        or lines that flow ("flow"). Deterministic: every position is a tween of t, so any frame renders alone.
+
+        Use for: focus, ambient and motivational pieces under sparse type.
+        Avoid for: anything with detail to read (it competes); more than ~40 points.
+        Length: the whole frame.
+        """
+        import random
+        rnd = random.Random(f"{self.id}-{seed}")
+        color = color or ORANGE
+        fid = self.uid("field")
+        parts = []
+        for i in range(count):
+            x, y = rnd.uniform(0, W), rnd.uniform(0, KEEP_OUT)
+            r = rnd.uniform(*size)
+            dx, dy = rnd.uniform(-80, 80), rnd.uniform(-120, -20)
+            pid = f"{fid}-{i}"
+            if kind == "flow":
+                shape = f'<div id="{pid}" style="position:absolute;left:{x:.0f}px;top:{y:.0f}px;width:{r * 30:.0f}px;height:1px;background:{color};opacity:0;transform:rotate({rnd.uniform(-20, 20):.0f}deg);"></div>'
+            else:
+                glow = f"box-shadow:0 0 {r * 3:.0f}px {color};" if kind == "firefly" else ""
+                shape = f'<div id="{pid}" style="position:absolute;left:{x:.0f}px;top:{y:.0f}px;width:{r:.1f}px;height:{r:.1f}px;border-radius:50%;background:{color};opacity:0;{glow}"></div>'
+            parts.append(shape)
+            peak = round(opacity * rnd.uniform(0.4, 1.0), 2)
+            delay = round(rnd.uniform(0, min(2.0, self.duration / 3)), 2)
+            self.tweens.append(f'tl.fromTo("#{pid}", {{x: 0, y: 0, opacity: 0}}, {{x: {dx:.0f}, y: {dy:.0f}, opacity: {peak}, duration: {round(self.duration - delay, 2)}, ease: "sine.inOut"}}, {delay});')
+        self.html.insert(0, f'<div id="{fid}" data-layout-ignore style="position:absolute;inset:0;pointer-events:none;">{"".join(parts)}</div>')
+        self._labels = getattr(self, "_labels", set()) | {f"#{pid}" for pid in [f"{fid}-{i}" for i in range(count)]}
+        return f"#{fid}"
+
+    def _write_cues(self, dest, chrome_ids, substantive):
+        """<frame>.cues.json beside the frame: every substantive reveal's start and duration on the segment's clock,
+        read from the tweens as they are written (after the stage card's clamp), with the text it shows. The frames
+        reviewer's stills are taken from it (frames/cues.mjs, chalk stills NN --at-cues)."""
+        try:
+            offset = sum(self._storyboard_duration(k) for k in range(1, self.no))
+        except (IndexError, AttributeError, ValueError):
+            offset = 0.0
+        cues = []
+        for tw in self.tweens:
+            if any(c in tw for c in chrome_ids) or not substantive(tw):
+                continue
+            m = re.search(r", ([\d.]+)\);$", tw)
+            head = re.match(r'tl\.(\w+)\("([^"]+)"', tw)
+            if not (m and head):
+                continue
+            d = re.search(r"duration: ([\d.]+)", tw)
+            cues.append({"t": round(offset + float(m.group(1)), 3), "dur": float(d.group(1)) if d else 0.0,
+                         "kind": head.group(1), "sel": head.group(2), "text": self._shown_text(head.group(2))})
+        cues.sort(key=lambda c: c["t"])
+        meta = {"frame": self.id, "no": self.no, "start": round(offset, 3), "end": round(offset + self.duration, 3), "cues": cues}
+        (dest.parent / f"{self.id}.cues.json").write_text(json.dumps(meta, indent=1) + "\n")
+        self._write_texts(dest, offset)
+
+    def _write_texts(self, dest, offset):
+        """<frame>.texts.json: every text with when it is up (from its first tween, or the frame's start when it has
+        none, to its first fade to 0, or the frame's end) on the segment's clock. R6 (evals/shared.mjs) reads it."""
+        end = offset + self.duration
+        rows = []
+        for sel, t in getattr(self, "_texts", {}).items():
+            eid = sel.lstrip("#")
+            mine = [tw for tw in self.tweens if re.search(rf'"[^"]*#{re.escape(eid)}(?![\w-])[^"]*"', tw)]
+            times = [float(m.group(1)) for tw in mine for m in [re.search(r", ([\d.]+)\);$", tw)] if m]
+            start = offset + (min(times) if times else 0.0)
+            hides = [float(m.group(1)) for tw in mine if re.search(r"opacity:\s*0(?:\.0+)?\s*[,}]", tw.split("}, {")[-1] if "fromTo" in tw else tw)
+                     for m in [re.search(r", ([\d.]+)\);$", tw)] if m and offset + float(m.group(1)) > start]
+            stop = offset + min(hides) if hides else end
+            rows.append({"id": eid, "text": t["text"][:200], "size": t["size"], "from": round(start, 3), "to": round(min(stop, end), 3),
+                         "pass": not t["timed"]})
+        (dest.parent / f"{self.id}.texts.json").write_text(json.dumps({"frame": self.id, "start": round(offset, 3), "end": round(end, 3),
+                                                                       "texts": rows}, indent=1) + "\n")
+
+    def _shown_text(self, sel):
+        """The visible text of the elements a selector names, from this frame's markup (ids only; else "")."""
+        out = []
+        for part in sel.split(","):
+            m = re.match(r"\s*#([\w-]+)", part)
+            if not m:
+                continue
+            for h in self.html + getattr(self, "_board_html", []):
+                k = h.find(f'id="{m.group(1)}"')
+                if k < 0:
+                    continue
+                start = h.rfind("<", 0, k)
+                txt = re.sub(r"<[^>]+>", " ", h[start:])
+                out.append(re.sub(r"\s+", " ", html_unescape(txt)).strip()[:120])
+                break
+        return " / ".join(t for t in out if t)
 
 
 _CHAPTERS = {}

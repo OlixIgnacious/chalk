@@ -1,0 +1,16 @@
+{
+  "title": "Queue or stack?",
+  "pack": "skit",
+  "thesis": "A queue is first come first served.",
+  "cast": {
+    "penguin": {
+      "voice": "am_puck"
+    }
+  },
+  "segments": [
+    {
+      "id": "00",
+      "title": "Queue or stack"
+    }
+  ]
+}

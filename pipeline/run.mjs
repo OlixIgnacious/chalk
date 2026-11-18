@@ -1,8 +1,8 @@
 // run.mjs — the resumable build: run every stage whose inputs changed, stop where a person or an agent
 // has to write or approve something, and say exactly what.
 //
-//   chalk pipeline <out> [--doc <source>] [--format youtube] [--only 03,07] [--from <stage>] [--jobs 3] [--notebook]
-//   chalk pipeline approve <out> --scripts | --watched
+//   chalk pipeline <out> [--doc <source> [--kind document|script] | --topic "…"] [--format long|lesson|short] [--only 03,07] [--from <stage>] [--jobs 3] [--notebook]
+//   chalk pipeline approve <out> --research | --scripts | --watched
 //   chalk pipeline adopt <out>          record a build made by hand as up to date (nothing is run)
 //   chalk status <out>                  what is done, stale or waiting, and why
 //
@@ -17,6 +17,10 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, realpathSync, renameSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { FORMATS } from "./stages.mjs";
+import { shapeOf, detectShape } from "../formats/index.mjs";
+
+/** A format's stage list name: "youtube" is "long"; any other name (a test's own) is itself. */
+const fmt = (f) => shapeOf(f ?? "long") ?? f;
 
 const SKIP_DIRS = new Set(["node_modules", "__pycache__", ".git", "renders", "assets"]);
 
@@ -145,7 +149,11 @@ export function context(out, opts = {}) {
   return {
     out,
     state,
-    doc: opts.doc ? resolve(opts.doc) : state.opts.doc,
+    // a research build has no document when it starts: its approved brief is the document it ingests
+    doc: opts.doc ? resolve(opts.doc) : state.opts.doc ??
+      ((opts.topic ?? state.opts.topic) && state.approvals["research-approved"] && existsSync(join(out, "research.md")) ? join(out, "research.md") : undefined),
+    topic: opts.topic ?? state.opts.topic,
+    kind: opts.kind ?? state.opts.kind ?? ((opts.topic ?? state.opts.topic) ? "research" : undefined),
     notebook: opts.notebook ?? state.opts.notebook ?? false,
     channelPath,
     channel: channelPath && existsSync(channelPath) ? JSON.parse(readFileSync(channelPath, "utf8")) : null,
@@ -171,6 +179,8 @@ const inputHash = (o, stage, nn) => {
 
 /** One stage (for one segment) → { status: done|stale|todo|waiting, why }. Pure: reads files and state. */
 export function check(o, stage, nn) {
+  // a stage this build has no use for (research, when the source is a document) is done by not applying
+  if (stage.skip?.(o)) return { status: "done" };
   if (stage.gate) return stage.gate(o, nn);
   const outs = stage.outputs ? stage.outputs(o, nn) : [];
   const missing = outs.filter((p) => !existsSync(abs(o, p)));
@@ -200,8 +210,8 @@ export function check(o, stage, nn) {
 }
 
 /** The whole build in order: one row per stage, with a cell per segment for per-segment stages. */
-export function plan(o, format = "youtube", { only } = {}) {
-  const stages = FORMATS[format];
+export function plan(o, format = "long", { only } = {}) {
+  const stages = FORMATS[fmt(format)];
   const rows = [];
   // The first stage not done blocks what follows it: a whole-video stage blocks everything after it, a
   // segment's stage blocks that segment's later stages and every whole-video stage. A stage that looks
@@ -265,12 +275,13 @@ async function pool(items, n, fn) {
 /** Run every stage that is not done, in order, until one waits or fails. */
 export async function run(out, opts = {}) {
   out = real(out);
-  const format = opts.format ?? "youtube";
+  const format = fmt(opts.format);
   const stages = FORMATS[format];
   if (!stages) throw new Error(`unknown format "${format}"`);
   const state = readState(out);
   state.opts = { ...state.opts, format, ...(opts.doc ? { doc: resolve(opts.doc) } : {}), ...(opts.notebook ? { notebook: true } : {}),
-    ...(opts.channel ? { channel: resolve(opts.channel) } : {}) };
+    ...(opts.channel ? { channel: resolve(opts.channel) } : {}), ...(opts.topic ? { topic: opts.topic } : {}),
+    ...(opts.kind ? { kind: opts.kind } : {}) };
   if (opts.from) {
     const i = stages.findIndex((s) => s.name === opts.from);
     if (i < 0) throw new Error(`no stage "${opts.from}" (${stages.map((s) => s.name).join(", ")})`);
@@ -337,11 +348,13 @@ export function adopt(out, opts = {}) {
   const o = context(out, opts);
   const state = o.state;
   let n = 0;
-  for (const stage of FORMATS[opts.format ?? "youtube"]) {
+  for (const stage of FORMATS[fmt(opts.format)]) {
     if (stage.kind !== "run") continue;
+    // opts.stages: adopt only these (a recut adopts its reused narration and nothing it has not checked)
+    if (opts.stages && !opts.stages.includes(stage.name)) continue;
     for (const nn of stage.per === "segment" ? o.segments : [null]) {
       const outs = stage.outputs(o, nn);
-      if (!stage.cmd(o, nn) || (outs.length && outs.some((p) => !existsSync(abs(o, p))))) continue;
+      if ((!stage.cmd(o, nn) && !opts.stages) || (outs.length && outs.some((p) => !existsSync(abs(o, p))))) continue;
       if (!outs.length && stage.name !== "text-gates") continue;
       // an output older than an input it is built from was not built from these inputs: leave it stale
       if (outs.length && olderThanInputs(o, stage, nn, outs)) continue;
@@ -356,7 +369,7 @@ export function adopt(out, opts = {}) {
 export function approve(out, name, opts = {}) {
   out = real(out);
   const o = context(out, opts);
-  const stage = FORMATS[opts.format ?? "youtube"].find((s) => s.kind === "approve" && s.name.startsWith(name));
+  const stage = FORMATS[fmt(opts.format)].find((s) => s.kind === "approve" && s.name.startsWith(name));
   if (!stage) throw new Error(`nothing to approve called "${name}"`);
   o.state.approvals[stage.name] = inputHash(o, stage, null);
   writeState(out, o.state);
@@ -391,7 +404,7 @@ export function status(out, opts = {}) {
 export function statusJson(out, opts = {}) {
   out = real(out);
   const o = context(out, opts);
-  const format = opts.format ?? "youtube";
+  const format = fmt(opts.format);
   return {
     out,
     format,
@@ -412,7 +425,7 @@ export function statusJson(out, opts = {}) {
 
 export async function main(argv) {
   const val = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
-  const VALUED = ["--doc", "--format", "--only", "--from", "--jobs", "--channel"];
+  const VALUED = ["--doc", "--format", "--only", "--from", "--jobs", "--channel", "--topic", "--kind"];
   const pos = argv.filter((a, i) => !a.startsWith("--") && !VALUED.includes(argv[i - 1]));
   const opts = {
     doc: val("doc"),
@@ -421,19 +434,22 @@ export async function main(argv) {
     from: val("from"),
     jobs: val("jobs") ? Number(val("jobs")) : undefined,
     channel: val("channel"),
+    topic: val("topic"),
+    kind: val("kind"),
     notebook: argv.includes("--notebook") || undefined,
   };
   const [sub, out] = pos[0] === "approve" || pos[0] === "adopt" || pos[0] === "status" ? pos : [null, pos[0]];
   // the format given, else the one this dir was built as, else a lesson if it has a lesson.json
-  opts.format ??= (out && readState(real(out)).opts.format) ??
-    (out && existsSync(join(out, "short.json")) ? "short" : out && existsSync(join(out, "lesson.json")) ? "lesson" : "youtube");
+  // a build recorded as "youtube" is the long shape under its old name
+  opts.format ??= (out && readState(real(out)).opts.format) ?? detectShape(out);
+  opts.format = fmt(opts.format);
   if (!FORMATS[opts.format]) {
     console.error(`chalk pipeline: format "${opts.format}" has no pipeline yet (${Object.keys(FORMATS).join(", ")})`);
     return 2;
   }
   if (!out) {
     console.error("usage: chalk pipeline <out> [--doc <source>] [--only NN,..] [--from <stage>] [--jobs 3] [--notebook]\n" +
-      "       chalk pipeline approve <out> --scripts|--watched\n       chalk pipeline adopt <out>\n       chalk status <out>");
+      "       chalk pipeline approve <out> --research|--scripts|--watched\n       chalk pipeline adopt <out>\n       chalk status <out>");
     return 2;
   }
   if (!existsSync(out)) mkdirSync(out, { recursive: true });
@@ -452,9 +468,9 @@ export async function main(argv) {
       console.error("chalk pipeline approve: approvals are the person's — this process may not approve");
       return 2;
     }
-    const what = argv.includes("--scripts") ? "scripts" : argv.includes("--watched") ? "watched" : null;
+    const what = argv.includes("--scripts") ? "scripts" : argv.includes("--watched") ? "watched" : argv.includes("--research") ? "research-approved" : null;
     if (!what) {
-      console.error("chalk pipeline approve: say what — --scripts or --watched");
+      console.error("chalk pipeline approve: say what — --research, --scripts or --watched");
       return 2;
     }
     console.log(`approved: ${approve(out, what, opts)}`);

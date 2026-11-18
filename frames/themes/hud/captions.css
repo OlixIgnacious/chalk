@@ -1,0 +1,7 @@
+  /* theme: hud — Inter words, the word being said in the accent */
+  @font-face { font-family: 'Inter'; font-weight: 800; src: url('assets/fonts/inter-latin-800-normal.woff2') format('woff2'); }
+  .caption-pill { background: transparent !important; border: 0 !important; padding: 0 !important; max-width: 88% !important; }
+  .caption-line { font-family: 'Inter', system-ui, sans-serif !important; font-weight: 800 !important; font-size: 64px !important; line-height: 1.1 !important; }
+  .caption-word { color: #E3FAFF !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-active { color: #3FE0FF !important; background: transparent !important; box-shadow: none !important; }
+  .caption-word.is-spoken { color: #E3FAFF !important; }

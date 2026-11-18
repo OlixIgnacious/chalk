@@ -27,7 +27,7 @@ changing the length.
 `--lexicon` respells every lexicon term written in its display form ("dict", "SQL") to its `spoken` form
 before synthesis, so the script can say "dict" and the voice still gets it right. Without it the spoken
 layer goes to TTS as written. There is no default voice worth trusting: the skill records the chosen one
-(chalk-youtube reads it from the channel's `channel.json`).
+(chalk-long and chalk-short read it from the channel's `channel.json`).
 
 It writes `assets/voice/NN.wav`, transcribes each take (Parakeet if installed), and writes `audio_meta.json`
 and `audio_engine_meta.json` in the shape `audio.mjs` writes, so `sync-durations` and everything after run

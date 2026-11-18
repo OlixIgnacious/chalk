@@ -1,0 +1,32 @@
+{
+  "name": "dusk",
+  "for": [
+    "focus"
+  ],
+  "palette": {
+    "ink": "#1B1424",
+    "ink_alt": "#2A1B3D",
+    "orange": "#FFB677",
+    "cream": "#FFF3E6",
+    "muted": "#D9B8C4",
+    "hint": "#6E4A63",
+    "border": "#4A3350"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(255,182,119,0.18)",
+  "reveal": "fade",
+  "finish": "vignette",
+  "captions": "captions.css",
+  "ground": "linear-gradient(180deg, #2A1B3D 0%, #5B2E48 58%, #C8704D 100%)",
+  "field": {
+    "kind": "drift",
+    "count": 18,
+    "color": "#FFD9A8",
+    "size": [
+      2,
+      5
+    ],
+    "opacity": 0.45
+  }
+}

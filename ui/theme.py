@@ -39,8 +39,8 @@ PHASE_STYLE = {  # run phase → (label, status key)
 
 # The README's three phases. Every stage of every format belongs to exactly one.
 PHASES = [
-    ("Plan", ["ingest", "source-check", "outline", "syllabus", "scripts", "text-gates", "grounding", "learner-scripts", "scripts-approved"]),
-    ("Build", ["narrate", "align", "pipeline-debt", "frame-spec", "grounding-frames", "frames", "render", "lesson-page", "deliver"]),
+    ("Plan", ["research", "research-approved", "ingest", "source-check", "outline", "syllabus", "scripts", "text-gates", "grounding", "learner-scripts", "scripts-approved"]),
+    ("Build", ["narrate", "align", "pipeline-debt", "frame-spec", "grounding-frames", "frames", "frames-review", "render", "lesson-page", "deliver"]),
     ("Check", ["eval", "learner", "notebook-review", "review", "resolve", "watched"]),
 ]
 

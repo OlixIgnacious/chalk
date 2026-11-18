@@ -18,8 +18,13 @@ draw what the scene needs, say so in your reply rather than working around it.
 - `segments/NN/video/audio_meta.json` — the words with their times. Every reveal is cued on a phrase that is
   in that scene's narration (`F.cue("empty set")`); a phrase that is not there stops the build and prints
   the words it has. A phrase that also appears earlier in the scene needs `nth=2`.
-- The chalk repo's `frames/framelib.py` docstring and `frames/README.md` — the components, and
-  `core/references/visual-registry.md` — which visual draws which idea.
+- The chalk repo's `frames/COMPONENTS.md` — every component with what it is for, what to **avoid** it for and
+  how long its reveal takes. Read a component's row before you use it; when its "Avoid for" matches your scene,
+  take what it names instead. Then `frames/LESSONS.md` — defects seen in real builds, how each showed in a still
+  and the fix — and `core/references/visual-registry.md` — which visual draws which idea.
+- The theme's `THEME.md` (`npx chalk themes --show <theme>`; the theme is the manifest's `theme`, else
+  `channel.json`'s): its type sizes, motion rules and **Pitfalls**. The frames reviewer checks your stills
+  against those pitfalls before the render.
 - One or two finished specs in the same output dir (`frames/s*.py`), to match the video's look.
 
 ## Rules
@@ -63,3 +68,22 @@ draw what the scene needs, say so in your reply rather than working around it.
    spoken.
 3. Reply with the spec path, one line per scene saying what it shows, and any scene the library could not
    draw as asked.
+
+## Quotations on screen
+
+A quotation is drawn only with its attribution beside or under it, in the same frame, exactly as the script's
+`display:` line gives both. Never draw the words without the name or the name without the words; eval G8 checks
+that its block is supported in `facts.md`.
+
+## Recut mode
+
+When `short.json` has a `recut` (`chalk recut` made this Short from a long video's part), the narration and its
+timings are the long part's, unchanged: draw the same scenes in portrait with **the same cues and the same text**.
+
+- Stack what sat side by side; a row of cells becomes a column or a shorter row, a panel moves under its title.
+- Shorten a line rather than shrink its type: 56 px or more for the idea, 32 px or more for code.
+- Keep every element in the safe box (`frames/safe.json` `content`, which S4 checks).
+- The last frame's end hold (`short.json` `recut.hold`, 3 s) draws the pointer to the full video, from
+  `short.json` `full_video.title`: "Full video: <title>". It is drawn, never spoken; cite nothing for it.
+- `COMPONENTS.md` says which components reflow in portrait and which need a different pick.
+

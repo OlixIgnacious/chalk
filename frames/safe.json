@@ -1,0 +1,22 @@
+{
+  "_about": "Where a portrait (1080x1920) Short may put content so every platform's own buttons, title and caption overlay leave it visible. The per-platform clear bands are HyperFrames' (core safeAreas, as `hyperframes check` uses them, Apache-2.0), scaled to 1080x1920; `content` is their intersection. framelib draws its stage down to stage_bottom (the burned-in captions sit under it); the Short criteria (S4) hold every content element inside `content`. Each band is [top, bottom, left, right].",
+  "checked": "2026-11-18",
+  "source": "hyperframes 0.9.63 core/dist/safeAreas.js",
+  "portrait": {
+    "width": 1080,
+    "height": 1920,
+    "stage_bottom": 1320,
+    "captions_top": 1350,
+    "platforms": {
+      "tiktok": [[240, 840, 120, 960], [840, 1260, 120, 780]],
+      "reels": [[269, 1248, 65, 1015]],
+      "shorts": [[288, 1248, 48, 888]]
+    },
+    "content": [[288, 840, 120, 888], [840, 1248, 120, 780]]
+  },
+  "landscape": {
+    "width": 1920,
+    "height": 1080,
+    "stage_bottom": 900
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "crt",
+  "for": [
+    "explaining",
+    "news"
+  ],
+  "palette": {
+    "ink": "#050805",
+    "ink_alt": "#0B120B",
+    "orange": "#B7FFC0",
+    "cream": "#33FF66",
+    "muted": "#1FB04A",
+    "hint": "#145A26",
+    "border": "#0F3A1A"
+  },
+  "display": "VT323",
+  "gradient": null,
+  "mark_fill": "rgba(183,255,192,0.18)",
+  "reveal": "typed",
+  "finish": "scanlines",
+  "captions": "captions.css"
+}

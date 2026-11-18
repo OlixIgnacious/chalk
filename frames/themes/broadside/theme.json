@@ -1,0 +1,21 @@
+{
+  "name": "broadside",
+  "for": [
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#111111",
+    "ink_alt": "#1A1A18",
+    "orange": "#E85D26",
+    "cream": "#F0ECE5",
+    "muted": "#888880",
+    "hint": "#505048",
+    "border": "#282826"
+  },
+  "display": "Barlow",
+  "gradient": null,
+  "mark_fill": "rgba(232,93,38,0.18)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

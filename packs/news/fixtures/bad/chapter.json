@@ -1,0 +1,29 @@
+{
+  "title": "Library opens late",
+  "source": "fixture",
+  "lang": "en",
+  "quality": "clean",
+  "has_code": false,
+  "blocks": [
+    {
+      "id": "h001",
+      "kind": "heading",
+      "text": "Library opens late"
+    },
+    {
+      "id": "p002",
+      "kind": "para",
+      "text": "The city library will stay open until 10 pm on weekdays from December 1, the city council announced on November 17, 2026."
+    },
+    {
+      "id": "p003",
+      "kind": "para",
+      "text": "According to the council's statement, the change follows a survey in which 1,200 residents asked for evening hours."
+    },
+    {
+      "id": "p004",
+      "kind": "para",
+      "text": "The library director said the extra hours will be staffed by four new hires."
+    }
+  ]
+}

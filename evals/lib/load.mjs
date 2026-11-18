@@ -12,7 +12,7 @@ const unquote = (s) => s.trim().replace(/^"|"$/g, "");
 
 /**
  * A segment's script.md → { title, scenes }. Scene fields: visual, tier, duration, example, computedBy,
- * onScreen, stage, code, codeDepth, trace, skips. Entry fields: spoken, display, source[], lines[].
+ * onScreen, stage, code, codeDepth, trace, skips. Entry fields: spoken, display, source[], lines[], speaker (a skit's).
  */
 export function parseScript(md) {
   const title = md.match(/^#\s+\d+\s+[—-]\s+(.+)$/m)?.[1]?.trim() ?? "";
@@ -37,7 +37,7 @@ export function parseScript(md) {
       if (key === "visual") cur.tier = Number(kv[2].match(/\(tier\s*(\d)\)/i)?.[1] ?? NaN);
       continue;
     }
-    const f = line.match(/^\s*(-\s*)?(spoken|display|source|lines):\s*(.*)$/i);
+    const f = line.match(/^\s*(-\s*)?(spoken|display|source|lines|speaker):\s*(.*)$/i);
     if (!f) continue;
     if (f[1]) {
       entry = { spoken: "", display: "", source: [], lines: [], line: lineNo };
@@ -49,7 +49,8 @@ export function parseScript(md) {
     if (name === "source" || name === "lines") {
       const items = v.replace(/[[\]]/g, "").split(",").map((s) => s.trim()).filter(Boolean);
       entry[name] = name === "lines" ? items.flatMap(expandRange) : items;
-    } else entry[name] = unquote(v);
+    } else if (name === "speaker") entry.speaker = unquote(v).toLowerCase();
+    else entry[name] = unquote(v);
   }
   for (const s of scenes) s.visualName = (s.visual ?? "").replace(/\(tier.*$/i, "").trim().toLowerCase();
   return { title, scenes };
@@ -145,6 +146,10 @@ export function load(outDir, { channelPath } = {}) {
       script: md ? parseScript(md) : null,
       frames,
       audioMeta: readJson(join(project, "audio_meta.json")),
+      // framelib's <frame>.texts.json: every text on screen and when it is up (R6)
+      texts: existsSync(framesDir)
+        ? readdirSync(framesDir).filter((f) => f.endsWith(".texts.json")).sort().map((f) => readJson(join(framesDir, f)))
+        : [],
       // narration of words the script no longer has measures a script that is not there (the pipeline's text gates
       // run before an edited part is voiced again): timing criteria skip such a part. Judged by the words voiced
       // (video/SCRIPT.md, written at narration) against the script's spoken lines, so a citation-only edit to
@@ -180,7 +185,8 @@ export function load(outDir, { channelPath } = {}) {
       chapters: readText(join(dir, "chapters.txt")),
       notebook: readJson(join(dir, "notebook.ipynb")),
       facts: readText(join(dir, "facts.md")),
-      video: existsSync(join(dir, "video.mp4")) ? join(dir, "video.mp4") : existsSync(join(dir, "short.mp4")) ? join(dir, "short.mp4") : null,
+      // the delivered file, whatever the shape: a long video, a Short, or a lesson's lesson.mp4 (V4 measures it)
+      video: ["video.mp4", "short.mp4", "lesson.mp4"].map((f) => join(dir, f)).find(existsSync) ?? null,
     },
   };
 }

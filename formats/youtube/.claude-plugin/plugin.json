@@ -1,6 +1,0 @@
-{
-  "name": "chalk-youtube",
-  "description": "Turn a book or chapter into one chaptered YouTube video with an upload kit — captions, chapter timestamps, description, thumbnail — plus worked examples and a hands-on Jupyter notebook for coding topics. Every claim is traceable to the source text.",
-  "version": "0.1.0",
-  "license": "Apache-2.0"
-}

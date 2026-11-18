@@ -110,7 +110,7 @@ def _last_session(turns: list[dict], fallback: str | None) -> str | None:
 def assistant_prompt(out: Path, cfg: dict) -> str:
     """What the assistant knows before the first question: where things are and where the build stands."""
     try:
-        st = api.status(out, cfg.get("format", "youtube"))
+        st = api.status(out, api.shape(cfg.get("format", "long")))
         board = "\n".join(
             f"- {s['name']} ({s['kind']}): " + ", ".join(f"{c['nn'] + ' ' if c['nn'] else ''}{c['status']}"
                                                          f"{' — ' + c['why'] if c.get('why') else ''}" for c in s["cells"])

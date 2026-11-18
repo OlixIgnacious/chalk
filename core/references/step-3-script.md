@@ -95,6 +95,20 @@ source's code and prints each call's output (framelib `code_run`). A short `[pip
 to run the same cell in the notebook ("Open the notebook in the description and run this with me"); the
 notebook's example cells use exactly the calls the video runs, so the viewer sees the same output.
 
+## Quotations
+
+A quotation is someone's words, and misattributed quotes are the commonest fabrication in motivational and
+popular writing. So a quotation (in quote marks, four words or more, or any length with a name) reaches the
+narration or the screen only:
+
+- **with its attribution in the same line** ("Franklin wrote: …", "… — Seneca"), never as a free-floating
+  saying with a famous name nearby;
+- **when `facts.md` marks its block `supported`**: the primary text, or two independent sources that agree on the
+  words and the person. Eval G8 fails a quotation shown or spoken whose block is not supported.
+
+When it is not supported, change it at the scripts gate: drop the quotation, or drop the name and say it as a
+saying ("as the saying goes"), or paraphrase what the source does say. Never keep the name and the words both.
+
 ## Lexicon
 
 Maintain `<output-dir>/lexicon.json` — a file of the shape `{ "terms": [ … ] }` (a bare array is refused),

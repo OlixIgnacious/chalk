@@ -1,21 +1,30 @@
 ---
 name: chalk-short
-description: Turn one idea from a chapter into a vertical 1080x1920 video for YouTube Shorts and Instagram Reels — 30 to 60 seconds, captions burned in, every line grounded in the source, pointing to the full walkthrough. Use when someone says "/chalk-short", "make a Short", "make a Reel", or wants a vertical clip of a video's idea.
+description: Turn one idea from a checked source into a vertical 1080x1920 video for Shorts, Reels and TikTok — 30 to 60 seconds, captions burned in, every line grounded in the source. Any genre the channel makes: a coding idea, a motivational line, a news item, a skit. Use when someone says "/chalk-short", "make a Short", "make a Reel", or wants a vertical clip of a video's idea.
 ---
 
 # /chalk-short
 
 `/chalk-short` makes one Short from a chapter chalk has already ingested: one idea, said in 30–60 seconds,
-in portrait. It is a chalk format like `youtube` and `lesson`: the same grounding, voice, aligner, frames
-and render, with its own manifest (`short.json`), deliver, eval pack (S1–S6) and pipeline.
+in portrait. It is a chalk shape like `long` and `lesson`: the same grounding, source check, voice, aligner,
+frames and render, with its own manifest (`short.json`), deliver, criteria (S1–S6) and pipeline.
 
-The channel's rules still hold: the source is the truth, code is verbatim, numbers come from running code,
-nothing names the book. Read the workspace `CLAUDE.md` and `channel.json` first.
+The channel's rules still hold: the source is the truth and has been fact-checked, code is verbatim, numbers
+come from running code, nothing names the book. Read the workspace `CLAUDE.md` and `channel.json` first.
+
+**The genre is a pack.** `short.json` `pack` (or `channel.json` `pack`, e.g. `{ "short": "news" }`) names it:
+`essay` (a motivational or focus line), `news` (a dated, attributed news item), `skit` (two voices on the
+stage), or none for a coding Short, which follows this file alone. `npx chalk pack <out>` prints it and the
+directory of its references: read that pack's `rules.md` before writing `short.json`, and its
+`step-3-script.md` before the script. The eval scores the pack's criteria with S1–S6.
 
 ## What a Short is
 
 - **One idea.** Not a cut of a chapter: the hook and payoff of the pattern, one bug, or the interview answer.
   At most three scenes. If it needs "and", it is two Shorts.
+- **The hook is the first line** (eval S7): at most 12 words, its first sentence over by 3 s, and never a
+  weak opener ("so", "today", "in this video", "have you ever", "this is", a greeting). Give each Short of a
+  week a different opening shape: a question, a number from the example, a claim, a contradiction.
 - **The payoff first.** The first sentence is the question or the surprise ("Does any number show up twice?
   Brute force checks every pair."). The voice starts at once and the picture is up within 2 seconds.
 - **30–60 seconds.** Shorts and Reels allow 3 minutes; past a minute, viewers leave. Eval S2 fails outside
@@ -24,6 +33,13 @@ nothing names the book. Read the workspace `CLAUDE.md` and `channel.json` first.
   picture carries the idea without the voice.
 - **Ends on the way to more.** The last line, cited `[pipeline]`, points to the full walkthrough
   ("The full walkthrough is on the channel."). `short.json` names that video for the description.
+
+## From a long video
+
+Start from `npx chalk shorts-plan <long-out>`: every part of 15–57 s whose first line already passes the hook
+check can be recut with its narration unchanged (`npx chalk recut <long-out> NN`, which writes `short.json` with
+`recut` and adopts the narration). The rest are listed with what to rewrite from; write those as new Shorts here,
+each with a different opening shape, so a week of them does not read as one template.
 
 ## Where it lives
 
@@ -71,9 +87,10 @@ No pause markers: a Short has no room to breathe out loud.
 `frames/s00.py` uses `framelib` exactly as a video part does; `short.json` switches it to portrait. The
 screen is 1080 wide:
 
-- content between x=150 and x=930, and between y=320 and y=1300: use the height, don't stack everything at the
-  top (the series label sits at 230; the burned-in captions at 1350-1550; below ~1536 and along the right edge
-  the platform draws its own title and buttons — eval S4 fails anything drawn under y=1320);
+- content in the box every platform leaves clear (`frames/safe.json`, from HyperFrames' TikTok, Reels and Shorts
+  safe areas): **y 288–1248; x 120–888 above y=840, x 120–780 below it**, where TikTok's buttons run down the
+  right. Use the height, don't stack everything at the top. The series label sits at 230 and the burned-in
+  captions at 1350–1550, outside the box by design. Eval S4 fails anything drawn outside it, on any edge;
 - leave air at the sides: big words fit the 780 px column, never kiss the edges;
 - type large: headlines 72–96 px, the idea in 56 px or more, code at 32 px or more;
 - code: show the lines that teach with `only=[…]` (the body of a function fits; its commented signature does

@@ -1,0 +1,21 @@
+{
+  "name": "midnight",
+  "for": [
+    "news"
+  ],
+  "palette": {
+    "ink": "#0A1024",
+    "ink_alt": "#121B36",
+    "orange": "#22D3EE",
+    "cream": "#EEF2FF",
+    "muted": "#8B95B5",
+    "hint": "#4A5578",
+    "border": "#1F2A4A"
+  },
+  "display": "Inter",
+  "gradient": "linear-gradient(90deg, #22D3EE 0%, #818CF8 55%, #C084FC 100%)",
+  "mark_fill": "rgba(34,211,238,0.18)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

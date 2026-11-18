@@ -2,6 +2,78 @@
 
 Earlier history is in `git log`. This file starts at 0.8.0.
 
+## 0.9.0 — 2026-11-18: any genre, any length, published anywhere, checked at the source
+
+chalk began as certification prep from textbook chapters. It now makes a video of any kind for any channel
+(coding lessons, focus and motivational pieces, news, skits), long or short, and publishes it anywhere, without
+loosening what it exists for: every line is grounded in a cited source, and the source itself is checked.
+The plan and its reasons are in `docs/anywhere-plan.md`.
+
+### Checked at the source
+
+- **The source check** (`facts.md`, the chalk-factcheck agent, `chalk-core facts`): once per version of the source
+  (a hash of the blocks' text), every block with a number, a superlative or a quotation gets a verdict and its
+  evidence; a contradicted claim stops the build until the source is fixed or the person waives it in
+  `facts-accepted.md`. G7 and G8 in the eval. A quotation needs the primary text or two independent sources.
+- **Three kinds of source**: a document, the person's own script (`--kind script`), or a topic with no document
+  (`--topic "…"`): the chalk-research agent writes `research.md`, a reference per paragraph, and the person approves
+  it before anything is outlined. A paragraph's `[ref: url | retrieved date | "quote"]` comes off its text onto the
+  block; deliver lists the references in `plan.md` and the description.
+- **The network is per agent**: only chalk-factcheck and chalk-research (`network: true`) reach the web.
+
+### Shape × pack
+
+- `formats/youtube` is now **`formats/long`**, `/chalk-youtube` is **`/chalk-long`** (the old name still works),
+  `--format youtube` is read as `long`, and new output goes to `long-output/`.
+- A **pack** (`packs/<name>/`) holds a genre's rules: its criteria and the outline and script references.
+  `coding-lesson` is what the long video always was (O1–O6, T1–T10, B1); new: `essay` (Y1–Y5), `news` (W1–W5),
+  `skit` (K1–K3). `channel.json` or the manifest names it; `chalk pack <out>` says which.
+
+### Every build better
+
+- **Frames reviewer** (A1): `chalk stills NN --at-cues` renders three stills per reveal from the frames build;
+  the chalk-frames-reviewer agent writes `frames-review.md`; a `FIXES` verdict holds the render.
+- **R6**: every timed text is up long enough to read (framelib writes `texts.json`).
+- **Loudness** (A5, V4): every deliver masters to −14 LUFS, −1 dBTP in two passes (`chalk-core loudness`).
+- **`frames/COMPONENTS.md`** (A3), generated from framelib's docstrings, and **`frames/LESSONS.md`** (A4), the
+  defects seen in real builds; the resolver turns a defect class into a pipeline item.
+
+### Published anywhere
+
+- Deliver writes a neutral **`kit.json`**; `description.txt` is its YouTube shaping, byte for byte as before.
+- **`chalk publish <out> --to youtube,instagram,facebook,tiktok,linkedin,x,kit`**, a per-platform record in
+  `published.json`, the **P criteria** (P1–P6, `--plan`), `publish/platforms.json` for the limits, and a `kit`
+  destination that writes a folder per platform for posting by hand. Nothing goes public at once unless the person
+  says `--public-now`. The API destinations other than YouTube are checked offline against their documented request
+  shapes and have **not** been run against the live APIs.
+- **The Short's safe box** is measured from HyperFrames' TikTok, Reels and Shorts safe areas (`frames/safe.json`);
+  S4 checks every edge; **S7** checks the hook.
+
+### Themes
+
+Twenty-two themes, each a folder (`theme.json`, `THEME.md`, `captions.css`, `poster.png`), chosen by the channel or
+the video, never the repo; your own in `~/.config/chalk/themes/`. framelib gains reveal styles (draw-on, typed,
+beam, step, fade), finishes (grain, paper, scanlines, halftone, vignette, riso, dither, flicker, glow, grid) and
+fields (drift, firefly, flow); `chalk assets` stages Caveat, VT323 and Press Start 2P. `chalk themes`.
+Not built: spreadsheet, transit, sketchnote, pictogram, comic and silhouette, which each need components first.
+
+### One chapter, many outputs
+
+`chalk shorts-plan <long-out>` lists the parts that could be Shorts; `chalk recut <long-out> NN` makes one with its
+narration unchanged.
+
+### Upgrading a finished build
+
+- **Deliver and eval run again** once: their inputs now include the moved paths, the pack and the loudness master.
+  The video is re-mastered to −14 LUFS; the picture is copied.
+- **Frames show stale** (framelib changed); a rebuild gives the same frames unless the build names a new theme.
+- **New stages do not hold builds in flight**: the source check and the frames reviewer report done for a build
+  ingested before they landed, or already watched. Writing a `facts.md` or a `frames-review.md` opts one in.
+- **New eval failures**: R6 and V4 on rebuilt or re-delivered parts; S4 and S7 on Shorts (the box is now measured;
+  older Shorts drew to x=930 and y=1300). Fix or accept each.
+- **`channel.json`**: `destinations.youtube` replaces the top-level `youtube` block, which is still read; `theme`
+  and `pack` may now be set per channel.
+
 ## 0.8.0 — 2026-11-15: the lessons of DSA Patterns #3–#5, made into guards
 
 ### What the last three builds taught

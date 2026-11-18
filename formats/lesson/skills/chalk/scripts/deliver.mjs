@@ -18,6 +18,7 @@ import { join, dirname, resolve, basename } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
 import { fileURLToPath } from "node:url";
+import { master } from "chalk-core/scripts/loudness.mjs";
 
 /** This repo's core, called directly so it resolves wherever the output dir sits. */
 const CORE = fileURLToPath(new URL("../../../../../core/bin/chalk-core.mjs", import.meta.url));
@@ -284,11 +285,14 @@ if (!dryRun) {
   writeFileSync(listFile, mp4s.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join("\n") + "\n");
 
   const args = ["-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listFile];
+  const joined = join(outDir, "work", "lesson.concat.mp4");
   run("ffmpeg", uniform
-    ? [...args, "-c", "copy", "-movflags", "+faststart", lessonMp4]
-    : [...args, "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-       "-c:a", "aac", "-movflags", "+faststart", lessonMp4]);
-  console.log(`deliver: lesson.mp4 ${uniform ? "concatenated without re-encoding" : "re-encoded (segments differ)"}`);
+    ? [...args, "-c", "copy", joined]
+    : [...args, "-c:v", "libx264", "-crf", "18", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", joined]);
+  // one loudness for every delivered file (core/scripts/loudness.mjs)
+  master(joined, lessonMp4);
+  rmSync(joined);
+  console.log(`deliver: lesson.mp4 ${uniform ? "concatenated without re-encoding the picture" : "re-encoded (segments differ)"}, mastered to −14 LUFS`);
 }
 
 // The written companion, and the grounding gate that goes with it.

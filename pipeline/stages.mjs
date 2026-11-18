@@ -1,4 +1,4 @@
-// stages.mjs — the YouTube build as a list of stages, each with what it reads, what it writes and how
+// stages.mjs — each shape's build (long, lesson, short) as a list of stages, each with what it reads, what it writes and how
 // it runs. The runner (run.mjs) hashes `inputs`, compares them with the last run, and reruns a stage only
 // when they changed or its `outputs` are missing.
 //
@@ -15,8 +15,23 @@ import { join } from "node:path";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { openDebt } from "./debt.mjs";
 import { checkFacts } from "../core/scripts/facts.mjs";
+import { packOf, manifestOf } from "../formats/index.mjs";
+import { PACKS } from "../packs/index.mjs";
 
 export const REPO = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+/** Words the viewer must never hear: the pack's (a coding lesson never names the book), a Short's (S5: it never
+ * names its source), and the channel's banned_terms. → ["--banned", "a,b"] or [] */
+const SOURCE_WORDS = ["chapter", "chapters", "book", "section", "the author"];
+const banned = (o, shape) => {
+  const p = packOf(shape, { manifest: manifestOf(o.out), channel: o.channel });
+  const words = [...new Set([...(PACKS[p]?.BANNED ?? []), ...(shape === "short" ? SOURCE_WORDS : []), ...(o.channel?.banned_terms ?? [])])];
+  return words.length ? ["--banned", words.join(",")] : [];
+};
+/** The genre pack this build is judged by, as an eval input: its criteria change the verdict. */
+export const packDir = (o, shape) => {
+  const p = packOf(shape, { manifest: manifestOf(o.out), channel: o.channel });
+  return p ? [join(REPO, "packs", p)] : [];
+};
 const core = (f) => join(REPO, "core/scripts", f);
 const frames = (f) => join(REPO, "frames", f);
 const chalk = join(REPO, "bin/chalk.mjs");
@@ -60,7 +75,7 @@ const allStages = (o) => {
 
 // The source check landed on this date: a build whose source was ingested before it, or that is already watched,
 // is not held for a facts.md it never had. Writing one opts it in: a facts.md that exists is always checked.
-export const SOURCE_CHECK_SINCE = "2026-11-18T00:00:00Z";
+export const SOURCE_CHECK_SINCE = "2026-11-17T12:00:00Z";
 const FACTCHECK = "dispatch the chalk-factcheck agent on the output dir (it runs `chalk-core facts <out> --claims` for its worklist and writes facts.md), " +
   "then show the user facts.md; a contradicted claim waits until the source is fixed or the user waives it in facts-accepted.md";
 
@@ -83,17 +98,73 @@ const sourceCheck = {
   missing: FACTCHECK,
 };
 
+// The frames reviewer landed on this date; the same grandfather rule as the source check.
+export const FRAMES_REVIEW_SINCE = "2026-11-17T18:00:00Z";
+const FRAMES_REVIEW = "dispatch the chalk-frames-reviewer agent for this segment (it runs `chalk stills NN --at-cues` and writes " +
+  "segments/NN/frames-review.md ending in VERDICT: PASS or VERDICT: FIXES: n); a FIXES verdict waits until the frame spec is fixed and the frames rebuilt";
+/** The verdict line of a frames review: "PASS", "FIXES: n", or null when the review has none. */
+export const framesVerdict = (md) => md.match(/^VERDICT:\s*(PASS|FIXES:\s*\d+)\s*$/m)?.[1].replace(/\s+/g, " ") ?? null;
+
+/** Before the render, an agent looks at three stills per reveal; a review that asks for fixes holds the render. */
+const framesReview = {
+  name: "frames-review",
+  kind: "author",
+  per: "segment",
+  inputs: () => [],
+  outputs: (o, nn) => [`segments/${nn}/frames-review.md`],
+  gate: (o, nn) => {
+    const review = join(o.out, "segments", nn, "frames-review.md");
+    const built = join(o.out, "segments", nn, "video", "index.html");
+    if (!existsSync(built)) return { status: "waiting", why: `segments/${nn}/video/index.html is not built yet` };
+    if (!existsSync(review)) {
+      const ingested = o.state.stages.ingest?.at;
+      if (o.state.approvals.watched || (ingested && ingested < FRAMES_REVIEW_SINCE)) return { status: "done" };
+      return { status: "waiting", why: FRAMES_REVIEW.replace(/NN/g, nn) };
+    }
+    if (statSync(review).mtimeMs < statSync(built).mtimeMs) {
+      return { status: "waiting", why: `segments/${nn}/frames-review.md is older than the frames it reviewed: ${FRAMES_REVIEW.replace(/NN/g, nn)}` };
+    }
+    const v = framesVerdict(readFileSync(review, "utf8"));
+    if (!v) return { status: "waiting", why: `segments/${nn}/frames-review.md has no "VERDICT: PASS" or "VERDICT: FIXES: n" line` };
+    if (v !== "PASS") return { status: "waiting", why: `segments/${nn}/frames-review.md: ${v} — fix frames/s${nn}.py as it says; the frames rebuild and the review runs again` };
+    return { status: "done" };
+  },
+  missing: FRAMES_REVIEW,
+};
+
 const NARRATE_CODE = [core("narrate.mjs"), core("kokoro_narrate.py"), frames("seg.mjs")];
 const ALIGN_CODE = [core("build-tokens.mjs"), core("align-captions.mjs"), core("apply-display.mjs")];
 const FRAME_CODE = [frames("framelib.py"), frames("gen.py"), frames("build.sh"), core("fix-index.mjs")];
 
-export const youtube = [
+// A research build (chalk pipeline <out> --topic "…") starts with no document: the chalk-research agent writes a
+// brief from fetched pages, a reference per paragraph, and the person approves it before anything is outlined —
+// a wrong brief makes everything after it wrong, and it is cheapest to fix here. A document build skips both.
+const RESEARCH = "dispatch the chalk-research agent (it writes research.md: short paragraphs, each with [ref: url | retrieved date | \"the sentence it rests on\"]), then show it to the user";
+const research = {
+  name: "research",
+  kind: "author",
+  skip: (o) => !o.topic,
+  inputs: () => [],
+  outputs: () => ["research.md"],
+  missing: RESEARCH,
+};
+const researchApproved = {
+  name: "research-approved",
+  kind: "approve",
+  skip: (o) => !o.topic,
+  inputs: () => ["research.md"],
+  missing: "your read of research.md: every paragraph says only what its reference says — then: chalk pipeline approve <out> --research",
+};
+
+export const long = [
+  research,
+  researchApproved,
   {
     name: "ingest",
     kind: "run",
     inputs: (o) => (o.doc ? [o.doc, core("ingest.mjs")] : []),
     outputs: () => ["chapter.json"],
-    cmd: (o) => (o.doc ? ["node", chalk, "ingest", o.doc, "--out", "chapter.json"] : null),
+    cmd: (o) => (o.doc ? ["node", chalk, "ingest", o.doc, "--out", "chapter.json", ...(o.kind ? ["--kind", o.kind] : [])] : null),
     missing: "chapter.json — pass --doc <source> once so the runner can ingest it",
   },
   sourceCheck,
@@ -119,10 +190,9 @@ export const youtube = [
     outputs: () => [],
     cmd: (o) => [
       ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
-      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
-        ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16",
+      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), ...banned(o, "long"), "--max-avg", "16",
         ...(o.channel?.min_you != null ? ["--min-you", String(o.channel.min_you)] : [])],
-      ["node", chalk, "eval", ".", "--format", "youtube", "--text", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+      ["node", chalk, "eval", ".", "--format", "long", "--text", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
   },
   {
@@ -222,6 +292,7 @@ export const youtube = [
     outputs: (o, nn) => [`segments/${nn}/video/index.html`],
     cmd: (o, nn) => ["bash", frames("build.sh"), nn, "frames"],
   },
+  framesReview,
   {
     name: "render",
     kind: "run",
@@ -237,17 +308,17 @@ export const youtube = [
     name: "deliver",
     kind: "run",
     inputs: (o) => [...o.segments.flatMap((nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/segment.vtt`, `segments/${nn}/script.md`]),
-      { path: "video.json", as: "deliver", only: videoForDeliver }, "chapter.json", join(REPO, "formats/youtube/skills/chalk-youtube/scripts")],
-    outputs: (o) => ["video.mp4", "captions.srt", "chapters.txt", "description.txt", "plan.md", ...(o.notebook ? ["notebook.ipynb"] : [])],
-    cmd: (o) => ["node", chalk, "deliver", ".", "--format", "youtube", "--keep-work", ...(o.notebook ? ["--notebook"] : [])],
+      { path: "video.json", as: "deliver", only: videoForDeliver }, "chapter.json", join(REPO, "formats/long/skills/chalk-long/scripts")],
+    outputs: (o) => ["video.mp4", "captions.srt", "chapters.txt", "description.txt", "kit.json", "plan.md", ...(o.notebook ? ["notebook.ipynb"] : [])],
+    cmd: (o) => ["node", chalk, "deliver", ".", "--format", "long", "--keep-work", ...(o.notebook ? ["--notebook"] : [])],
   },
   {
     name: "eval",
     kind: "run",
     inputs: (o) => ["video.mp4", "captions.srt", "video.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), join(REPO, "evals"),
-      join(REPO, "formats/youtube/eval")],
+      join(REPO, "formats/long/eval"), ...packDir(o, "long")],
     outputs: () => ["eval.json", "eval.md"],
-    cmd: (o) => ["node", chalk, "eval", ".", "--format", "youtube", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
+    cmd: (o) => ["node", chalk, "eval", ".", "--format", "long", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     // a failing criterion is a finding for the reviewer, not a reason to stop before it
     allowFail: true,
   },
@@ -293,9 +364,11 @@ export const youtube = [
 ];
 
 /** An interactive lesson: the same voice, alignment and frames; a syllabus, lesson.json and a page around them. */
-const same = (name) => youtube.find((s) => s.name === name);
+const same = (name) => long.find((s) => s.name === name);
 const LESSON_SKILL = join(REPO, "formats/lesson/skills/chalk");
 export const lesson = [
+  same("research"),
+  same("research-approved"),
   same("ingest"),
   same("source-check"),
   {
@@ -325,6 +398,7 @@ export const lesson = [
   same("frame-spec"),
   same("grounding-frames"),
   same("frames"),
+  same("frames-review"),
   same("render"),
   {
     name: "lesson-page",
@@ -342,7 +416,7 @@ export const lesson = [
     cmd: () => ["node", chalk, "deliver", ".", "--format", "lesson", "--keep-work"],
   },
   { ...same("eval"), inputs: (o) => ["lesson.mp4", "lesson.html", "lesson.json", ...o.segments.map((nn) => `segments/${nn}/script.md`),
-    join(REPO, "evals"), join(REPO, "formats/lesson/eval")],
+    join(REPO, "evals"), join(REPO, "formats/lesson/eval"), ...packDir(o, "lesson")],
     cmd: (o) => ["node", chalk, "eval", ".", "--format", "lesson", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])] },
   { ...same("learner"), newerThan: ["lesson.mp4", "lesson.html"] },
   same("review"),
@@ -356,6 +430,8 @@ export const lesson = [
  * in, and no outline: short.json names the idea and the script is the plan. */
 const SHORT_SKILL = join(REPO, "formats/short/skills/chalk-short");
 export const short = [
+  same("research"),
+  same("research-approved"),
   same("ingest"),
   same("source-check"),
   { ...same("scripts"), inputs: () => ["chapter.json", "short.json"], outputs: () => ["segments/00/script.md"],
@@ -366,8 +442,7 @@ export const short = [
       ...o.segments.map((nn) => `segments/${nn}/examples`)],
     cmd: (o) => [
       ["node", coreBin, "check-readability", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--chapter", "chapter.json"],
-      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), "--banned",
-        ["chapter", "chapters", "book", "section", "the author", ...(o.channel?.banned_terms ?? [])].join(","), "--max-avg", "16"],
+      ["node", coreBin, "check-spoken", ...o.segments.map((nn) => `segments/${nn}/script.md`), ...banned(o, "short"), "--max-avg", "16"],
       ["node", chalk, "eval", ".", "--format", "short", "--text", "--no-write", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
     ],
   },
@@ -380,21 +455,22 @@ export const short = [
   same("frame-spec"),
   same("grounding-frames"),
   same("frames"),
+  same("frames-review"),
   same("render"),
   {
     name: "deliver",
     kind: "run",
     inputs: (o) => [...o.segments.flatMap((nn) => [`segments/${nn}/segment.mp4`, `segments/${nn}/segment.vtt`, `segments/${nn}/script.md`]),
       "short.json", "chapter.json", join(SHORT_SKILL, "scripts")],
-    outputs: () => ["short.mp4", "captions.srt", "description.txt", "plan.md"],
+    outputs: () => ["short.mp4", "captions.srt", "description.txt", "kit.json", "plan.md"],
     cmd: (o) => ["node", chalk, "deliver", ".", "--format", "short", ...(o.channelPath ? ["--channel", o.channelPath] : [])],
   },
   { ...same("eval"), inputs: (o) => ["short.mp4", "short.json", ...o.segments.map((nn) => `segments/${nn}/script.md`), join(REPO, "evals"),
-    join(REPO, "formats/short/eval")],
+    join(REPO, "formats/short/eval"), ...packDir(o, "short")],
     cmd: (o) => ["node", chalk, "eval", ".", "--format", "short", "--deep", ...(o.channelPath ? ["--channel", o.channelPath] : [])] },
   { ...same("review"), newerThan: ["eval.json", "grounding.md"] },
   { ...same("watched"), inputs: () => ["short.mp4", "review.md"],
     missing: "your watch of short.mp4 on a phone against review.md — then: chalk pipeline approve <out> --watched" },
 ];
 
-export const FORMATS = { youtube, lesson, short };
+export const FORMATS = { long, lesson, short };

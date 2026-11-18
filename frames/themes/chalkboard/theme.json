@@ -1,0 +1,22 @@
+{
+  "name": "chalkboard",
+  "for": [
+    "explaining",
+    "skits"
+  ],
+  "palette": {
+    "ink": "#1F2B24",
+    "ink_alt": "#26342C",
+    "orange": "#F2C14E",
+    "cream": "#EDEBE4",
+    "muted": "#A7B0A9",
+    "hint": "#4A5A50",
+    "border": "#3A4A41"
+  },
+  "display": "Caveat",
+  "gradient": null,
+  "mark_fill": "rgba(242,193,78,0.18)",
+  "reveal": "draw",
+  "finish": "grain",
+  "captions": "captions.css"
+}

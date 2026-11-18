@@ -3,6 +3,12 @@ chalk-output/
 chalk-output-*/
 work/
 brag-output/
+long-output/
+long-output-*/
+youtube-output/
+youtube-output-*/
+shorts-output/
+lesson-output/
 
 # node
 node_modules/

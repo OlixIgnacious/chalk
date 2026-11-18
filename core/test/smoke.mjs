@@ -35,6 +35,7 @@ const out = (name) => join(tmp, name);
 // narrate.mjs exports its pure helpers; a missing file must fail its own tests, not the whole suite.
 const narr = await import(pathToFileURL(join(scripts, "narrate.mjs")).href).catch(() => null);
 const facts = await import(pathToFileURL(join(scripts, "facts.mjs")).href);
+const loud = await import(pathToFileURL(join(scripts, "loudness.mjs")).href);
 const need = (m) => assert.ok(m, "scripts/narrate.mjs does not exist yet");
 
 const tests = [];
@@ -68,6 +69,31 @@ test("ingest: the maths fixture keeps its LaTeX notation verbatim", () => {
 
 // Display maths in a Markdown/LaTeX source is exact, unlike a PDF's — so it is an `equation` block
 // carrying its own LaTeX, not a `para` that step 3 has to re-sniff to route a tier.
+test("ingest: a script's references come off the text onto the block, and --kind says what the source is", () => {
+  const md = write("script.md",
+    "# Keep going\n\nLost time is never found again, Franklin wrote. [ref: https://example.org/almanack | retrieved 2026-11-18 | \"Lost time is never found again\"]\n\n" +
+    "Begin with one thing. [ref: Poor Richard's Almanack, 1748]\n\nNo reference here.\n");
+  const r = run("ingest.mjs", md, "--out", out("script.json"), "--kind", "script");
+  assert.equal(r.status, 0, r.stderr);
+  const ch = JSON.parse(readFileSync(out("script.json"), "utf8"));
+  assert.equal(ch.kind, "script");
+  const [a, b, c] = ch.blocks.filter((x) => x.kind === "para");
+  assert.equal(a.text, "Lost time is never found again, Franklin wrote.", "the marker is not groundable text");
+  assert.deepEqual(a.ref, [{ url: "https://example.org/almanack", retrieved: "2026-11-18", quote: "Lost time is never found again" }]);
+  assert.deepEqual(b.ref, [{ title: "Poor Richard's Almanack, 1748" }]);
+  assert.equal(c.ref, undefined);
+  const plain = run("ingest.mjs", md, "--out", out("doc.json"));
+  assert.equal(JSON.parse(readFileSync(out("doc.json"), "utf8")).kind, undefined, "a document unless told otherwise, and not written");
+  assert.equal(run("ingest.mjs", md, "--out", out("x.json"), "--kind", "poem").status, 2);
+});
+
+test("facts: a reference is part of the version the source check checked; a block with none hashes as before", () => {
+  const blocks = [{ id: "p001", kind: "para", text: "x" }];
+  const h = facts.sourceHash({ blocks });
+  assert.equal(facts.sourceHash({ blocks: [{ ...blocks[0] }] }), h);
+  assert.notEqual(facts.sourceHash({ blocks: [{ ...blocks[0], ref: [{ url: "https://a" }] }] }), h);
+});
+
 test("ingest: display maths in Markdown becomes an equation block, with its LaTeX kept", () => {
   const md = write(
     "display.md",
@@ -1652,6 +1678,22 @@ const B = [
 ];
 const factsTable = (rows) => (h) => `# Facts\n\nsource: ${h}\n\n| id | block | claim | verdict | evidence |\n|---|---|---|---|---|\n${rows.join("\n")}\n`;
 
+test("loudness: a quiet file is mastered to -14 LUFS within 1 LU and true peak at most -1; silence is copied", () => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return "skip";
+  const d = mkdtempSync(join(tmpdir(), "chalk-loud-"));
+  const make = (name, af) => spawnSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:s=160x120:d=5", "-f", "lavfi", "-i", af,
+    "-shortest", "-c:v", "libx264", "-c:a", "aac", join(d, name)]).status;
+  assert.equal(make("quiet.mp4", "sine=frequency=330:duration=5,volume=0.02"), 0);
+  loud.master(join(d, "quiet.mp4"), join(d, "out.mp4"));
+  const m = loud.measure(join(d, "out.mp4"));
+  assert.ok(Math.abs(m.I - loud.TARGET.I) <= 1, `integrated ${m.I}`);
+  assert.ok(m.TP <= loud.TARGET.TP + 0.2, `true peak ${m.TP}`);
+  assert.equal(make("silent.mp4", "anullsrc=r=48000:cl=stereo"), 0);
+  loud.master(join(d, "silent.mp4"), join(d, "silent-out.mp4"));
+  assert.ok(existsSync(join(d, "silent-out.mp4")));
+  rmSync(d, { recursive: true, force: true });
+});
+
 test("facts: the threshold lists numbers, superlatives and quotations, never code or plain prose", () => {
   const list = facts.claimBlocks({ blocks: B });
   assert.deepEqual(list.map((c) => c.id), ["p001", "p004"]);
@@ -1730,7 +1772,7 @@ test("facts: the CLI prints the worklist and the hash, and exits 1 until the che
 test("cli: every command maps to a script that exists", () => {
   const src = readFileSync(join(root, "bin/chalk-core.mjs"), "utf8");
   const files = [...src.matchAll(/^\s+(?:"[a-z-]+"|[a-z]+):\s*"([a-z-]+\.mjs)",?$/gm)].map((m) => m[1]);
-  assert.equal(files.length, 11, "expected the eleven shared scripts");
+  assert.equal(files.length, 12, "expected the twelve shared scripts");
   for (const f of files) assert.ok(existsSync(join(scripts, f)), `${f} is mapped but missing`);
 });
 

@@ -1,0 +1,24 @@
+{
+  "title": "Two at the board",
+  "source": "fixture",
+  "lang": "en",
+  "quality": "clean",
+  "has_code": false,
+  "blocks": [
+    {
+      "id": "h001",
+      "kind": "heading",
+      "text": "Two at the board"
+    },
+    {
+      "id": "p002",
+      "kind": "para",
+      "text": "A queue serves people in the order they arrive: the first in line is the first served."
+    },
+    {
+      "id": "p003",
+      "kind": "para",
+      "text": "A stack is the other way round: the last thing put on is the first taken off."
+    }
+  ]
+}

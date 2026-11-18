@@ -1,0 +1,18 @@
+{
+  "title": "The library stays open till 10",
+  "pack": "news",
+  "thesis": "The city library adds evening hours from December 1.",
+  "label": "CITY NEWS \u00b7 NOV 17, 2026",
+  "sources": [
+    {
+      "name": "City council statement",
+      "url": "https://example.org/council/2026-11-17"
+    }
+  ],
+  "segments": [
+    {
+      "id": "00",
+      "title": "Open till 10"
+    }
+  ]
+}

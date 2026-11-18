@@ -1,0 +1,22 @@
+{
+  "title": "Queue or stack?",
+  "pack": "skit",
+  "thesis": "A queue serves first come first; a stack serves last come first.",
+  "cast": {
+    "penguin": {
+      "voice": "am_puck"
+    },
+    "bear": {
+      "voice": "af_heart"
+    }
+  },
+  "segments": [
+    {
+      "id": "00",
+      "title": "Queue or stack"
+    }
+  ],
+  "full_video": {
+    "title": "Queues and Stacks"
+  }
+}

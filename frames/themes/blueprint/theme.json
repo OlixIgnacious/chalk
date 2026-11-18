@@ -1,0 +1,21 @@
+{
+  "name": "blueprint",
+  "for": [
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#0E3A66",
+    "ink_alt": "#12457A",
+    "orange": "#FFFFFF",
+    "cream": "#DCEBFF",
+    "muted": "#A9C8EE",
+    "hint": "#3E6A9C",
+    "border": "#2C5A8A"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(255,255,255,0.18)",
+  "reveal": "draw",
+  "finish": "grid",
+  "captions": "captions.css"
+}

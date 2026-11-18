@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const { evaluate } = await import(pathToFileURL(join(root, "evals/run.mjs")).href);
-const fx = (n) => join(root, "evals/fixtures/youtube", n);
+const fx = (n) => join(root, "evals/fixtures/long", n);
 
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
@@ -402,6 +402,88 @@ test("lesson: the page must reference every segment, and every segment must be o
   assert.equal(l4.status, "fail");
   assert.match(l4.evidence.join("\n"), /segments\/02\/segment\.mp4 is not there/);
   assert.match(l4.evidence.join("\n"), /never references segments\/02\/segment\.mp4/);
+});
+
+test("R6: a text revealed 0.8 s before its frame ends fails; labels and code are not timed; a build with no texts.json skips", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chalk-r6-"));
+  cpSync(fx("good"), dir, { recursive: true });
+  assert.equal(evaluate(dir).results.find((x) => x.id === "R6").status, "skip");
+  const frames = join(dir, "segments", "01", "video", "compositions", "frames");
+  mkdirSync(frames, { recursive: true });
+  writeFileSync(join(frames, "f01-a.texts.json"), JSON.stringify({ frame: "f01-a", start: 0, end: 6, texts: [
+    { id: "a", text: "keep one running total", from: 0.5, to: 6, pass: false },
+    { id: "b", text: "the answer is eight", from: 5.2, to: 6, pass: false },
+    { id: "c", text: "STEP 2", from: 5.9, to: 6, pass: true }] }));
+  const r6 = evaluate(dir).results.find((x) => x.id === "R6");
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(r6.status, "fail");
+  assert.equal(r6.evidence.length, 1);
+  assert.match(r6.evidence[0], /"the answer is eight" is up 0\.8 s; 2\.8 s to read/);
+});
+
+// ── packs: the genre's rules, chosen by the channel or the manifest, apart from the shape ──
+
+const pk = (pack, c) => join(root, "packs", pack, "fixtures", c);
+const shapeOfFixture = (dir) => (readdirSync(dir).includes("short.json") ? "short" : "long");
+
+for (const pack of ["essay", "news", "skit"]) {
+  test(`${pack} pack: the good fixture passes everything that runs; the bad one fails every ${pack} rule`, () => {
+    const g = evaluate(pk(pack, "good"), { format: shapeOfFixture(pk(pack, "good")) });
+    assert.equal(g.pack, pack);
+    assert.deepEqual(failing(g), [], JSON.stringify(g.results.filter((x) => x.status === "fail"), null, 2));
+    const b = evaluate(pk(pack, "bad"), { format: shapeOfFixture(pk(pack, "bad")) });
+    const own = b.results.filter((x) => x.group === pack);
+    assert.ok(own.length >= 3, `${pack} has its criteria`);
+    assert.deepEqual(own.filter((x) => x.status !== "fail").map((x) => x.id), [], `every ${pack} criterion fails on the bad fixture`);
+  });
+}
+
+test("packs: every pack has its criteria, the shapes they hold for, and the references the skills read", async () => {
+  const { PACKS } = await import(pathToFileURL(join(root, "packs/index.mjs")).href);
+  for (const [name, p] of Object.entries(PACKS)) {
+    assert.ok(p.CRITERIA?.length && p.GROUPS?.length && p.SHAPES?.length && p.ABOUT, `${name} exports CRITERIA, GROUPS, SHAPES, ABOUT`);
+    for (const f of ["rules.md", "step-2-outline.md", "step-3-script.md"]) assert.ok(readdirSync(join(root, "packs", name, "references")).includes(f), `${name}/${f}`);
+    for (const id of Object.keys(p.WAIVES ?? {})) assert.ok(!p.CRITERIA.some((c) => c.id === id), `${name} waives only shared criteria`);
+  }
+  const ids = Object.values(PACKS).flatMap((p) => p.CRITERIA.map((c) => c.id));
+  assert.equal(new Set(ids).size, ids.length, "no two packs share a criterion id");
+});
+
+test("packs: a focus essay passes the essay pack and fails coding-lesson; the coding lesson the reverse", () => {
+  const essayAsEssay = evaluate(pk("essay", "good"));
+  const essayAsCoding = evaluate(pk("essay", "good"), { pack: "coding-lesson" });
+  assert.deepEqual(failing(essayAsEssay), []);
+  assert.ok(failing(essayAsCoding).some((id) => /^[OT]/.test(id)), `coding-lesson fails the essay: ${failing(essayAsCoding)}`);
+  const codingAsCoding = evaluate(fx("good"));
+  const codingAsEssay = evaluate(fx("good"), { pack: "essay" });
+  assert.deepEqual(failing(codingAsCoding), []);
+  assert.ok(failing(codingAsEssay).includes("Y5"), "an essay shows no code");
+  assert.ok(!codingAsEssay.results.some((x) => /^[OTB]\d/.test(x.id)), "the coding rules are not run under the essay pack");
+});
+
+test("packs: a pack waives a shared rule that is not its genre's, and says so; the shape's default pack applies otherwise", () => {
+  const r = evaluate(pk("essay", "good"));
+  const e2 = r.results.find((x) => x.id === "E2");
+  assert.equal(e2.status, "skip");
+  assert.match(e2.evidence[0], /essay has no running example/);
+  assert.equal(evaluate(fx("good")).pack, "coding-lesson", "long's default");
+  assert.equal(evaluate(pk("news", "good"), { format: "short", pack: "" }).pack, null, "an empty pack is none");
+});
+
+test("packs: a pack with no rules for a shape is reported, not run", () => {
+  const r = evaluate(pk("news", "good"), { format: "short", pack: "coding-lesson" });
+  assert.match(r.note, /coding-lesson.*no rules for the short shape/);
+  assert.ok(!r.results.some((x) => /^[OTB]\d/.test(x.id)));
+});
+
+test("packs: channel.json names the pack per shape, and the manifest overrides it", async () => {
+  const { packOf } = await import(pathToFileURL(join(root, "formats/index.mjs")).href);
+  assert.equal(packOf("long", {}), "coding-lesson");
+  assert.equal(packOf("short", {}), null);
+  assert.equal(packOf("short", { channel: { pack: { short: "news" } } }), "news");
+  assert.equal(packOf("long", { channel: { pack: "essay" } }), "essay");
+  assert.equal(packOf("long", { channel: { pack: "essay" }, manifest: { pack: "skit" } }), "skit");
+  assert.equal(packOf("long", { channel: { pack: "essay" }, manifest: { pack: "skit" }, pack: "news" }), "news");
 });
 
 let failed = 0;

@@ -1,0 +1,12 @@
+{
+  "title": "Shocking library news",
+  "pack": "news",
+  "thesis": "The library adds evening hours.",
+  "label": "CITY NEWS",
+  "segments": [
+    {
+      "id": "00",
+      "title": "Open till 10"
+    }
+  ]
+}

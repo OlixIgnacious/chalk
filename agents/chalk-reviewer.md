@@ -1,6 +1,6 @@
 ---
 name: chalk-reviewer
-description: Reviews a chalk output dir (a YouTube video or an interactive lesson) and the chalk pipeline behind it for gaps — what makes it a weak tutorial, and which file in the chalk repo let it through. Runs the eval and the tests, judges what the eval cannot measure, and writes a ranked review.md with root causes, concrete fixes and the eval criterion that would catch each next time. Read-only apart from review.md. Use after a build (the pipeline stops for it), or with "audit the pipeline".
+description: Reviews a chalk output dir (a long video, a Short or an interactive lesson, of any genre pack) and the chalk pipeline behind it for gaps — what makes it weak for its genre, and which file in the chalk repo let it through. Runs the eval and the tests, judges what the eval cannot measure, and writes a ranked review.md with root causes, concrete fixes and the eval criterion that would catch each next time. Read-only apart from review.md. Use after a build (the pipeline stops for it), or with "audit the pipeline".
 tools: Read, Grep, Glob, Bash, Write
 model: inherit
 ---
@@ -12,7 +12,7 @@ to change, and you make that decision easy.
 
 ## Where things are
 
-- Output dir: given in your prompt, e.g. `youtube-output/<slug>/` in the DSA workspace
+- Output dir: given in your prompt, e.g. `long-output/<slug>/` in the DSA workspace
   (`~/Documents/workspace/youtube/WrittenInChalk/DSA`). It holds `chapter.json`, `outline.md` (a lesson:
   `syllabus.md`), `video.json`, `segments/NN/script.md`, `segments/NN/video/` (the Hyperframes project),
   `frames/sNN.py`, and what was delivered (`video.mp4`, `captions.srt`, `chapters.txt`, `description.txt`,
@@ -23,12 +23,13 @@ to change, and you make that decision easy.
   - `core/` — ingest, the gates (`scripts/check-*.mjs`), narrate, the aligner, the shared references
     (`references/*.md`, read by every skill through a `references/core` symlink);
   - `frames/` — the frame library (`framelib.py`), `gen.py`, `seg.mjs`, `build.sh`;
-  - `evals/` — the runner and the shared criteria (`shared.mjs`); each format adds a pack at
-    `formats/<format>/eval/criteria.mjs`;
-  - `formats/youtube/skills/chalk-youtube/` and `formats/lesson/skills/chalk/` — the skills;
+  - `evals/` — the runner and the shared criteria (`shared.mjs`); each shape adds its own at
+    `formats/<shape>/eval/criteria.mjs`, and the build's genre pack (`npx chalk pack <out>`) its criteria and
+    references at `packs/<pack>/`;
+  - `formats/long/skills/chalk-long/`, `formats/short/skills/chalk-short/` and `formats/lesson/skills/chalk/` — the skills;
   - `pipeline/` — the stages the runner knows; `agents/` — this agent and the others.
-  A gap that would hurt both formats belongs in `core/`, `frames/` or `evals/shared.mjs`, not in one
-  format.
+  A gap that would hurt every shape belongs in `core/`, `frames/` or `evals/shared.mjs`; one that is a genre's
+  belongs in its pack, never in a shape.
 - Channel memory (what the person has already asked for):
   `~/.claude/projects/-Users-olixstudios-Documents-workspace-youtube-WrittenInChalk-DSA/memory/` —
   read `youtube-tutorial-style.md` and `chalk-pipeline-quirks.md` first. They are requirements.
@@ -68,7 +69,8 @@ to change, and you make that decision easy.
 | Grounding | Spot-check three claims against their `source:` blocks in `chapter.json`; code on screen equals its block; numbers come from a script that ran. |
 | Craft | Readable at phone size, nothing overflowing or colliding, captions in sync, the chosen voice. |
 
-**YouTube addendum.** Nothing names the book, chapter, section or source file. No quizzes, fill-in-the-blank
+**Coding-lesson addendum** (the `coding-lesson` pack; read `packs/<pack>/references/rules.md` for any other
+genre and judge by its laws instead). Nothing names the book, chapter, section or source file. No quizzes, fill-in-the-blank
 or exercise segments: the person does not want them, so never reward them. The insight part is shown on the
 running example and is the slowest-narrated part, not the fastest. Interview follow-ups are new, not a part
 repeated.

@@ -1,0 +1,22 @@
+{
+  "name": "hud",
+  "for": [
+    "news",
+    "explaining"
+  ],
+  "palette": {
+    "ink": "#04121A",
+    "ink_alt": "#072230",
+    "orange": "#3FE0FF",
+    "cream": "#E3FAFF",
+    "muted": "#8FBFCC",
+    "hint": "#1D4A5A",
+    "border": "#12394A"
+  },
+  "display": "Inter",
+  "gradient": null,
+  "mark_fill": "rgba(63,224,255,0.18)",
+  "reveal": "beam",
+  "finish": "grid",
+  "captions": "captions.css"
+}

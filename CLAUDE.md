@@ -1,8 +1,8 @@
 # chalk — working rules
 
-chalk turns a source document into grounded teaching outputs: a chaptered YouTube video with its upload
-kit, an interactive lesson with checkpoints, and a follow-along notebook. Every narrated line and
-on-screen claim traces to a block of the source.
+chalk turns a checked source into grounded videos of any length and genre: a chaptered long video with its
+upload kit, a vertical Short, an interactive lesson with checkpoints, and a follow-along notebook. Every
+narrated line and on-screen claim traces to a block of the source, and the source itself is fact-checked.
 
 ## Layout
 
@@ -10,13 +10,16 @@ on-screen claim traces to a block of the source.
 bin/chalk.mjs        the one CLI: core commands, step 4 (voice / frames / render / stills), eval, deliver, doctor
 core/                ingest, the grounding and spoken-style gates, narrate, caption alignment, Manim, references/
 frames/              deterministic frames: framelib.py components, gen.py, seg.mjs, build.sh
-evals/               the eval runner, the criteria every format shares, fixtures per format
-formats/youtube/     the /chalk-youtube skill, its eval pack (eval/criteria.mjs), the chalk-reviewer agent
-formats/lesson/      the /chalk skill (interactive lessons), its player, its eval pack
-test/evals.mjs       the eval judges its own fixtures
+evals/               the eval runner, the criteria every shape shares, fixtures
+formats/             the shapes: long (/chalk-long, alias /chalk-youtube), short (/chalk-short), lesson (/chalk);
+                     each its skill, deliver and shape criteria; index.mjs resolves a shape and its pack
+packs/               the genres: coding-lesson, essay, news, skit; each its criteria, references and fixtures
+publish/             destinations: the neutral kit, platform shaping and uploads
+agents/              the agents, one report each
+test/evals.mjs       the eval judges its own fixtures, every pack's included
 ```
 
-Each directory with its own `CLAUDE.md` (`core/`, `formats/youtube/`, `formats/lesson/`) has the rules
+Each directory with its own `CLAUDE.md` (`core/`, `formats/long/`, `formats/lesson/`) has the rules
 for that part; read it before changing anything there. This file holds what spans them.
 
 ## Invariants
@@ -24,9 +27,15 @@ for that part; read it before changing anything there. This file holds what span
 - **One copy of everything shared.** The skills read `core/references/` through a `references/core`
   symlink; never copy a reference into a skill. A fix to a gate, the aligner or the frame library lands
   once, in `core/` or `frames/`, and every format gets it.
-- **Format rules stay in the format.** "Never name the book" and "no quizzes" are the YouTube channel's
-  rules, enforced by `formats/youtube/eval/criteria.mjs`; a lesson is openly tied to its chapter and has
-  checkpoints by design. A criterion goes in `evals/shared.mjs` only when it holds for every format.
+- **Shape × pack.** A shape (`long`, `short`, `lesson`) owns the stages, the deliver and the orientation; a
+  pack (`coding-lesson`, `essay`, `news`, `skit`) owns a genre's rules: its criteria and the outline and
+  script references. The channel or the manifest names the pack; the shape never does. "Never name the book"
+  and "no quizzes" are the coding-lesson pack's rules, not chalk's; an essay names the book it quotes. A
+  criterion goes in `evals/shared.mjs` only when it holds for every shape and every pack; a pack that cannot
+  keep a shared one waives it by name, with why, and the eval shows the waiver. No pack and no theme is the
+  house default in docs or code beyond the fallback something has to be.
+- **The kit is neutral.** A platform's rules (limits, hashtags, where links go) live in `publish/`, never in
+  deliver, a shape or a pack.
 - **The eval and the reviewer have different jobs.** The eval is mechanical and deterministic; the
   reviewer agent judges what it cannot. When the reviewer finds a gap the eval passed, add the
   criterion and a fixture that fails it.

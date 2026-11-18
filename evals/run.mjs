@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // run.mjs — score a chalk output dir as a tutorial.
 //
-//   node evals/run.mjs <output-dir> [--format youtube|lesson|short] [--channel <channel.json>] [--deep] [--pin] [--json] [--no-write]
+//   node evals/run.mjs <output-dir> [--format long|lesson|short] [--pack <name>] [--channel <channel.json>] [--deep] [--pin] [--json] [--no-write]
 //
-// Writes <output-dir>/eval.json and eval.md: every criterion in shared.mjs and in the format's pack
-// (formats/<format>/eval/criteria.mjs) with pass / fail / skip,
+// Writes <output-dir>/eval.json and eval.md: every criterion of the shape (formats/<shape>/eval/criteria.mjs),
+// of the genre pack (packs/<pack>/eval/criteria.mjs, named by --pack, the manifest or channel.json) and of
+// shared.mjs, with pass / fail / skip,
 // its evidence (file:line, timestamp) and its weight, and a score over the criteria that ran. Exit code
 // 1 when any criterion fails, so it can gate a build. Judgement calls are the chalk-reviewer agent's job;
 // it reads this report first.
@@ -14,19 +15,38 @@ import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "./lib/load.mjs";
+import { measure as loudness } from "../core/scripts/loudness.mjs";
+import { platformEval, readKit } from "../publish/eval.mjs";
 import { skip } from "./lib/kit.mjs";
 import * as shared from "./shared.mjs";
-import * as youtube from "../formats/youtube/eval/criteria.mjs";
+import * as long from "../formats/long/eval/criteria.mjs";
 import * as lesson from "../formats/lesson/eval/criteria.mjs";
 import * as short from "../formats/short/eval/criteria.mjs";
+import { PACKS } from "../packs/index.mjs";
+import { shapeOf, packOf, detectShape } from "../formats/index.mjs";
 
-/** Each format is scored on its own pack first, then on what every format shares. */
-export const PACKS = Object.fromEntries(
-  Object.entries({ youtube, lesson, short }).map(([name, pack]) => [
-    name,
-    { criteria: [...pack.CRITERIA, ...shared.CRITERIA], groups: [...new Set([...pack.GROUPS, ...shared.GROUPS])] },
-  ]),
-);
+export { PACKS };
+export const SHAPES = { long, lesson, short };
+
+/**
+ * The criteria a build is scored on: its shape's, then its pack's when the pack has rules for that shape, then
+ * what every shape shares. → { criteria, groups, note }
+ */
+export function criteriaFor(shape, pack) {
+  const s = SHAPES[shape];
+  if (!s) throw new Error(`unknown format "${shape}" (${Object.keys(SHAPES).join(", ")})`);
+  const p = pack ? PACKS[pack] : null;
+  if (pack && !p) throw new Error(`unknown pack "${pack}" (${Object.keys(PACKS).join(", ")})`);
+  const applies = p && (p.SHAPES ?? []).includes(shape);
+  const parts = [s, ...(applies ? [p] : []), shared];
+  return {
+    criteria: parts.flatMap((x) => x.CRITERIA),
+    groups: [...new Set(parts.flatMap((x) => x.GROUPS))],
+    // shared criteria that are not this genre's rules (an essay has no running example): skipped, with the pack's why
+    waives: applies ? p.WAIVES ?? {} : {},
+    note: p && !applies ? `pack "${pack}" has no rules for the ${shape} shape (it holds for ${(p.SHAPES ?? []).join(", ") || "none"})` : null,
+  };
+}
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -48,6 +68,7 @@ export function makeEnv({ deep = false } = {}) {
         const r = run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", file]);
         return r && r.status === 0 ? Number(r.stdout.trim()) : null;
       }),
+    loudness: (file) => memo(`lufs:${file}`, () => loudness(file)),
     probe: (file) => {
       const r = run("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,r_frame_rate", "-of", "json", file]);
       if (!r || r.status !== 0) return null;
@@ -82,13 +103,17 @@ print(json.dumps(bad))
 // Criteria that judge what is built (frames, captions, the render, the kit, the notebook). The text gates run before
 // an edited part is built again, so --text skips them there: judged on the old build, they fail a script for the
 // state of a render that is about to be replaced. E3/E4 stay: they skip a part whose narration is stale by themselves.
-const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "N1", "N2", "N3", "T9", "S3", "S4"]);
+const BUILT = new Set(["G2", "V2", "V3", "R1", "R2", "R3", "R4", "R5", "R6", "V4", "N1", "N2", "N3", "T9", "S3", "S4"]);
 
-export function evaluate(outDir, { format = "youtube", channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
-  const pack = PACKS[format];
-  if (!pack) throw new Error(`unknown format "${format}" (${Object.keys(PACKS).join(" or ")})`);
-  const ctx = { ...load(outDir, { channelPath }), format };
+export function evaluate(outDir, { format = "long", pack: packName, channelPath, deep = false, text = false, env = makeEnv({ deep }) } = {}) {
+  const shape = shapeOf(format);
+  if (!shape) throw new Error(`unknown format "${format}" (${Object.keys(SHAPES).join(", ")})`);
+  const loaded = load(outDir, { channelPath });
+  const packName_ = packOf(shape, { pack: packName, manifest: shape === "lesson" ? loaded.lesson : loaded.video, channel: loaded.channel });
+  const pack = criteriaFor(shape, packName_);
+  const ctx = { ...loaded, format: shape, pack: packName_ };
   const results = pack.criteria.map((c) => {
+    if (pack.waives[c.id]) return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...skip(`not a rule here: ${pack.waives[c.id]}`) };
     if (text && BUILT.has(c.id)) return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...skip("judges the build: not run in the text gates (--text)") };
     let r;
     try {
@@ -98,6 +123,14 @@ export function evaluate(outDir, { format = "youtube", channelPath, deep = false
     }
     return { id: c.id, group: c.group, title: c.title, weight: c.weight, ...r };
   });
+  // the destination pack (publish/eval.mjs): when the manifest names where it goes and the kit is delivered
+  const to = (ctx.video?.publish?.to ?? []).filter((p) => p !== "kit");
+  const kit = to.length && !text ? readKit(ctx.dir) : null;
+  if (kit) {
+    results.push(...platformEval(ctx.dir, kit, ctx.channel ?? {}, to, ctx.video.publish?.overrides ?? {})
+      .map(({ platform, ...r }) => r));
+    if (!pack.groups.includes("platform")) pack.groups.push("platform");
+  }
   // video.json "accepted": { "E3": { "reason": "why", "evidence": [...] } } — a failure the user chose to keep. It
   // still scores nothing, but it no longer fails the run, so one part can be rebuilt without fixing it. The waiver
   // covers the failure as it was when accepted: an evidence line it does not hold, or a number in one that grew
@@ -130,7 +163,7 @@ export function evaluate(outDir, { format = "youtube", channelPath, deep = false
       return [g, st];
     }),
   );
-  return { dir: ctx.dir, format, channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results, stale, unpinned };
+  return { dir: ctx.dir, format: shape, pack: packName_, ...(pack.note ? { note: pack.note } : {}), channel: ctx.channelPath, score: got, max, percent: max ? Math.round((100 * got) / max) : 0, groups, results, stale, unpinned };
 }
 
 const NUM = /\d+(?:\.\d+)?/g;
@@ -161,6 +194,8 @@ export function toMarkdown(report) {
     "",
     `**Score: ${report.score} / ${report.max} (${report.percent}%)** over the criteria that ran.`,
     "",
+    `Shape: ${report.format}. Pack: ${report.pack ?? "none"}.${report.note ? ` ${report.note}.` : ""}`,
+    "",
     "| Group | Verdict |",
     "|---|---|",
     ...Object.entries(report.groups).map(([g, s]) => `| ${g} | ${icon[s]} ${s} |`),
@@ -181,12 +216,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const argv = process.argv.slice(2);
   const flag = (n) => argv.includes(`--${n}`);
   const val = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
-  const outDir = argv.find((a, i) => !a.startsWith("--") && !["--channel", "--format"].includes(argv[i - 1]));
+  const outDir = argv.find((a, i) => !a.startsWith("--") && !["--channel", "--format", "--pack"].includes(argv[i - 1]));
   if (!outDir) {
-    console.error("usage: node evals/run.mjs <output-dir> [--format youtube|lesson] [--channel <channel.json>] [--deep] [--text] [--pin] [--json] [--no-write]");
+    console.error("usage: node evals/run.mjs <output-dir> [--format long|lesson|short] [--pack <name>] [--channel <channel.json>] [--deep] [--text] [--pin] [--json] [--no-write]");
     process.exit(2);
   }
-  const opts = { format: val("format") ?? "youtube", channelPath: val("channel"), deep: flag("deep"), text: flag("text") };
+  const opts = { format: val("format") ?? detectShape(resolve(outDir)), pack: val("pack"), channelPath: val("channel"), deep: flag("deep"), text: flag("text") };
   let report = evaluate(outDir, opts);
   // --pin: record, in video.json, the evidence each accepted criterion fails with now — the user's waiver, made exact
   if (flag("pin")) {

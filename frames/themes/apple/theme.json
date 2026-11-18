@@ -1,0 +1,22 @@
+{
+  "name": "apple",
+  "for": [
+    "explaining",
+    "focus"
+  ],
+  "palette": {
+    "ink": "#000000",
+    "ink_alt": "#1D1D1F",
+    "orange": "#2997FF",
+    "cream": "#F5F5F7",
+    "muted": "#86868B",
+    "hint": "#424245",
+    "border": "#2D2D2F"
+  },
+  "display": "Inter",
+  "gradient": "linear-gradient(90deg, #2997FF 0%, #A970FF 55%, #FF6EB4 100%)",
+  "mark_fill": "rgba(41,151,255,0.18)",
+  "reveal": "rise",
+  "finish": null,
+  "captions": "captions.css"
+}

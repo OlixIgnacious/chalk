@@ -21,6 +21,8 @@ import theme
 from views.common import guard, refresh_status
 
 GATE_TEXT = {
+    "research-approved": "Read the brief chalk researched: every paragraph should say only what its quoted sentence says. "
+                         "Approving makes it the source every line of the video is grounded in.",
     "scripts-approved": "Read the plan, the scripts and the grounding report. Fix anything here, or ask the agent that "
                         "wrote them for changes. Approving starts the voice, frames and render: the slow, costly part.",
     "watched": "Watch the result against the resolution list, then approve it as watched.",
@@ -47,7 +49,7 @@ def render(out: Path, fmt: str, gate: str) -> None:
         if gate == "scripts-approved":
             request_changes(out, fmt)
         a, b = st.columns([1, 3], vertical_alignment="center")
-        what = "scripts" if gate == "scripts-approved" else "watched"
+        what = {"research-approved": "research brief", "scripts-approved": "scripts"}.get(gate, "watched")
         if a.button(f"✓ Approve {what}", type="primary", key=f"approve_{gate}", width="stretch"):
             if guard(api.approve_gate, out, fmt, gate, ok=f"Approved {what}"):
                 refresh_status()

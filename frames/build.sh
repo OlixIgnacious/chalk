@@ -11,18 +11,28 @@ TOOLS=$(cd "$(dirname "$0")" && pwd)
 OUT=$(pwd)
 FE=$HOME/.claude/skills/faceless-explainer/scripts
 PY=${CHALK_PYTHON:-${HYPERFRAMES_PYTHON:-$TOOLS/../.venv/bin/python}}  # same order as evals/run.mjs and build-notebook.mjs
-ASSETS=${CHALK_ASSETS:-$HOME/.cache/chalk-youtube/assets}
+# ~/.cache/chalk/assets, or the old chalk-youtube cache when only that one is staged (formats/index.mjs assetsDir)
+if [ -z "${CHALK_ASSETS:-}" ] && [ ! -d "$HOME/.cache/chalk/assets" ] && [ -d "$HOME/.cache/chalk-youtube/assets" ]; then
+  ASSETS=$HOME/.cache/chalk-youtube/assets
+else
+  ASSETS=${CHALK_ASSETS:-$HOME/.cache/chalk/assets}
+fi
 CORE="node $TOOLS/../core/bin/chalk-core.mjs"  # this repo's core, whatever node_modules the output dir sits under
 export CHALK_ASSETS=$ASSETS
 
 if [ "${1:-}" = assets ]; then
-  [ -f "$ASSETS/gsap.min.js" ] && [ -f "$ASSETS/fonts/inter-latin-900-normal.woff2" ] && { echo "assets: already staged in $ASSETS"; exit 0; }
+  [ -f "$ASSETS/gsap.min.js" ] && [ -f "$ASSETS/fonts/inter-latin-900-normal.woff2" ] && [ -f "$ASSETS/fonts/caveat-latin-700-normal.woff2" ] && { echo "assets: already staged in $ASSETS"; exit 0; }
   T=$(mktemp -d); mkdir -p "$ASSETS/fonts"
-  (cd "$T" && npm pack gsap@3.14.2 @fontsource/barlow@5.2.5 @fontsource/ibm-plex-mono@5.2.5 @fontsource/inter@5.2.5 >/dev/null 2>&1 && for f in *.tgz; do mkdir "${f%.tgz}" && tar -xzf "$f" -C "${f%.tgz}"; done)
+  # the theme faces (all OFL): Caveat (chalkboard, marker, ink), VT323 (crt, ticker), Press Start 2P (pixel)
+  (cd "$T" && npm pack gsap@3.14.2 @fontsource/barlow@5.2.5 @fontsource/ibm-plex-mono@5.2.5 @fontsource/inter@5.2.5 \
+    @fontsource/caveat@5.2.5 @fontsource/vt323@5.2.5 @fontsource/press-start-2p@5.2.5 >/dev/null 2>&1 && for f in *.tgz; do mkdir "${f%.tgz}" && tar -xzf "$f" -C "${f%.tgz}"; done)
   cp "$T"/gsap-3.14.2/package/dist/gsap.min.js "$ASSETS/"
   for w in 400 600 700 800 900; do cp "$T"/fontsource-barlow-5.2.5/package/files/barlow-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
   for w in 400 500 600; do cp "$T"/fontsource-ibm-plex-mono-5.2.5/package/files/ibm-plex-mono-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
   for w in 400 600 700 800 900; do cp "$T"/fontsource-inter-5.2.5/package/files/inter-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
+  for w in 400 700; do cp "$T"/fontsource-caveat-5.2.5/package/files/caveat-latin-$w-normal.woff2 "$ASSETS/fonts/"; done
+  cp "$T"/fontsource-vt323-5.2.5/package/files/vt323-latin-400-normal.woff2 "$ASSETS/fonts/"
+  cp "$T"/fontsource-press-start-2p-5.2.5/package/files/press-start-2p-latin-400-normal.woff2 "$ASSETS/fonts/"
   rm -rf "$T"; echo "assets: staged in $ASSETS"; exit 0
 fi
 
@@ -35,7 +45,9 @@ narrate() {
   node "$TOOLS/seg.mjs" setup $NN
   EXTRA=(); [ "$POLISH" = polish ] && EXTRA=(--polish)
   # a skit (short.json "cast"): each speaker's line in their own voice
-  [ -f short.json ] && grep -q '"cast"' short.json && EXTRA+=(--cast "$OUT/short.json")
+  # a skit's cast: short.json for a Short, video.json for a long skit
+  if [ -f short.json ] && grep -q '"cast"' short.json; then EXTRA+=(--cast "$OUT/short.json")
+  elif [ -f video.json ] && grep -q '"cast"' video.json; then EXTRA+=(--cast "$OUT/video.json"); fi
   echo "voice: $VOICE at $SPEED ${EXTRA[*]:-}"
   (cd $P && $CORE narrate --script SCRIPT.md --out . --voice "$VOICE" --speed "$SPEED" ${EXTRA[@]+"${EXTRA[@]}"} --lead 0.6 --lexicon "$OUT/lexicon.json" --python "$PY" | tail -3)
   node "$TOOLS/seg.mjs" sync $NN
@@ -70,10 +82,13 @@ frames)
       # muted viewers read the captions: phrases of 3-5 words held at least 0.7 s, not 2-word flashes
       node "$TOOLS/../core/scripts/regroup-captions.mjs" compositions/captions.html caption_groups.json
     fi
-    # a theme's captions (themes/<name>-captions.css), layered over the preset skin
-    THEME=$(node -e 'for (const m of ["short.json","video.json","lesson.json"]) { try { const t = require(process.argv[1] + "/" + m).theme; if (t) { console.log(t); break } } catch {} }' "$OUT")
-    if [ -n "$THEME" ] && [ -f "$TOOLS/themes/$THEME-captions.css" ]; then
-      node -e 'const fs=require("fs"); const [f,css]=process.argv.slice(1); let h=fs.readFileSync(f,"utf8"); const add=fs.readFileSync(css,"utf8"); if(!h.includes("/* theme:")) h=h.replace(/<\/style>/, add+"\n</style>"); fs.writeFileSync(f,h)' compositions/captions.html "$TOOLS/themes/$THEME-captions.css"
+    # the build's theme (the manifest's, else the channel's, else broadside: frames/themes.mjs) and its captions,
+    # layered over the preset skin
+    THEME_LINE=$(node "$TOOLS/themes.mjs" --for "$OUT") || exit 1
+    THEME=$(printf '%s' "$THEME_LINE" | cut -f1)
+    THEME_CSS="$(printf '%s' "$THEME_LINE" | cut -f3)/captions.css"
+    if [ -f "$THEME_CSS" ]; then
+      node -e 'const fs=require("fs"); const [f,css]=process.argv.slice(1); let h=fs.readFileSync(f,"utf8"); const add=fs.readFileSync(css,"utf8"); if(!h.includes("/* theme:")) h=h.replace(/<\/style>/, add+"\n</style>"); fs.writeFileSync(f,h)' compositions/captions.html "$THEME_CSS"
     fi
     node $FE/assemble-index.mjs --storyboard ./STORYBOARD.md --hyperframes . | grep -E 'total duration' || true
     # the ground under every frame is the theme's INK (the broadside #111111 when no theme is set)

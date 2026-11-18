@@ -1,0 +1,22 @@
+{
+  "name": "marker",
+  "for": [
+    "explaining",
+    "skits"
+  ],
+  "palette": {
+    "ink": "#FAFAF7",
+    "ink_alt": "#FFFFFF",
+    "orange": "#D7263D",
+    "cream": "#1B1B1B",
+    "muted": "#555555",
+    "hint": "#BDBDBD",
+    "border": "#D9D9D4"
+  },
+  "display": "Caveat",
+  "gradient": null,
+  "mark_fill": "rgba(215,38,61,0.18)",
+  "reveal": "draw",
+  "finish": "paper",
+  "captions": "captions.css"
+}

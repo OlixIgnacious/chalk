@@ -367,6 +367,21 @@ const audio = [
       return ev.length ? fail(ev) : pass([`${checked} segment(s)`]);
     },
   },
+  {
+    id: "V4",
+    group: "voice",
+    title: "The delivered file plays at -14 LUFS ± 1 with true peak at most -1 dBTP, like every other chalk file and what platforms normalise to",
+    weight: 1,
+    run(ctx, env) {
+      if (!ctx.files.video) return skip("nothing delivered yet");
+      const m = env.loudness?.(ctx.files.video);
+      if (!m) return skip(`could not measure ${ctx.files.video.split("/").pop()} (no audio, or no ffmpeg)`);
+      const ev = [];
+      if (Math.abs(m.I + 14) > 1) ev.push(`integrated ${m.I} LUFS; -14 ± 1 wanted (deliver again: it masters through core/scripts/loudness.mjs)`);
+      if (m.TP > -1 + 0.2) ev.push(`true peak ${m.TP} dBTP; at most -1`);
+      return ev.length ? fail(ev) : pass([`${m.I} LUFS, peak ${m.TP} dBTP`]);
+    },
+  },
 ];
 
 // ── render ────────────────────────────────────────────────────────────────────────────────────────
@@ -450,6 +465,30 @@ const render = [
       }
       if (!checked) return skip("no narrated reason found on screen");
       return ev.length ? fail([...ev.slice(0, 8), `${ev.length}/${checked} on-screen reasons under ${MIN}px`]) : pass([`${checked} on-screen reason(s) at ${MIN}px or more`]);
+    },
+  },
+  {
+    id: "R6",
+    group: "render",
+    title: "Every timed text is up long enough to read: characters ÷ 15 + 1.5 s, never under 1.5 s (labels, code and chrome are not timed)",
+    weight: 2,
+    run(ctx) {
+      const segs = ctx.segments.filter((s) => s.texts?.length);
+      if (!segs.length) return skip("no texts.json (frames built before it existed)");
+      const bad = [];
+      let n = 0;
+      for (const s of segs) {
+        for (const f of s.texts) {
+          for (const t of f.texts ?? []) {
+            if (t.pass) continue;
+            n++;
+            const need = Math.max(1.5, t.text.length / 15 + 1.5);
+            const up = t.to - t.from;
+            if (up + 0.05 < need) bad.push(`segments/${s.id} ${f.frame} at ${t.from.toFixed(2)} s: "${t.text.slice(0, 60)}" is up ${up.toFixed(1)} s; ${need.toFixed(1)} s to read`);
+          }
+        }
+      }
+      return bad.length ? fail(bad) : pass([`${n} timed text(s)`]);
     },
   },
 ];

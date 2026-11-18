@@ -1,0 +1,22 @@
+{
+  "title": "Coming Back",
+  "pack": "essay",
+  "thesis": "Focus is a place you return to, one small task at a time.",
+  "thesis_source": [
+    "p003"
+  ],
+  "segments": [
+    {
+      "id": "00",
+      "title": "Morning"
+    },
+    {
+      "id": "01",
+      "title": "One thing"
+    },
+    {
+      "id": "02",
+      "title": "Still here"
+    }
+  ]
+}
