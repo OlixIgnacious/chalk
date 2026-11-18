@@ -10,6 +10,19 @@ export const SHAPES = ["long", "short"];
 export const WAIVES = { E2: "a skit has no running example (the skit pack)" };
 /** The most lines one character says in a row before the other gets a word in. */
 export const MAX_RUN = 4;
+/** How long a skit holds the wide two-shot before its first close-up: the viewer sees who is there, and where. */
+export const OPEN_SEC = 1.5;
+
+/** The camera's shot changes in a frame spec, in time order: { name, t, line }. Only calls with a literal time
+ * can be placed; one timed by a cue is left out. The stage opens on "two" until the first change. */
+export function shotsOf(py) {
+  const out = [];
+  py.split("\n").forEach((src, i) => {
+    for (const m of src.matchAll(/\.shot\(\s*["']([^"']+)["']\s*,\s*(\d+(?:\.\d+)?)\s*[,)]/g))
+      out.push({ name: m[1], t: Number(m[2]), line: i + 1 });
+  });
+  return out.sort((a, b) => a.t - b.t);
+}
 
 const cast = (ctx) => manifest(ctx).cast ?? ctx.channel?.cast ?? {};
 
@@ -56,6 +69,23 @@ const skit = [
         if (run === MAX_RUN + 1) bad.push(`${lines[i].at}: ${lines[i].entry.speaker} has said ${run} lines in a row`);
       }
       return bad.length ? fail(bad) : pass();
+    },
+  },
+  {
+    id: "K4",
+    group: "skit",
+    title: `It opens wide: the two-shot holds the first ${OPEN_SEC} s, so the viewer sees who is there and where`,
+    weight: 2,
+    run(ctx) {
+      const specs = ctx.segments.filter((s) => s.frameSpec);
+      if (!specs.length) return skip("no frame spec yet (frames/sNN.py)");
+      const bad = [];
+      for (const s of specs) {
+        const first = shotsOf(s.frameSpec)[0];
+        if (first && first.t < OPEN_SEC && first.name.split(":")[0] !== "two")
+          bad.push(`frames/s${s.id}.py:${first.line}: the first shot is "${first.name}" at ${first.t}s; hold "two" until ${OPEN_SEC}s`);
+      }
+      return bad.length ? fail(bad) : pass(specs.map((s) => `s${s.id}: opens on two`));
     },
   },
 ];

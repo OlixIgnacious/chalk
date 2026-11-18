@@ -5,7 +5,7 @@ chalkboard stage, the cast's poses and shots are in `frames/framelib.py`). The j
 facts in them are still facts**: every line cites its block (G1) and the source is checked (G7) like any
 other build.
 
-Criteria: K1–K3 ([eval/criteria.mjs](../eval/criteria.mjs)). Waived: E2 (a skit has no running example).
+Criteria: K1–K4 ([eval/criteria.mjs](../eval/criteria.mjs)). Waived: E2 (a skit has no running example).
 
 ## Laws
 
@@ -17,6 +17,10 @@ maps each speaker to a Kokoro voice: `"cast": { "penguin": { "voice": "am_puck",
 with no voice stops narration rather than falling back.
 
 **They take turns** (K3): no one says more than four lines in a row. A monologue is an essay.
+
+**It opens wide** (K4): the two-shot holds the first 1.5 s (`OPEN_SEC`), so the viewer sees who is there and
+where before the first close-up. Read from `frames/sNN.py`: a `.shot(name, t)` before 1.5 s that is not `"two"`
+fails. With no shot call the stage is already on the two-shot. A cut timed by a cue is not checked.
 
 **The punchline is grounded too.** The joke may be in the timing, the pose or the misunderstanding, never in a
 wrong fact. When a character is wrong on purpose, the other corrects them in the next line, and both lines cite

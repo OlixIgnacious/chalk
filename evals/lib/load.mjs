@@ -145,6 +145,8 @@ export function load(outDir, { channelPath } = {}) {
       scriptPath: join(sdir, "script.md"),
       script: md ? parseScript(md) : null,
       frames,
+      // the frame spec (<output-dir>/frames/sNN.py) as text: what the camera and the cast do, before anything is built
+      frameSpec: readText(join(dir, "frames", `s${id}.py`)),
       audioMeta: readJson(join(project, "audio_meta.json")),
       // framelib's <frame>.texts.json: every text on screen and when it is up (R6)
       texts: existsSync(framesDir)
