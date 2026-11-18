@@ -3,25 +3,32 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>chalk · grounded video from a checked source</title>
-<meta name="description" content="chalk turns a checked source into grounded, narrated videos: a long video, a Short, an interactive lesson and a notebook.">
+<title>chalk · Turn documents into fact-checked AI videos</title>
+<meta name="description" content="Open-source AI video generator: turn a chapter, PDF or script into narrated, animated videos, Shorts and lessons. Every line cites its fact-checked source.">
 <meta name="theme-color" content="#ece7fb">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+<meta name="author" content="OlixIgnacious">
 <link rel="canonical" href="https://olixignacious.github.io/chalk/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="chalk">
+<meta property="og:locale" content="en_US">
 <meta property="og:url" content="https://olixignacious.github.io/chalk/">
-<meta property="og:title" content="chalk · grounded video from a checked source">
-<meta property="og:description" content="chalk turns a checked source into grounded, narrated videos: a long video, a Short, an interactive lesson and a notebook.">
+<meta property="og:title" content="chalk · Turn documents into fact-checked AI videos">
+<meta property="og:description" content="Open-source AI video generator: turn a chapter, PDF or script into narrated, animated videos, Shorts and lessons. Every line cites its fact-checked source.">
 <meta property="og:image" content="https://olixignacious.github.io/chalk/assets/img/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="chalk: every line, traced to its source. A document page whose highlighted lines become a narrated video, each line carrying its citation.">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="chalk · grounded video from a checked source">
-<meta name="twitter:description" content="chalk turns a checked source into grounded, narrated videos: a long video, a Short, an interactive lesson and a notebook.">
+<meta name="twitter:title" content="chalk · Turn documents into fact-checked AI videos">
+<meta name="twitter:description" content="Open-source AI video generator: turn a chapter, PDF or script into narrated, animated videos, Shorts and lessons. Every line cites its fact-checked source.">
 <meta name="twitter:image" content="https://olixignacious.github.io/chalk/assets/img/og.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%232a1745'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23d4f76a'/%3E%3C/svg%3E">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/img/favicon-48.png" type="image/png" sizes="48x48">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+<link rel="sitemap" type="application/xml" href="sitemap.xml">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebSite", "@id": "https://olixignacious.github.io/chalk/#website", "name": "chalk", "url": "https://olixignacious.github.io/chalk/", "description": "chalk is an open-source AI video generator. It turns a chapter, PDF or script into narrated, animated videos: chaptered YouTube videos, vertical Shorts, interactive lessons and notebooks. Every narrated line cites the paragraph it came from, and the source itself is fact-checked.", "inLanguage": "en"}, {"@type": "SoftwareApplication", "@id": "https://olixignacious.github.io/chalk/#app", "name": "chalk", "url": "https://olixignacious.github.io/chalk/", "description": "chalk is an open-source AI video generator. It turns a chapter, PDF or script into narrated, animated videos: chaptered YouTube videos, vertical Shorts, interactive lessons and notebooks. Every narrated line cites the paragraph it came from, and the source itself is fact-checked.", "applicationCategory": "MultimediaApplication", "applicationSubCategory": "AI video generator", "operatingSystem": "Cross-platform (Node.js 22 or later)", "softwareVersion": "0.9.0", "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": true, "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "image": "https://olixignacious.github.io/chalk/assets/img/og.png", "downloadUrl": "https://github.com/OlixIgnacious/chalk", "installUrl": "https://olixignacious.github.io/chalk/get-started.html", "featureList": ["Turns a chapter, PDF, EPUB or script into narrated, animated video", "Chaptered long videos, vertical Shorts and interactive lessons", "Every narrated line cites its source paragraph", "Fact-checks the source before building", "Human approval before anything renders", "22 visual themes", "Publishes to YouTube, Instagram, TikTok, LinkedIn and X"], "author": {"@type": "Person", "name": "OlixIgnacious", "url": "https://github.com/OlixIgnacious"}}, {"@type": "SoftwareSourceCode", "name": "chalk", "codeRepository": "https://github.com/OlixIgnacious/chalk", "url": "https://github.com/OlixIgnacious/chalk", "programmingLanguage": ["JavaScript", "Python"], "runtimePlatform": "Node.js", "license": "https://www.apache.org/licenses/LICENSE-2.0", "targetProduct": {"@id": "https://olixignacious.github.io/chalk/#app"}}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
@@ -49,7 +56,7 @@
       <div class="hero-copy">
         <span class="eyebrow">Open source · Apache-2.0 · v0.9.0</span>
         <h1 class="h1">Every line, <em class="mark">traced</em> to its source.</h1>
-        <p class="lede">chalk turns a checked source into narrated, animated video of any length and genre: a chaptered long video, a vertical Short, an interactive lesson and a notebook.</p>
+        <p class="lede">chalk is an open-source AI video generator. It turns a chapter, a PDF or your own script into narrated, animated video: a chaptered YouTube video, a vertical Short, an interactive lesson and a notebook.</p>
         <div class="btns"><a class="btn btn-pri" href="get-started.html">Get started <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn btn-sec" href="https://github.com/OlixIgnacious/chalk" target="_blank" rel="noopener"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> View on GitHub</a></div>
         <span class="scroll-cue"><span></span>Scroll, or press play</span>
       </div>
