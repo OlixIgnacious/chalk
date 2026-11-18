@@ -1,4 +1,4 @@
-"""theme.py — chalk's look: chalk on a blackboard, one hot orange accent (assets/logo.svg).
+"""theme.py — chalk's look: lilac ink on deep plum, one lime accent (assets/logo.svg).
 
 The Streamlit theme itself is .streamlit/config.toml. This module adds what a theme cannot: status pills
 (one colour and one glyph per status, never emoji), stage cards, the Plan → Build → Check stepper, the
@@ -16,12 +16,12 @@ import streamlit as st
 
 from chalk_api import REPO
 
-BG, PANEL, INK, MUTED, ORANGE, BORDER = "#141414", "#1d1c1a", "#f3f0e8", "#9a968d", "#ff6a2b", "#2e2c29"
+BG, PANEL, INK, MUTED, ACCENT, BORDER = "#1a0f2e", "#241640", "#f3eeff", "#b9abd6", "#d4f76a", "#3a2a5c"
 
 # status → (label, colour, glyph). "waiting" splits by who it waits for: an agent, or you.
 STATUS = {
     "done": ("done", "#7bc47f", "●"),
-    "running": ("running", ORANGE, "◐"),
+    "running": ("running", ACCENT, "◐"),
     "agent": ("next: agent", "#6ea8fe", "◇"),
     "you": ("your turn", "#e8b44a", "◆"),
     "stale": ("stale", "#b392f0", "↻"),
@@ -78,7 +78,7 @@ def wordmark(height: int = 30) -> str:
     svg = (REPO / "assets/logo.svg").read_text()
     svg = re.sub(r'<rect width="644" height="368"[^>]*/>', "", svg)
     svg = re.sub(r'<rect x="302.0"[^>]*/>', "", svg)  # the rule under the wordmark
-    svg = re.sub(r'<path fill="#9a968d".*?/>', "", svg, flags=re.S)  # the tagline
+    svg = re.sub(r'<path fill="#b9abd6".*?/>', "", svg, flags=re.S)  # the tagline
     width = int(height * 490 / 122)
     svg = re.sub(r'viewBox="[^"]*" width="\d+" height="\d+"', f'viewBox="80 82 490 122" width="{width}" height="{height}"', svg)
     data = base64.b64encode(svg.encode()).decode()
@@ -108,26 +108,26 @@ CSS = f"""
 .ck-stat b {{ font-size:1.05rem; color:{INK}; font-weight:600; }}
 .ck-stepper {{ display:grid; grid-template-columns:repeat(3,1fr); gap:.6rem; margin:.4rem 0 1rem; }}
 .ck-step {{ border:1px solid {BORDER}; border-radius:10px; padding:.6rem .8rem; background:{PANEL}; position:relative; overflow:hidden; }}
-.ck-step.on {{ border-color:{ORANGE}; }}
+.ck-step.on {{ border-color:{ACCENT}; }}
 .ck-step .ck-step-name {{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:1rem; color:{INK}; }}
 .ck-step .ck-step-sub {{ font-size:.78rem; color:{MUTED}; margin-top:.15rem; }}
-.ck-step .ck-bar {{ position:absolute; left:0; bottom:0; height:3px; background:{ORANGE}; }}
+.ck-step .ck-bar {{ position:absolute; left:0; bottom:0; height:3px; background:{ACCENT}; }}
 .ck-step.done .ck-bar {{ background:#7bc47f; }}
 .ck-card {{ border:1px solid {BORDER}; border-radius:10px; padding:.55rem .7rem; background:{PANEL}; margin-bottom:.5rem; }}
-.ck-card.you {{ border-color:#e8b44a; }} .ck-card.failed {{ border-color:#e5534b; }} .ck-card.running {{ border-color:{ORANGE}; }}
+.ck-card.you {{ border-color:#e8b44a; }} .ck-card.failed {{ border-color:#e5534b; }} .ck-card.running {{ border-color:{ACCENT}; }}
 .ck-card .ck-title {{ display:flex; justify-content:space-between; align-items:center; gap:.4rem; }}
 .ck-card .ck-title b {{ color:{INK}; font-weight:600; }}
 .ck-card .ck-why {{ font-size:.76rem; color:{MUTED}; margin-top:.25rem; }}
 .ck-card .ck-who {{ margin-top:.25rem; }}
 .ck-muted {{ color:{MUTED}; font-size:.8rem; }}
-.ck-console {{ background:#0f0f0e; border:1px solid {BORDER}; border-radius:8px; padding:.6rem .8rem; height:440px;
+.ck-console {{ background:#140b24; border:1px solid {BORDER}; border-radius:8px; padding:.6rem .8rem; height:440px;
   overflow-y:auto; font-family:'JetBrains Mono', monospace; font-size:.76rem; line-height:1.45; white-space:pre-wrap; color:{INK}; }}
 .ck-console .t {{ color:{MUTED}; }} .ck-console .e {{ color:#e5534b; }} .ck-console .ok {{ color:#7bc47f; font-weight:600; }}
-.ck-console .bad {{ color:#e5534b; font-weight:600; }} .ck-console .h {{ color:{ORANGE}; font-weight:600; }}
+.ck-console .bad {{ color:#e5534b; font-weight:600; }} .ck-console .h {{ color:{ACCENT}; font-weight:600; }}
 .ck-format {{ border:1px solid {BORDER}; border-radius:12px; padding:1rem; background:{PANEL}; min-height:140px; }}
-.ck-format .g {{ font-size:1.6rem; color:{ORANGE}; }}
+.ck-format .g {{ font-size:1.6rem; color:{ACCENT}; }}
 .ck-format h4 {{ font-family:'Space Grotesk', sans-serif; margin:.3rem 0; }}
-.ck-diff {{ font-family:'JetBrains Mono', monospace; font-size:.74rem; white-space:pre-wrap; background:#0f0f0e;
+.ck-diff {{ font-family:'JetBrains Mono', monospace; font-size:.74rem; white-space:pre-wrap; background:#140b24;
   border-radius:8px; padding:.6rem; max-height:360px; overflow:auto; }}
 .ck-diff .a {{ color:#7bc47f; }} .ck-diff .d {{ color:#e5534b; }} .ck-diff .m {{ color:{MUTED}; }}
 </style>

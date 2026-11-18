@@ -4,10 +4,10 @@
 
 **Read the chapter. Watch the lesson. Every line traced to the page.**
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933)](https://nodejs.org)
-[![Engine](https://img.shields.io/badge/video%20engine-Hyperframes-black)](https://github.com/heygen-com/hyperframes)
-[![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-d97757)](https://claude.com/claude-code)
+[![License](https://img.shields.io/badge/license-Apache--2.0-7a52e0?labelColor=2a1745)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-7a52e0?labelColor=2a1745)](https://nodejs.org)
+[![Engine](https://img.shields.io/badge/video%20engine-Hyperframes-7a52e0?labelColor=2a1745)](https://github.com/heygen-com/hyperframes)
+[![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-7a52e0?labelColor=2a1745)](https://claude.com/claude-code)
 
 [Quick start](#quick-start) · [How it works](#how-it-works) · [Output](#output) · [Testing](#testing) · [Contributing rules](CLAUDE.md)
 

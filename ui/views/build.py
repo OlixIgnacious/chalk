@@ -95,7 +95,7 @@ def header(out: Path, fmt: str) -> None:
     with left:
         st.html(
             f'<div class="ck-header" style="border:0;margin:0;padding:0">{theme.wordmark(26)}'
-            f'<div><div class="ck-name">{html.escape(out.name)} {theme.tag(api.FORMATS[fmt]["label"], theme.ORANGE)}</div>'
+            f'<div><div class="ck-name">{html.escape(out.name)} {theme.tag(api.FORMATS[fmt]["label"], theme.ACCENT)}</div>'
             f'<div class="ck-path">{html.escape(str(out))}</div></div>'
             + "".join(f'<div class="ck-stat" title="{html.escape(tip)}"><span>{k}{" ⓘ" if tip else ""}</span><b>{v}</b></div>'
                       for k, v, tip in stats)

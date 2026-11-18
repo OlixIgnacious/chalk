@@ -108,7 +108,7 @@ def wizard(workspace: Path) -> None:
     pick = st.session_state.get("wiz_fmt")
     for col, (k, f) in zip(cols, api.FORMATS.items()):
         with col:
-            on = " style=\"border-color:#ff6a2b\"" if pick == k else ""
+            on = " style=\"border-color:#d4f76a\"" if pick == k else ""
             st.html(f'<div class="ck-format"{on}><div class="g">{f["glyph"]}</div><h4>{f["label"]}</h4>'
                     f'<div class="ck-muted">{f["blurb"]}</div></div>')
             if st.button("✓ Selected" if pick == k else f"Choose {f['label'].split(' /')[0].lower()}", key=f"fmt_{k}",

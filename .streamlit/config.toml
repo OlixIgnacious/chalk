@@ -9,14 +9,14 @@ gatherUsageStats = false
 
 [theme]
 base = "dark"
-primaryColor = "#ff6a2b"              # brand orange: the next action, active tabs, focus
-backgroundColor = "#141414"           # the logo's blackboard
-secondaryBackgroundColor = "#1d1c1a"  # cards, inputs
-textColor = "#f3f0e8"                 # chalk white
-linkColor = "#ffa070"
-borderColor = "#2e2c29"
+primaryColor = "#7a52e0"              # brand violet: the next action, active tabs, focus
+backgroundColor = "#1a0f2e"           # the logo's deep plum
+secondaryBackgroundColor = "#241640"  # cards, inputs
+textColor = "#f3eeff"                 # lilac white
+linkColor = "#c9b8ff"
+borderColor = "#3a2a5c"
 showWidgetBorder = true
-codeBackgroundColor = "#0f0f0e"
+codeBackgroundColor = "#140b24"
 baseRadius = "0.5rem"
 font = "Inter, 'Source Sans Pro', sans-serif"
 headingFont = "'Space Grotesk', Inter, sans-serif"
@@ -28,9 +28,9 @@ orangeColor = "#ff6a2b"
 redColor = "#e5534b"
 blueColor = "#6ea8fe"
 violetColor = "#b392f0"
-grayColor = "#9a968d"
+grayColor = "#b9abd6"
 
 [theme.sidebar]
-backgroundColor = "#1a1918"
-secondaryBackgroundColor = "#232220"
-borderColor = "#2e2c29"
+backgroundColor = "#1e1236"
+secondaryBackgroundColor = "#2a1a4a"
+borderColor = "#3a2a5c"

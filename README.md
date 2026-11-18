@@ -4,11 +4,11 @@
 
 **Turn a checked source into grounded videos of any length and genre, an interactive lesson and a notebook, and publish them anywhere. Every line traces back to the source, and the source itself is fact-checked.**
 
-[![Website](https://img.shields.io/badge/website-olixignacious.github.io%2Fchalk-7a52e0)](https://olixignacious.github.io/chalk/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933)](https://nodejs.org)
-[![Engine](https://img.shields.io/badge/video%20engine-HyperFrames-black)](https://github.com/heygen-com/hyperframes)
-[![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-d97757)](https://claude.com/claude-code)
+[![Website](https://img.shields.io/badge/website-olixignacious.github.io%2Fchalk-d4f76a?labelColor=2a1745)](https://olixignacious.github.io/chalk/)
+[![License](https://img.shields.io/badge/license-Apache--2.0-7a52e0?labelColor=2a1745)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-7a52e0?labelColor=2a1745)](https://nodejs.org)
+[![Engine](https://img.shields.io/badge/video%20engine-HyperFrames-7a52e0?labelColor=2a1745)](https://github.com/heygen-com/hyperframes)
+[![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-7a52e0?labelColor=2a1745)](https://claude.com/claude-code)
 
 **[Website](https://olixignacious.github.io/chalk/)** · [Overview](#overview) · [Shapes and packs](#shapes-and-packs) · [Agent flow](#agent-flow) · [Quick start](#quick-start) · [CLI](#cli-reference) · [Evaluation](#evaluation) · [Layout](#repository-layout) · [Contributing](#contributing)
 
@@ -87,15 +87,15 @@ flowchart LR
     P1 --> G1{{You approve<br/>the scripts}} --> P2
     P2 --> P3 --> G2{{You watch<br/>the video}} --> Done((Publish<br/>anywhere))
 
-    classDef agent fill:#fdf1ec,stroke:#d97757,color:#000
-    classDef gate fill:#fff4cc,stroke:#c9a400,color:#000
+    classDef agent fill:#ece7fb,stroke:#7a52e0,color:#2a1745
+    classDef gate fill:#eefbc4,stroke:#7f9e1a,color:#2a1745
     class AR,A0,A5,A6,B3,B6,B7,C2,C3,C4 agent
     class GR,G1,G2 gate
-    classDef debt fill:#eef2f7,stroke:#6b7a90,color:#000
+    classDef debt fill:#f1eef6,stroke:#8a7fa3,color:#2a1745
     class B0 debt
 ```
 
-<sub>Square boxes run by themselves. Orange boxes are agents. Yellow boxes are you. The grey box waits on earlier builds.</sub>
+<sub>Square boxes run by themselves. Violet boxes are agents. Lime boxes are you. The grey box waits on earlier builds.</sub>
 
 ### Step by step
 

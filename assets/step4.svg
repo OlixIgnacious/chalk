@@ -1,35 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img" aria-label="inside step 4: script to transcribe to align to render">
-<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#a8a49b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#ff6a2b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
-<rect width="1000" height="440" rx="14" fill="#141414"/>
-<text x="20" y="40" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#ff6a2b" text-anchor="start" letter-spacing="2.6">INSIDE STEP 4</text>
-<text x="20" y="68" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="400" fill="#a8a49b" text-anchor="start" letter-spacing="0">The audio is the clock: timing comes from the voice, never the reverse.</text>
-<rect x="20" y="104" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="125.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">script.md</text>
-<text x="125.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">spoken layer</text>
-<line x1="234" y1="144.0" x2="265" y2="144.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="270" y="104" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="375.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">hyperframes tts</text>
-<text x="375.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">Kokoro, one WAV</text>
-<line x1="484" y1="144.0" x2="515" y2="144.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="520" y="104" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="625.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">hyperframes transcribe</text>
-<text x="625.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">word timings</text>
-<line x1="734" y1="144.0" x2="765" y2="144.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="770" y="104" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="875.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">align-captions.mjs</text>
-<text x="875.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">timings to display</text>
-<rect x="20" y="240" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="125.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">faceless-explainer</text>
-<text x="125.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">frames and render</text>
-<line x1="234" y1="280.0" x2="265" y2="280.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="270" y="240" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#34343a" stroke-width="1.5"/>
-<text x="375.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">fix-index.mjs</text>
-<text x="375.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">engine quirk fixes</text>
-<line x1="484" y1="280.0" x2="515" y2="280.0" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="520" y="240" width="210" height="80" rx="12" fill="#1c1c1c" stroke="#ff6a2b" stroke-width="2"/>
-<text x="625.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3f0e8" text-anchor="middle" letter-spacing="0">segment.mp4</text>
-<text x="625.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#a8a49b" text-anchor="middle" letter-spacing="0">plus segment.vtt</text>
-<path d="M875.0 187 V202 Q875.0 212 865.0 212 H135.0 Q125.0 212 125.0 222 V235" fill="none" stroke="#a8a49b" stroke-width="2" marker-end="url(#a)"/>
-<rect x="20" y="348" width="960" height="52" rx="12" fill="none" stroke="#ff6a2b" stroke-opacity=".6" stroke-width="1.5"/>
-<path d="M48 363 l9 9 l-9 9 l-9 -9 z" fill="#ff6a2b"/><text x="72" y="380" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="500" fill="#f3f0e8" text-anchor="start" letter-spacing="0">A frame lasts exactly as long as its narration. New voiceover resets all timing.</text>
+<defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#c3b6e0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker><marker id="o" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#d4f76a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="1000" height="440" rx="14" fill="#1a0f2e"/>
+<text x="20" y="40" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="14" font-weight="700" fill="#d4f76a" text-anchor="start" letter-spacing="2.6">INSIDE STEP 4</text>
+<text x="20" y="68" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="18" font-weight="400" fill="#c3b6e0" text-anchor="start" letter-spacing="0">The audio is the clock: timing comes from the voice, never the reverse.</text>
+<rect x="20" y="104" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="125.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">script.md</text>
+<text x="125.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">spoken layer</text>
+<line x1="234" y1="144.0" x2="265" y2="144.0" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="270" y="104" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="375.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">hyperframes tts</text>
+<text x="375.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">Kokoro, one WAV</text>
+<line x1="484" y1="144.0" x2="515" y2="144.0" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="520" y="104" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="625.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">hyperframes transcribe</text>
+<text x="625.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">word timings</text>
+<line x1="734" y1="144.0" x2="765" y2="144.0" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="770" y="104" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="875.0" y="140" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">align-captions.mjs</text>
+<text x="875.0" y="166" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">timings to display</text>
+<rect x="20" y="240" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="125.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">faceless-explainer</text>
+<text x="125.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">frames and render</text>
+<line x1="234" y1="280.0" x2="265" y2="280.0" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="270" y="240" width="210" height="80" rx="12" fill="#22153a" stroke="#4a3873" stroke-width="1.5"/>
+<text x="375.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">fix-index.mjs</text>
+<text x="375.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">engine quirk fixes</text>
+<line x1="484" y1="280.0" x2="515" y2="280.0" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="520" y="240" width="210" height="80" rx="12" fill="#22153a" stroke="#d4f76a" stroke-width="2"/>
+<text x="625.0" y="276" font-family="'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="15" font-weight="500" fill="#f3eeff" text-anchor="middle" letter-spacing="0">segment.mp4</text>
+<text x="625.0" y="302" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#c3b6e0" text-anchor="middle" letter-spacing="0">plus segment.vtt</text>
+<path d="M875.0 187 V202 Q875.0 212 865.0 212 H135.0 Q125.0 212 125.0 222 V235" fill="none" stroke="#c3b6e0" stroke-width="2" marker-end="url(#a)"/>
+<rect x="20" y="348" width="960" height="52" rx="12" fill="none" stroke="#d4f76a" stroke-opacity=".6" stroke-width="1.5"/>
+<path d="M48 363 l9 9 l-9 9 l-9 -9 z" fill="#d4f76a"/><text x="72" y="380" font-family="Inter,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="16" font-weight="500" fill="#f3eeff" text-anchor="start" letter-spacing="0">A frame lasts exactly as long as its narration. New voiceover resets all timing.</text>
 </svg>
