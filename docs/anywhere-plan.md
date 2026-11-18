@@ -67,11 +67,9 @@ C3.
 Untangling these is most of the work. Nothing in ingest, grounding, voice, align, frames or render cares where
 the file goes or which genre it is.
 
-## What we took from other projects
+## Ideas adopted
 
-Reviewed: [instagram-agent-skill](https://github.com/Jakeschincariol/instagram-agent-skill) (MIT),
-[lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) (code MIT, docs CC BY-NC 4.0: ideas only, no copied
-prose), [remocn](https://github.com/Remocn/remocn) and remocn-studio (MIT). Ideas, with the phase that carries each:
+Ideas, with the phase that carries each:
 
 - A hook is checked for what it says, not only when it starts; captions have per-platform rules (hashtag caps,
   dead links, the 125 visible characters). → B4, B5
@@ -480,7 +478,7 @@ frames/themes/<name>/
 ##### C1a. The theme catalogue
 
 framelib renders HTML/SVG with GSAP, so a theme is palette, type, captions, reveal motion and a few drawing
-rules, not a renderer. The 99-style gallery and remocn's "graphic looks" were triaged against that and
+rules, not a renderer. The style galleries reviewed were triaged against that and
 against the kinds of video chalk makes (lessons, focus and motivational pieces, news, skits): about half need a
 paint engine, an image generator, real footage or instrument data, and are out for now. True 3D scenes are
 possible later as a background layer, since HyperFrames can host three.js behind framelib's components, but
@@ -709,9 +707,6 @@ card. `npm run test:ui` is part of "done" for every step that adds a stage.
 - `CLAUDE.md`: the invariant "the kit is neutral; a platform's rules live in `publish/<platform>.mjs` and
   `platforms.json`, never in deliver or a format".
 - `formats/long/CLAUDE.md`, `formats/short/CLAUDE.md` (new): the shape's rules.
-- `CREDITS.md`: the Instagram skill (hook and caption rules), lemo-opuscar (style folders, reading-time check,
-  stills at cues), remocn (the storyboard-to-reviewer contract, re-cut, component index). Ideas and, for the MIT
-  ones, any ported word lists; nothing copied from the lemo docs.
 
 ## Decisions needed
 
