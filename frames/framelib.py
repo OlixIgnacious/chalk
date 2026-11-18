@@ -64,13 +64,13 @@ def load_themes():
             g = {k.upper(): v for k, v in t["palette"].items()}
             g.update(DISPLAY=t.get("display", "Barlow"), GRADIENT=t.get("gradient"), MARK_FILL=t.get("mark_fill", "rgba(0,0,0,0.1)"),
                      REVEAL=t.get("reveal", "rise"), FINISH=t.get("finish"), THEME_DIR=str(f.parent), GROUND=t.get("ground"),
-                     FIELD=t.get("field"))
+                     FIELD=t.get("field"), DISPLAY_SCALE=t.get("display_scale", 1.0))
             out[t.get("name", f.parent.name)] = g
     return out
 
 
 THEMES = load_themes()
-REVEAL, FINISH, THEME_DIR, GROUND, FIELD = "rise", None, None, None, None
+REVEAL, FINISH, THEME_DIR, GROUND, FIELD, DISPLAY_SCALE = "rise", None, None, None, None, 1.0
 
 
 def set_theme(name):
@@ -321,6 +321,10 @@ class Frame:
             self.tweens.append(f'tl.fromTo("{sel}", {{opacity: 0}}, {{opacity: 1, duration: 1.2, ease: "sine.inOut"}}, {at});')
         else:
             return False
+        if REVEAL in ("draw", "typed", "beam"):
+            # the mask ends at the element's box, and a slanted or glowing glyph runs past it: lift it once revealed
+            end = {"draw": 0.7, "beam": 0.8}.get(REVEAL) or float(re.search(r"duration: ([\d.]+)", self.tweens[-1]).group(1))
+            self.tweens.append(f'tl.set("{sel}", {{clipPath: "none"}}, {round(at + end + 0.01, 3)});')
         return True
 
     def wipe(self, sel, t, dur=0.6):
@@ -402,6 +406,10 @@ class Frame:
         """
         color = color or CREAM
         font = font or DISPLAY
+        # a display face set larger or smaller than its size says (a hand face is small, a bitmap face wide): the
+        # theme's display_scale, so a spec's sizes mean the same on screen in every theme
+        if font == DISPLAY and DISPLAY_SCALE != 1.0:
+            size = round(size * DISPLAY_SCALE)
         # the theme's accent gradient painted through the letters (Apple's keynote look); flat accent without one
         paint = (f"background:{GRADIENT};-webkit-background-clip:text;background-clip:text;color:transparent;"
                  if gradient and GRADIENT else f"color:{ORANGE if gradient else color};")
@@ -885,7 +893,7 @@ class Frame:
             cx = x + i * (size + gap)
             cid = f"{base}-c{i}"
             self.add(f'<div id="{cid}" class="{self.id}-cell" style="left:{cx}px;top:{y}px;width:{size}px;height:{size}px;'
-                     f'font-size:{font_size}px;color:{color};">{esc(str(v))}</div>')
+                     f'font-size:{round(font_size * DISPLAY_SCALE)}px;color:{color};">{esc(str(v))}</div>')
             out.append(f"#{cid}")
             if label_idx:
                 lid = f"{base}-i{i}"

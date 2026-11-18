@@ -18,5 +18,6 @@
   "mark_fill": "rgba(242,193,78,0.18)",
   "reveal": "draw",
   "finish": "grain",
-  "captions": "captions.css"
+  "captions": "captions.css",
+  "display_scale": 1.25
 }

@@ -37,3 +37,25 @@ after `COMPONENTS.md`.
 - **Fix.** Keep content in the Short's safe box (`frames/safe.json` `content`, which S4 checks); stack what sat
   side by side; shorten a line rather than shrink its type.
 - **Where it is right.** The burned-in captions sit at 1350 by design; they are the only thing that low.
+
+## A reveal mask that clips a slanted or glowing glyph
+
+- **Symptom.** The last letter of a line drawn in a hand face (Caveat) is cut off: "add each value onc", "total 8"
+  missing the tail of the 8.
+- **In a still.** The settled still at the end of a draw-on, typed or beam reveal; seen in the chalkboard, marker
+  and ink theme demos.
+- **Cause.** Those reveals wipe a `clipPath: inset(…)` open to the element's box, and a slanted glyph (or a glow)
+  draws past the box, so the finished mask still clips it.
+- **Fix.** framelib lifts the mask (`clipPath: "none"`) the moment the reveal ends. A new reveal style must do the
+  same.
+- **Where it is right.** An upright face inside its box (Inter, Barlow) is not clipped either way.
+
+## A display face much wider or smaller than its size says
+
+- **Symptom.** In `pixel` the headline wrapped onto the values below it; in the Caveat themes every line looked a
+  size too small.
+- **In a still.** The theme demos (`chalk themes --demo`), against the same spec in broadside.
+- **Cause.** A spec's sizes are written for Barlow and Inter; Press Start 2P is far wider and Caveat's x-height far
+  smaller.
+- **Fix.** `theme.json` `display_scale` (pixel 0.62, the Caveat themes 1.25) scales display text and value cells,
+  so a spec reads the same in every theme. A new theme with an unusual face sets one, checked by its demo.

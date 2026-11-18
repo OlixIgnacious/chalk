@@ -9,12 +9,18 @@ fallback when nothing names one. `chalk themes` lists them, `chalk themes --show
 frames/themes/<name>/
   theme.json      palette (ink, ink_alt, orange = the accent slot, cream, muted, hint, border), display face, gradient,
                   mark_fill, reveal (rise | draw | typed | beam | step | fade), finish (one name or a list), and
-                  optionally ground (a CSS background over ink) and field (a drifting layer under the components)
+                  optionally ground (a CSS background over ink), field (a drifting layer under the components) and
+                  display_scale (a display face drawn larger or smaller, so a spec's sizes read the same in every theme)
   THEME.md        Essence · What it is not · Colour · Type · Motion · Pitfalls. The frames agent reads it; the
                   frames reviewer checks stills against its Pitfalls
   captions.css    the theme's captions, layered over the caption skin
   poster.png      one sample frame in the theme (`chalk themes --poster <name>`)
 ```
+
+**Demos.** `chalk themes --demo [name,…]` renders an eight-second video per theme through the real pipeline: the
+template in `frames/demo/` (a headline, three values, a rule, a result, one voice-over line) is narrated once
+with its channel's voice, then built and rendered in each theme. It writes `chalk-output/theme-demos/<name>.mp4`
+and `all-themes.mp4`. Render a demo of a theme of your own before you use it on a channel.
 
 **Your own themes** live in `~/.config/chalk/themes/<name>/` (or `$CHALK_THEMES`), same shape, listed first and
 never touched by an update. A theme of yours with a repo theme's name replaces it for you. Start by copying a

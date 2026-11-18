@@ -375,7 +375,9 @@ lines and stations), `sketchnote` (a highlighter and icons), `pictogram` (an ico
 balloons) and `silhouette` (a silhouette set and beat cuts on a music clock).
 
 Your own go in `~/.config/chalk/themes/<name>/` and are listed first. `chalk themes` lists them, `chalk themes
---show <name>` prints one's grammar, `chalk themes --poster <name>` renders its poster.
+--show <name>` prints one's grammar, `chalk themes --poster <name>` renders its poster, and `chalk themes --demo`
+renders an eight-second demo video of each through the real pipeline (voice, captions, frames, render) into
+`chalk-output/theme-demos/`.
 
 ## Publishing
 
@@ -412,7 +414,7 @@ chalk pipeline adopt <out>             record a hand-made build as up to date
 chalk status <out> [--json]            what is done, stale or waiting, and why (--json for programs)
 chalk read-aloud <out>                 the scripts as a viewer gets them: screen, code, captions, no sources
 chalk pack <out> [--list]              the genre pack a build is judged by, and its references
-chalk themes [--show n | --for <out> | --poster n]   the themes, one's grammar, a build's theme, a poster
+chalk themes [--show n | --for <out> | --poster n | --demo [n,…]]   the themes, one's grammar, a build's theme, a poster, demo videos
 
 chalk <core command> [args...]         ingest, check-readability, check-spoken, narrate, align-captions, facts, loudness, …
 chalk assets                           stage fonts and GSAP once per machine

@@ -1,0 +1,14 @@
+{
+  "title": "Running totals",
+  "thesis": "Keep one running total.",
+  "thesis_source": [
+    "p001"
+  ],
+  "segments": [
+    {
+      "id": "01",
+      "title": "Running totals"
+    }
+  ],
+  "part_id": "demo"
+}

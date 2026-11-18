@@ -1,0 +1,3 @@
+{ "title": "Running totals", "source": "chalk theme demo", "lang": "en", "quality": "clean", "has_code": false,
+  "blocks": [ { "id": "h001", "kind": "heading", "text": "Running totals" },
+              { "id": "p001", "kind": "para", "text": "Keep one running total. For the list 2, 5, 1, add each value once: the total is 8." } ] }

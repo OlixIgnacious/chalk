@@ -1,0 +1,14 @@
+{
+  "voice": "af_heart:0.7,af_bella:0.3",
+  "speed": 0.92,
+  "series": {
+    "name": "chalk themes",
+    "parts": [
+      {
+        "id": "demo",
+        "title": "Running totals"
+      }
+    ]
+  },
+  "banned_terms": []
+}

@@ -28,3 +28,5 @@ Things rise into place (`rise`), values pop, lines are drawn. One change at a ti
 
 - With no accent, a marked cell needs a heavier border, not a fill.
 - White frames flare on a dark phone: keep scenes short.
+- Its captions sit at the top (y 250), clear of the skit's characters: on a frame with content up there (a lesson, a
+  worked example) they collide with it. For that, use `marker`, which has the same paper look with the captions below.

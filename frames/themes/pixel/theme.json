@@ -17,5 +17,6 @@
   "mark_fill": "rgba(255,205,117,0.18)",
   "reveal": "step",
   "finish": null,
-  "captions": "captions.css"
+  "captions": "captions.css",
+  "display_scale": 0.62
 }

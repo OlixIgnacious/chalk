@@ -4,6 +4,7 @@
 //   chalk themes --show <name>         a theme's THEME.md: essence, colour, type, motion, pitfalls
 //   chalk themes --for <out>           the theme a build uses, and why
 //   chalk themes --poster <name>       render the theme's poster.png from a fixture frame (frames/poster.mjs)
+//   chalk themes --demo [names]        an eight-second demo video per theme, by the real pipeline (frames/demos.mjs)
 //
 // The theme is the channel's or the video's choice, never the repo's: the manifest's "theme" (video.json,
 // short.json, lesson.json), else channel.json's "theme", else broadside, only because something has to be.
@@ -63,6 +64,10 @@ export async function main(argv) {
       const t = themeFor(val("--for"));
       console.log(`${t.name}\t(from the ${t.from})\t${t.dir}`);
       return 0;
+    }
+    if (argv.includes("--demo")) {
+      const { main: demo } = await import(join(HERE, "demos.mjs"));
+      return demo(argv);
     }
     if (val("--poster")) {
       const { poster } = await import(join(HERE, "poster.mjs"));
