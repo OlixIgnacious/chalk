@@ -25,19 +25,6 @@ in the HyperFrames repo.
 The public-domain Project Gutenberg fixtures moved to chalk-core with the tests that use them; see its
 `CREDITS.md`.
 
-## Ideas from other projects (2026-11)
-
-The plan for publishing anywhere (`docs/anywhere-plan.md`) took ideas, never code or prose, from:
-
-- [instagram-agent-skill](https://github.com/Jakeschincariol/instagram-agent-skill) (MIT): a hook checked for what
-  it says, captions shaped per platform (hashtag caps, dead links, the 125 characters a feed shows). In S7 and
-  `publish/lib/shape.mjs`.
-- [lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) (code MIT, docs CC BY-NC 4.0: ideas only): a style as a
-  folder with a grammar, reading time checked after render, stills at the cues for a reviewer. In
-  `frames/themes/`, R6 and `chalk stills --at-cues`.
-- [remocn](https://github.com/Remocn/remocn) (MIT): the storyboard-to-reviewer contract, re-cutting a finished video,
-  a component index with "use for / avoid for". In the frames reviewer, `chalk recut` and `frames/COMPONENTS.md`.
-
 ## Safe areas
 
 `frames/safe.json`'s per-platform clear bands are HyperFrames' (`core/dist/safeAreas.js`, Apache-2.0), scaled to
