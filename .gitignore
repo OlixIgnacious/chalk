@@ -20,6 +20,7 @@ npm-debug.log*
 __pycache__/
 *.pyc
 media/
+!site/assets/media/
 
 # rendered media (source-controlled fixtures are text only)
 *.mp4
