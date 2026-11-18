@@ -4,12 +4,13 @@
 
 **Turn a checked source into grounded videos of any length and genre, an interactive lesson and a notebook, and publish them anywhere. Every line traces back to the source, and the source itself is fact-checked.**
 
+[![Website](https://img.shields.io/badge/website-olixignacious.github.io%2Fchalk-7a52e0)](https://olixignacious.github.io/chalk/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933)](https://nodejs.org)
 [![Engine](https://img.shields.io/badge/video%20engine-HyperFrames-black)](https://github.com/heygen-com/hyperframes)
 [![Claude Code](https://img.shields.io/badge/runs%20in-Claude%20Code-d97757)](https://claude.com/claude-code)
 
-[Overview](#overview) · [Shapes and packs](#shapes-and-packs) · [Agent flow](#agent-flow) · [Quick start](#quick-start) · [CLI](#cli-reference) · [Evaluation](#evaluation) · [Layout](#repository-layout) · [Contributing](#contributing)
+**[Website](https://olixignacious.github.io/chalk/)** · [Overview](#overview) · [Shapes and packs](#shapes-and-packs) · [Agent flow](#agent-flow) · [Quick start](#quick-start) · [CLI](#cli-reference) · [Evaluation](#evaluation) · [Layout](#repository-layout) · [Contributing](#contributing)
 
 <br>
 
